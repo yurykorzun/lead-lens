@@ -1,14 +1,15 @@
-import { useReactTable, getCoreRowModel, flexRender } from '@tanstack/react-table';
+import { useReactTable, getCoreRowModel, flexRender, type ColumnDef } from '@tanstack/react-table';
 import type { ContactRow } from '@lead-lens/shared';
-import { columns } from './columns';
 
 interface ContactGridProps {
   data: ContactRow[];
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  columns: ColumnDef<ContactRow, any>[];
   onDirty: (rowId: string, field: string, value: unknown) => void;
   dropdowns: Record<string, Array<{ value: string; label: string }>>;
 }
 
-export function ContactGrid({ data, onDirty, dropdowns }: ContactGridProps) {
+export function ContactGrid({ data, columns, onDirty, dropdowns }: ContactGridProps) {
   const table = useReactTable({
     data,
     columns,

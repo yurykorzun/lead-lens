@@ -51,6 +51,18 @@ class ApiClient {
     }
     return res.json();
   }
+
+  async delete<T>(path: string): Promise<T> {
+    const res = await fetch(`${BASE_URL}${path}`, {
+      method: 'DELETE',
+      headers: this.getHeaders(),
+    });
+    if (!res.ok) {
+      const error: ApiError = await res.json();
+      throw new Error(error.error.message);
+    }
+    return res.json();
+  }
 }
 
 export const api = new ApiClient();

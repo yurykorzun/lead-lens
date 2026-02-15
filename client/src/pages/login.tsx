@@ -1,4 +1,4 @@
-import { Link, Navigate } from 'react-router-dom';
+import { Navigate } from 'react-router-dom';
 import { LoginForm } from '@/components/auth/login-form';
 import { useAuth } from '@/hooks/use-auth';
 
@@ -16,12 +16,6 @@ export default function LoginPage() {
           <p className="text-sm text-muted-foreground">Sign in to your account</p>
         </div>
         <LoginForm />
-        <p className="text-center text-sm text-muted-foreground">
-          Don&apos;t have an account?{' '}
-          <Link to="/signup" className="text-primary underline">
-            Sign up
-          </Link>
-        </p>
       </div>
     </div>
   );

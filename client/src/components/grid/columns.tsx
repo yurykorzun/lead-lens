@@ -1,4 +1,4 @@
-import { createColumnHelper, type CellContext } from '@tanstack/react-table';
+import { createColumnHelper, type CellContext, type ColumnDef } from '@tanstack/react-table';
 import type { ContactRow } from '@lead-lens/shared';
 import { EditableCell } from './editable-cell';
 
@@ -68,7 +68,8 @@ function editableCheckbox(field: string) {
   };
 }
 
-export const columns = [
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export const adminColumns: ColumnDef<ContactRow, any>[] = [
   columnHelper.accessor('name', {
     header: 'Name',
     cell: info => info.getValue(),
@@ -132,6 +133,41 @@ export const columns = [
   columnHelper.accessor('ownerName', {
     header: 'Owner',
     cell: info => info.getValue(),
+  }),
+  columnHelper.accessor('createdDate', {
+    header: 'Created',
+    cell: info => {
+      const val = info.getValue();
+      return val ? new Date(val).toLocaleDateString() : '';
+    },
+  }),
+];
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export const loanOfficerColumns: ColumnDef<ContactRow, any>[] = [
+  columnHelper.accessor('name', {
+    header: 'Name',
+    cell: info => info.getValue(),
+  }),
+  columnHelper.accessor('email', {
+    header: 'Email',
+    cell: info => info.getValue(),
+  }),
+  columnHelper.accessor('phone', {
+    header: 'Phone',
+    cell: info => info.getValue(),
+  }),
+  columnHelper.accessor('stage', {
+    header: 'Stage',
+    cell: editableDropdown('stage', 'MtgPlanner_CRM__Stage__c'),
+  }),
+  columnHelper.accessor('status', {
+    header: 'Status',
+    cell: editableDropdown('status', 'Status__c'),
+  }),
+  columnHelper.accessor('temperature', {
+    header: 'Temperature',
+    cell: editableDropdown('temperature', 'Temparture__c'),
   }),
   columnHelper.accessor('createdDate', {
     header: 'Created',

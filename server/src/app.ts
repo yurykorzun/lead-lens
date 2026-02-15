@@ -5,6 +5,7 @@ import authRoutes from './routes/auth.js';
 import contactRoutes from './routes/contacts.js';
 import metadataRoutes from './routes/metadata.js';
 import activityRoutes from './routes/activity.js';
+import loanOfficerRoutes from './routes/loan-officers.js';
 import { errorHandler } from './middleware/error-handler.js';
 
 const app = express();
@@ -26,6 +27,7 @@ app.use('/api/auth', authRoutes);
 app.use('/api/contacts', contactRoutes);
 app.use('/api/metadata', metadataRoutes);
 app.use('/api/contacts', activityRoutes);
+app.use('/api/loan-officers', loanOfficerRoutes);
 
 // Error handler (must be last)
 app.use(errorHandler);

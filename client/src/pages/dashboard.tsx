@@ -10,6 +10,7 @@ import { AppLayout } from '@/components/layout/app-layout';
 import { ContactGrid } from '@/components/grid/contact-grid';
 import { FilterBar } from '@/components/grid/filter-bar';
 import { SaveBar } from '@/components/grid/save-bar';
+import { adminColumns, loanOfficerColumns } from '@/components/grid/columns';
 import type { ContactFilters } from '@lead-lens/shared';
 
 export default function DashboardPage() {
@@ -22,6 +23,8 @@ export default function DashboardPage() {
   const queryClient = useQueryClient();
 
   const dropdowns = metadataRes?.data ?? {};
+
+  const columns = user?.role === 'admin' ? adminColumns : loanOfficerColumns;
 
   // Beforeunload guard
   useEffect(() => {
@@ -66,7 +69,7 @@ export default function DashboardPage() {
           <p className="text-muted-foreground">Loading contacts...</p>
         ) : (
           <>
-            <ContactGrid data={data?.data ?? []} onDirty={markDirty} dropdowns={dropdowns} />
+            <ContactGrid data={data?.data ?? []} columns={columns} onDirty={markDirty} dropdowns={dropdowns} />
             {pagination && pagination.totalPages > 1 && (
               <div className="flex items-center justify-between rounded-lg border p-3">
                 <span className="text-sm text-muted-foreground">
