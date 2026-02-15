@@ -8,7 +8,7 @@ type LoginMode = 'admin' | 'loan_officer';
 
 export function LoginForm() {
   const { login } = useAuth();
-  const [mode, setMode] = useState<LoginMode>('admin');
+  const [mode, setMode] = useState<LoginMode>('loan_officer');
   const [email, setEmail] = useState('');
   const [credential, setCredential] = useState('');
   const [error, setError] = useState('');
