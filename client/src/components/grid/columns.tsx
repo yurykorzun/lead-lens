@@ -1,23 +1,8 @@
-import { createColumnHelper, type CellContext, type ColumnDef } from '@tanstack/react-table';
+import { createColumnHelper, type ColumnDef } from '@tanstack/react-table';
 import type { ContactRow } from '@lead-lens/shared';
 import { Badge } from '@/components/ui/badge';
-import { EditableCell } from './editable-cell';
-import { DisplayDropdownCell } from './display-dropdown-cell';
-import { DisplayCheckboxCell } from './display-checkbox-cell';
-import type { ReactNode } from 'react';
 
 const columnHelper = createColumnHelper<ContactRow>();
-
-type OnDirty = (rowId: string, field: string, value: unknown) => void;
-type DropdownOptions = Array<{ value: string; label: string }>;
-type MetaData = {
-  onDirty: OnDirty;
-  dropdowns: Record<string, DropdownOptions>;
-};
-
-function getRowMeta(ctx: CellContext<ContactRow, unknown>): MetaData {
-  return ctx.table.options.meta as MetaData;
-}
 
 // Badge color maps
 const STAGE_COLORS: Record<string, string> = {
@@ -39,61 +24,15 @@ const STATUS_COLORS: Record<string, string> = {
   'Meeting Set': 'bg-green-100 text-green-800 border-green-200',
   'Contacted': 'bg-blue-100 text-blue-800 border-blue-200',
   'Not Contacted': 'bg-gray-100 text-gray-600 border-gray-200',
+  'Nurture': 'bg-teal-100 text-teal-800 border-teal-200',
 };
 
-function badgeRenderer(colorMap: Record<string, string>) {
-  return (value: string): ReactNode => {
-    const colors = colorMap[value] || 'bg-gray-100 text-gray-700 border-gray-200';
-    return <Badge variant="outline" className={colors}>{value}</Badge>;
-  };
-}
-
-function editableText(field: string) {
-  return (ctx: CellContext<ContactRow, unknown>) => {
-    const { onDirty } = getRowMeta(ctx);
-    return (
-      <EditableCell
-        value={ctx.getValue() as string | undefined}
-        rowId={ctx.row.original.id}
-        field={field}
-        onDirty={onDirty}
-      />
-    );
-  };
-}
-
-function editableDropdown(
-  field: string,
-  sfFieldName: string,
-  renderDisplay?: (value: string) => ReactNode,
-) {
-  return (ctx: CellContext<ContactRow, unknown>) => {
-    const { onDirty, dropdowns } = getRowMeta(ctx);
-    const options = dropdowns[sfFieldName] || [];
-    return (
-      <DisplayDropdownCell
-        value={ctx.getValue() as string | undefined}
-        options={options}
-        rowId={ctx.row.original.id}
-        field={field}
-        onDirty={onDirty}
-        renderDisplay={renderDisplay}
-      />
-    );
-  };
-}
-
-function editableCheckbox(field: string) {
-  return (ctx: CellContext<ContactRow, unknown>) => {
-    const { onDirty } = getRowMeta(ctx);
-    return (
-      <DisplayCheckboxCell
-        value={ctx.getValue() as boolean | undefined}
-        rowId={ctx.row.original.id}
-        field={field}
-        onDirty={onDirty}
-      />
-    );
+function badgeCell(colorMap: Record<string, string>) {
+  return (info: { getValue: () => unknown }) => {
+    const val = info.getValue() as string | undefined;
+    if (!val) return null;
+    const colors = colorMap[val] || 'bg-gray-100 text-gray-700 border-gray-200';
+    return <Badge variant="outline" className={colors}>{val}</Badge>;
   };
 }
 
@@ -114,51 +53,19 @@ export const adminColumns: ColumnDef<ContactRow, any>[] = [
   }),
   columnHelper.accessor('status', {
     header: 'Status',
-    cell: editableDropdown('status', 'Status__c', badgeRenderer(STATUS_COLORS)),
+    cell: badgeCell(STATUS_COLORS),
   }),
   columnHelper.accessor('temperature', {
     header: 'Temperature',
-    cell: editableDropdown('temperature', 'Temparture__c', badgeRenderer(TEMP_COLORS)),
-  }),
-  columnHelper.accessor('noOfCalls', {
-    header: '# Calls',
-    cell: editableDropdown('noOfCalls', 'No_of_Calls__c'),
-  }),
-  columnHelper.accessor('message', {
-    header: 'Message',
-    cell: editableText('message'),
-  }),
-  columnHelper.accessor('hotLead', {
-    header: 'Hot Lead',
-    cell: editableCheckbox('hotLead'),
-  }),
-  columnHelper.accessor('paal', {
-    header: 'PAAL',
-    cell: editableCheckbox('paal'),
-  }),
-  columnHelper.accessor('inProcess', {
-    header: 'In Process',
-    cell: editableCheckbox('inProcess'),
+    cell: badgeCell(TEMP_COLORS),
   }),
   columnHelper.accessor('stage', {
     header: 'Stage',
-    cell: editableDropdown('stage', 'MtgPlanner_CRM__Stage__c', badgeRenderer(STAGE_COLORS)),
-  }),
-  columnHelper.accessor('thankYouToReferralSource', {
-    header: 'Thank You',
-    cell: editableCheckbox('thankYouToReferralSource'),
+    cell: badgeCell(STAGE_COLORS),
   }),
   columnHelper.accessor('leadSource', {
     header: 'Lead Source',
-    cell: editableDropdown('leadSource', 'LeadSource'),
-  }),
-  columnHelper.accessor('bdr', {
-    header: 'BDR',
-    cell: editableDropdown('bdr', 'BDR__c'),
-  }),
-  columnHelper.accessor('loanPartner', {
-    header: 'Loan Partner',
-    cell: editableDropdown('loanPartner', 'Loan_Partners__c'),
+    cell: info => info.getValue(),
   }),
   columnHelper.accessor('ownerName', {
     header: 'Owner',
@@ -180,25 +87,21 @@ export const loanOfficerColumns: ColumnDef<ContactRow, any>[] = [
     header: 'Name',
     cell: info => <span className="font-medium">{info.getValue()}</span>,
   }),
-  columnHelper.accessor('email', {
-    header: 'Email',
-    cell: info => info.getValue(),
-  }),
   columnHelper.accessor('phone', {
     header: 'Phone',
     cell: info => info.getValue(),
   }),
-  columnHelper.accessor('stage', {
-    header: 'Stage',
-    cell: editableDropdown('stage', 'MtgPlanner_CRM__Stage__c', badgeRenderer(STAGE_COLORS)),
-  }),
   columnHelper.accessor('status', {
     header: 'Status',
-    cell: editableDropdown('status', 'Status__c', badgeRenderer(STATUS_COLORS)),
+    cell: badgeCell(STATUS_COLORS),
   }),
   columnHelper.accessor('temperature', {
     header: 'Temperature',
-    cell: editableDropdown('temperature', 'Temparture__c', badgeRenderer(TEMP_COLORS)),
+    cell: badgeCell(TEMP_COLORS),
+  }),
+  columnHelper.accessor('stage', {
+    header: 'Stage',
+    cell: badgeCell(STAGE_COLORS),
   }),
   columnHelper.accessor('createdDate', {
     header: 'Created',

@@ -6,11 +6,10 @@ interface ContactGridProps {
   data: ContactRow[];
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   columns: ColumnDef<ContactRow, any>[];
-  onDirty: (rowId: string, field: string, value: unknown) => void;
-  dropdowns: Record<string, Array<{ value: string; label: string }>>;
+  onRowClick?: (contact: ContactRow) => void;
 }
 
-export function ContactGrid({ data, columns, onDirty, dropdowns }: ContactGridProps) {
+export function ContactGrid({ data, columns, onRowClick }: ContactGridProps) {
   const table = useReactTable({
     data,
     columns,
@@ -18,7 +17,6 @@ export function ContactGrid({ data, columns, onDirty, dropdowns }: ContactGridPr
     state: {
       columnPinning: { left: ['name'] },
     },
-    meta: { onDirty, dropdowns },
   });
 
   return (
@@ -53,7 +51,11 @@ export function ContactGrid({ data, columns, onDirty, dropdowns }: ContactGridPr
             </tr>
           ) : (
             table.getRowModel().rows.map(row => (
-              <tr key={row.id} className="group border-b transition-colors hover:bg-muted/50">
+              <tr
+                key={row.id}
+                onClick={() => onRowClick?.(row.original)}
+                className="group cursor-pointer border-b transition-colors hover:bg-muted/50"
+              >
                 {row.getVisibleCells().map(cell => {
                   const isPinned = cell.column.getIsPinned();
                   return (
