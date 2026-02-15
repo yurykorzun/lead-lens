@@ -9,8 +9,8 @@ export function AppLayout({ children }: { children: ReactNode }) {
   const location = useLocation();
 
   return (
-    <div className="min-h-screen bg-background">
-      <header className="border-b">
+    <div className="flex h-dvh flex-col bg-background">
+      <header className="shrink-0 border-b">
         <div className="container mx-auto flex h-14 items-center justify-between px-4">
           <div className="flex items-center gap-6">
             <h1 className="text-lg font-semibold">Lead Lens</h1>
@@ -47,7 +47,7 @@ export function AppLayout({ children }: { children: ReactNode }) {
           )}
         </div>
       </header>
-      <main className="container mx-auto px-4 py-6">{children}</main>
+      <main className="container mx-auto min-h-0 flex-1 overflow-auto px-4 py-4">{children}</main>
     </div>
   );
 }

@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { eq, and } from 'drizzle-orm';
+import { eq } from 'drizzle-orm';
 import { requireAuth } from '../middleware/auth.js';
 import { describeObject, extractPicklistValues } from '../services/salesforce/metadata.js';
 import { getDb } from '../db/index.js';
