@@ -16,23 +16,20 @@ const AuthContext = createContext<AuthContextValue | null>(null);
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [token, setToken] = useState<string | null>(() => localStorage.getItem('token'));
-  const [isLoading, setIsLoading] = useState(true);
+  const [isLoading, setIsLoading] = useState(() => !!localStorage.getItem('token'));
 
   useEffect(() => {
-    if (token) {
-      api.setToken(token);
-      api
-        .get<{ success: boolean; data: { user: User } }>('/auth/verify')
-        .then(res => setUser(res.data.user))
-        .catch(() => {
-          setToken(null);
-          localStorage.removeItem('token');
-          api.setToken(null);
-        })
-        .finally(() => setIsLoading(false));
-    } else {
-      setIsLoading(false);
-    }
+    if (!token) return;
+    api.setToken(token);
+    api
+      .get<{ success: boolean; data: { user: User } }>('/auth/verify')
+      .then(res => setUser(res.data.user))
+      .catch(() => {
+        setToken(null);
+        localStorage.removeItem('token');
+        api.setToken(null);
+      })
+      .finally(() => setIsLoading(false));
   }, [token]);
 
   const login = async (email: string, credential: string, isAccessCode = false) => {

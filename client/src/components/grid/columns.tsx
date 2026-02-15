@@ -27,6 +27,10 @@ const STATUS_COLORS: Record<string, string> = {
   'Nurture': 'bg-teal-100 text-teal-800 border-teal-200',
 };
 
+function toTitleCase(name: string): string {
+  return name.replace(/\b\w+/g, w => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase());
+}
+
 function badgeCell(colorMap: Record<string, string>) {
   return (info: { getValue: () => unknown }) => {
     const val = info.getValue() as string | undefined;
@@ -41,7 +45,10 @@ export const adminColumns: ColumnDef<ContactRow, any>[] = [
   columnHelper.accessor('name', {
     id: 'name',
     header: 'Name',
-    cell: info => <span className="font-medium">{info.getValue()}</span>,
+    cell: info => {
+      const name = info.getValue();
+      return <span className="font-medium">{name ? toTitleCase(name) : ''}</span>;
+    },
   }),
   columnHelper.accessor('email', {
     header: 'Email',
@@ -85,7 +92,10 @@ export const loanOfficerColumns: ColumnDef<ContactRow, any>[] = [
   columnHelper.accessor('name', {
     id: 'name',
     header: 'Name',
-    cell: info => <span className="font-medium">{info.getValue()}</span>,
+    cell: info => {
+      const name = info.getValue();
+      return <span className="font-medium">{name ? toTitleCase(name) : ''}</span>;
+    },
   }),
   columnHelper.accessor('phone', {
     header: 'Phone',

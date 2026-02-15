@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import { requireAuth, type AuthenticatedRequest } from '../middleware/auth.js';
 import type { ContactFilters, BulkUpdatePayload, ContactRow } from '@lead-lens/shared';
-import { FIELD_MAP, REVERSE_FIELD_MAP } from '@lead-lens/shared';
+import { FIELD_MAP } from '@lead-lens/shared';
 import { executeSoql, buildContactQuery } from '../services/salesforce/query.js';
 import { bulkUpdate } from '../services/salesforce/update.js';
 import { writeAuditLog } from '../services/audit.js';
