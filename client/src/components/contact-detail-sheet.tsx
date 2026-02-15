@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
-import { Save } from 'lucide-react';
+import { Save, Phone, Mail, User, Calendar } from 'lucide-react';
 import type { ContactRow } from '@lead-lens/shared';
 import { api } from '@/lib/api';
 import { Button } from '@/components/ui/button';
@@ -36,7 +36,7 @@ const EDITABLE_FIELDS: Array<{
     key: string;
     label: string;
     type: 'select' | 'checkbox' | 'textarea';
-    sfField?: string; // key in dropdowns map
+    sfField?: string;
   }>;
 }> = [
   {
@@ -80,7 +80,6 @@ export function ContactDetailSheet({
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
 
-  // Initialize form when contact changes
   useEffect(() => {
     if (contact) {
       const initial: FormState = {};
@@ -139,36 +138,49 @@ export function ContactDetailSheet({
 
   const hasChanges = Object.keys(getChangedFields()).length > 0;
 
-  const formatDate = (val?: string) => (val ? new Date(val).toLocaleDateString() : '—');
+  const formatDate = (val?: string) => (val ? new Date(val).toLocaleDateString() : '');
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent className="flex flex-col sm:max-w-md">
-        <SheetHeader>
-          <SheetTitle>{contact.name}</SheetTitle>
-          <SheetDescription>{contact.email || 'No email'}</SheetDescription>
+      <SheetContent className="flex flex-col sm:max-w-lg">
+        <SheetHeader className="pb-0">
+          <SheetTitle className="text-xl">{contact.name}</SheetTitle>
+          <SheetDescription className="sr-only">Contact details</SheetDescription>
         </SheetHeader>
+
+        {/* Contact info strip */}
+        <div className="flex flex-wrap gap-x-5 gap-y-1 text-sm text-muted-foreground">
+          {contact.email && (
+            <span className="inline-flex items-center gap-1.5">
+              <Mail className="h-3.5 w-3.5" /> {contact.email}
+            </span>
+          )}
+          {contact.phone && (
+            <span className="inline-flex items-center gap-1.5">
+              <Phone className="h-3.5 w-3.5" /> {contact.phone}
+            </span>
+          )}
+          {contact.mobilePhone && !contact.phone && (
+            <span className="inline-flex items-center gap-1.5">
+              <Phone className="h-3.5 w-3.5" /> {contact.mobilePhone}
+            </span>
+          )}
+          {contact.ownerName && (
+            <span className="inline-flex items-center gap-1.5">
+              <User className="h-3.5 w-3.5" /> {contact.ownerName}
+            </span>
+          )}
+          {contact.createdDate && (
+            <span className="inline-flex items-center gap-1.5">
+              <Calendar className="h-3.5 w-3.5" /> {formatDate(contact.createdDate)}
+            </span>
+          )}
+        </div>
 
         <Separator />
 
-        <ScrollArea className="flex-1 -mx-4 px-4">
+        <ScrollArea className="flex-1 -mx-6 px-6">
           <div className="space-y-6 pb-4">
-            {/* Contact Info (always read-only) */}
-            <section>
-              <h3 className="mb-3 text-xs font-medium uppercase tracking-wider text-muted-foreground">
-                Contact Info
-              </h3>
-              <div className="grid grid-cols-2 gap-x-4 gap-y-2 text-sm">
-                <ReadOnlyField label="Phone" value={contact.phone} />
-                <ReadOnlyField label="Mobile" value={contact.mobilePhone} />
-                <ReadOnlyField label="Owner" value={contact.ownerName} />
-                <ReadOnlyField label="Lead Source" value={role === 'admin' ? undefined : contact.leadSource} />
-                <ReadOnlyField label="Created" value={formatDate(contact.createdDate)} />
-                <ReadOnlyField label="Modified" value={formatDate(contact.lastModifiedDate)} />
-              </div>
-            </section>
-
-            {/* Editable sections */}
             {EDITABLE_FIELDS.map(section => {
               const visibleFields = section.fields.filter(f => {
                 if (role === 'admin') return true;
@@ -178,25 +190,25 @@ export function ContactDetailSheet({
 
               return (
                 <section key={section.section}>
-                  <h3 className="mb-3 text-xs font-medium uppercase tracking-wider text-muted-foreground">
+                  <h3 className="mb-3 text-sm font-medium text-muted-foreground">
                     {section.section}
                   </h3>
-                  <div className="space-y-3">
+                  <div className="space-y-3 rounded-lg border bg-muted/30 p-4">
                     {visibleFields.map(f => {
                       const editable = isEditable(f.key);
 
                       if (f.type === 'select') {
                         const options = f.sfField ? dropdowns[f.sfField] || [] : [];
                         return (
-                          <div key={f.key} className="space-y-1">
-                            <Label className="text-xs text-muted-foreground">{f.label}</Label>
+                          <div key={f.key} className="space-y-1.5">
+                            <Label className="text-xs font-medium text-muted-foreground">{f.label}</Label>
                             {editable ? (
                               <select
                                 value={(form[f.key] as string) ?? ''}
                                 onChange={e => setField(f.key, e.target.value || undefined)}
-                                className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-ring"
+                                className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
                               >
-                                <option value="">—</option>
+                                <option value="">Select...</option>
                                 {options.map(o => (
                                   <option key={o.value} value={o.value}>{o.label}</option>
                                 ))}
@@ -210,14 +222,14 @@ export function ContactDetailSheet({
 
                       if (f.type === 'checkbox') {
                         return (
-                          <div key={f.key} className="flex items-center gap-2">
+                          <div key={f.key} className="flex items-center gap-2.5">
                             <Checkbox
                               id={`sheet-${f.key}`}
                               checked={Boolean(form[f.key])}
                               onCheckedChange={checked => setField(f.key, Boolean(checked))}
                               disabled={!editable}
                             />
-                            <Label htmlFor={`sheet-${f.key}`} className="text-sm">
+                            <Label htmlFor={`sheet-${f.key}`} className="text-sm font-normal">
                               {f.label}
                             </Label>
                           </div>
@@ -226,12 +238,13 @@ export function ContactDetailSheet({
 
                       if (f.type === 'textarea') {
                         return (
-                          <div key={f.key} className="space-y-1">
-                            <Label className="text-xs text-muted-foreground">{f.label}</Label>
+                          <div key={f.key} className="space-y-1.5">
+                            <Label className="text-xs font-medium text-muted-foreground">{f.label}</Label>
                             {editable ? (
                               <Input
                                 value={(form[f.key] as string) ?? ''}
                                 onChange={e => setField(f.key, e.target.value || undefined)}
+                                placeholder="Add a message..."
                               />
                             ) : (
                               <p className="text-sm">{(form[f.key] as string) || '—'}</p>
@@ -250,7 +263,7 @@ export function ContactDetailSheet({
         </ScrollArea>
 
         {error && (
-          <p className="px-4 text-sm text-destructive">{error}</p>
+          <p className="text-sm text-destructive">{error}</p>
         )}
 
         <SheetFooter className="flex-row gap-2 border-t pt-4">
@@ -267,20 +280,11 @@ export function ContactDetailSheet({
             onClick={handleSave}
             disabled={saving || !hasChanges}
           >
-            <Save className="mr-1 h-4 w-4" />
+            <Save className="mr-1.5 h-4 w-4" />
             {saving ? 'Saving...' : 'Save'}
           </Button>
         </SheetFooter>
       </SheetContent>
     </Sheet>
-  );
-}
-
-function ReadOnlyField({ label, value }: { label: string; value?: string | null }) {
-  return (
-    <div>
-      <span className="text-xs text-muted-foreground">{label}</span>
-      <p className="text-sm">{value || '—'}</p>
-    </div>
   );
 }
