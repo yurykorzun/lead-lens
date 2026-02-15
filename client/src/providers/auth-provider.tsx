@@ -1,6 +1,7 @@
 import { createContext, useContext, useState, useEffect, type ReactNode } from 'react';
 import type { User, Session } from '@lead-lens/shared';
 import { api } from '@/lib/api';
+import { queryClient } from './query-provider';
 
 export interface AuthContextValue {
   user: User | null;
@@ -50,6 +51,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUser(null);
     localStorage.removeItem('token');
     api.setToken(null);
+    queryClient.clear();
   };
 
   return (
