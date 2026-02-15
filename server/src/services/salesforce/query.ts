@@ -43,6 +43,7 @@ interface ContactQueryParams {
   dateTo?: string;
   page?: number;
   pageSize?: number;
+  orderBy?: string;
 }
 
 export function buildContactQuery(params: ContactQueryParams): { dataQuery: string; countQuery: string } {
@@ -72,7 +73,8 @@ export function buildContactQuery(params: ContactQueryParams): { dataQuery: stri
 
   const where = conditions.join(' AND ');
 
-  const dataQuery = `SELECT ${CONTACT_FIELDS} FROM Contact WHERE ${where} ORDER BY LastModifiedDate DESC LIMIT ${pageSize} OFFSET ${offset}`;
+  const orderBy = params.orderBy || 'LastModifiedDate DESC';
+  const dataQuery = `SELECT ${CONTACT_FIELDS} FROM Contact WHERE ${where} ORDER BY ${orderBy} LIMIT ${pageSize} OFFSET ${offset}`;
   const countQuery = `SELECT COUNT() FROM Contact WHERE ${where}`;
 
   return { dataQuery, countQuery };

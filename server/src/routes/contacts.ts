@@ -64,6 +64,7 @@ router.get('/', requireAuth, async (req: AuthenticatedRequest, res) => {
       dateTo: filters.dateTo,
       page: filters.page ? Number(filters.page) : 1,
       pageSize: filters.pageSize ? Number(filters.pageSize) : 50,
+      orderBy: req.userRole === 'loan_officer' ? 'CreatedDate DESC' : 'LastModifiedDate DESC',
     });
 
     const [dataResult, countResult] = await Promise.all([
@@ -94,10 +95,7 @@ router.get('/', requireAuth, async (req: AuthenticatedRequest, res) => {
 });
 
 // Editable fields for loan_officer role
-const PARTNER_EDITABLE_FIELDS = new Set([
-  'status', 'temperature', 'noOfCalls', 'message', 'hotLead',
-  'paal', 'inProcess', 'stage', 'thankYouToReferralSource',
-]);
+const LO_EDITABLE_FIELDS = new Set(['stage', 'status', 'temperature']);
 
 router.patch('/', requireAuth, async (req: AuthenticatedRequest, res) => {
   try {
@@ -125,7 +123,7 @@ router.patch('/', requireAuth, async (req: AuthenticatedRequest, res) => {
         }
 
         // Check role-based permissions
-        if (req.userRole === 'loan_officer' && !PARTNER_EDITABLE_FIELDS.has(key)) {
+        if (req.userRole === 'loan_officer' && !LO_EDITABLE_FIELDS.has(key)) {
           throw new Error(`Field not editable: ${key}`);
         }
 

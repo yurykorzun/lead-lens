@@ -1,8 +1,9 @@
 export interface User {
   id: string;
   email: string;
-  role: 'loan_officer' | 'manager' | 'admin';
-  status: 'pending' | 'active' | 'disabled';
+  name?: string;
+  role: 'admin' | 'loan_officer';
+  status: 'active' | 'disabled';
   sfField?: string;
   sfValue?: string;
   createdAt: string;
@@ -11,16 +12,36 @@ export interface User {
 
 export interface LoginRequest {
   email: string;
-  password: string;
-}
-
-export interface SignupRequest {
-  email: string;
-  password: string;
+  password?: string;
+  accessCode?: string;
 }
 
 export interface Session {
   user: User;
   token: string;
   expiresAt: string;
+}
+
+export interface CreateLoanOfficerRequest {
+  name: string;
+  email: string;
+}
+
+export interface UpdateLoanOfficerRequest {
+  name?: string;
+  email?: string;
+  status?: 'active' | 'disabled';
+}
+
+export interface LoanOfficerListItem {
+  id: string;
+  name: string;
+  email: string;
+  status: string;
+  createdAt: string;
+  lastLoginAt?: string;
+}
+
+export interface RegenerateCodeResponse {
+  accessCode: string;
 }

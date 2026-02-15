@@ -2,59 +2,46 @@ import 'dotenv/config';
 import { neon } from '@neondatabase/serverless';
 import { drizzle } from 'drizzle-orm/neon-http';
 import { eq } from 'drizzle-orm';
+import { sql } from 'drizzle-orm';
 import * as schema from './db/schema.js';
 
 async function seed() {
-  const sql = neon(process.env.DATABASE_URL!);
-  const db = drizzle(sql, { schema });
+  const neonSql = neon(process.env.DATABASE_URL!);
+  const db = drizzle(neonSql, { schema });
 
-  console.log('Seeding loan_officer_directory...');
+  console.log('Migrating manager → admin role...');
 
-  // Managers scope by Owner.Name (standard Contact owner field)
-  // Partners scope by Leon_Loan_Partner__c or Marat__c (custom picklist fields)
-  await db.insert(schema.loanOfficerDirectory).values([
-    {
-      email: 'leon@leonbelov.com',
-      name: 'Leon Belov',
-      role: 'manager',
-      sfField: 'Owner.Name',
-      sfValue: 'Leon Belov',
-      active: true,
-    },
-    {
-      email: 'marat@leonbelov.com',
-      name: 'Marat Tsirelson',
-      role: 'manager',
-      sfField: 'Owner.Name',
-      sfValue: 'Marat Tsirelson',
-      active: true,
-    },
-    {
-      email: 'korzun.yury@gmail.com',
-      name: 'Yury Korzun',
-      role: 'loan_officer',
-      sfField: 'Leon_Loan_Partner__c',
-      sfValue: 'Yury Korzun',
-      active: true,
-    },
-  ]).onConflictDoNothing();
+  // Migrate existing manager users to admin
+  await db.execute(sql`UPDATE users SET role = 'admin' WHERE role = 'manager'`);
 
-  // Fix existing entries
-  await db.update(schema.loanOfficerDirectory)
-    .set({ sfField: 'Owner.Name', sfValue: 'Leon Belov' })
-    .where(eq(schema.loanOfficerDirectory.email, 'leon@leonbelov.com'));
+  // Remove pending status (no longer valid)
+  await db.execute(sql`UPDATE users SET status = 'active' WHERE status = 'pending'`);
 
-  await db.update(schema.loanOfficerDirectory)
-    .set({ sfField: 'Owner.Name', sfValue: 'Marat Tsirelson' })
-    .where(eq(schema.loanOfficerDirectory.email, 'marat@leonbelov.com'));
-
-  await db.update(schema.users)
-    .set({ sfField: 'Owner.Name', sfValue: 'Leon Belov' })
+  // Upsert Leon as admin with name
+  const [leon] = await db
+    .select()
+    .from(schema.users)
     .where(eq(schema.users.email, 'leon@leonbelov.com'));
 
-  await db.update(schema.users)
-    .set({ sfField: 'Owner.Name', sfValue: 'Marat Tsirelson' })
+  if (leon) {
+    await db.update(schema.users)
+      .set({ role: 'admin', name: 'Leon Belov', sfField: 'Owner.Name', sfValue: 'Leon Belov' })
+      .where(eq(schema.users.email, 'leon@leonbelov.com'));
+    console.log('Updated Leon → admin');
+  }
+
+  // Upsert Marat as admin with name
+  const [marat] = await db
+    .select()
+    .from(schema.users)
     .where(eq(schema.users.email, 'marat@leonbelov.com'));
+
+  if (marat) {
+    await db.update(schema.users)
+      .set({ role: 'admin', name: 'Marat Tsirelson', sfField: 'Owner.Name', sfValue: 'Marat Tsirelson' })
+      .where(eq(schema.users.email, 'marat@leonbelov.com'));
+    console.log('Updated Marat → admin');
+  }
 
   console.log('Done!');
 }

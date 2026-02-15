@@ -1,8 +1,15 @@
 {
-  "buildCommand": "npm run build --workspace=client",
+  "buildCommand": "npm run build -w @lead-lens/shared && npm run build -w @lead-lens/client",
   "outputDirectory": "client/dist",
   "framework": null,
-  "rewrites": [
-    { "source": "/api/(.*)", "destination": "/api" }
+  "functions": {
+    "api/[...path].ts": {
+      "maxDuration": 30
+    }
+  },
+  "routes": [
+    { "src": "/api/(.*)", "dest": "/api/[...path]" },
+    { "handle": "filesystem" },
+    { "src": "/(.*)", "dest": "/index.html" }
   ]
 }
