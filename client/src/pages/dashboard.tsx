@@ -11,6 +11,7 @@ import { ContactGrid } from '@/components/grid/contact-grid';
 import { FilterBar } from '@/components/grid/filter-bar';
 import { SaveBar } from '@/components/grid/save-bar';
 import { adminColumns, loanOfficerColumns } from '@/components/grid/columns';
+import { Button } from '@/components/ui/button';
 import type { ContactFilters } from '@lead-lens/shared';
 
 export default function DashboardPage() {
@@ -76,20 +77,22 @@ export default function DashboardPage() {
                   Page {pagination.page} of {pagination.totalPages} ({pagination.totalCount} contacts)
                 </span>
                 <div className="flex gap-2">
-                  <button
+                  <Button
+                    variant="outline"
+                    size="sm"
                     onClick={() => setFilters(f => ({ ...f, page: (f.page || 1) - 1 }))}
                     disabled={pagination.page <= 1}
-                    className="rounded border px-3 py-1 text-sm disabled:opacity-50"
                   >
                     Previous
-                  </button>
-                  <button
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
                     onClick={() => setFilters(f => ({ ...f, page: (f.page || 1) + 1 }))}
                     disabled={pagination.page >= pagination.totalPages}
-                    className="rounded border px-3 py-1 text-sm disabled:opacity-50"
                   >
                     Next
-                  </button>
+                  </Button>
                 </div>
               </div>
             )}

@@ -1,8 +1,17 @@
 import { useState } from 'react';
+import { MoreHorizontal, Pencil, KeyRound, Ban, CheckCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import { AccessCodeModal } from './access-code-modal';
 import {
   useLoanOfficers,
@@ -88,13 +97,13 @@ export function LoanOfficerManager() {
       <div className="overflow-x-auto rounded-md border">
         <table className="w-full text-sm">
           <thead>
-            <tr className="border-b bg-muted/50">
-              <th className="px-3 py-2 text-left font-medium">Name</th>
-              <th className="px-3 py-2 text-left font-medium">Email</th>
-              <th className="px-3 py-2 text-left font-medium">Status</th>
-              <th className="px-3 py-2 text-left font-medium">Created</th>
-              <th className="px-3 py-2 text-left font-medium">Last Login</th>
-              <th className="px-3 py-2 text-left font-medium">Actions</th>
+            <tr className="border-b bg-muted/60">
+              <th className="px-3 py-2 text-left text-xs font-medium uppercase tracking-wider text-muted-foreground">Name</th>
+              <th className="px-3 py-2 text-left text-xs font-medium uppercase tracking-wider text-muted-foreground">Email</th>
+              <th className="px-3 py-2 text-left text-xs font-medium uppercase tracking-wider text-muted-foreground">Status</th>
+              <th className="px-3 py-2 text-left text-xs font-medium uppercase tracking-wider text-muted-foreground">Created</th>
+              <th className="px-3 py-2 text-left text-xs font-medium uppercase tracking-wider text-muted-foreground">Last Login</th>
+              <th className="px-3 py-2 text-left text-xs font-medium uppercase tracking-wider text-muted-foreground">Actions</th>
             </tr>
           </thead>
           <tbody>
@@ -106,17 +115,20 @@ export function LoanOfficerManager() {
               </tr>
             ) : (
               loanOfficers.map(lo => (
-                <tr key={lo.id} className="border-b hover:bg-muted/30">
-                  <td className="px-3 py-2">{lo.name}</td>
+                <tr key={lo.id} className="border-b transition-colors hover:bg-muted/50">
+                  <td className="px-3 py-2 font-medium">{lo.name}</td>
                   <td className="px-3 py-2">{lo.email}</td>
                   <td className="px-3 py-2">
-                    <span className={`inline-flex rounded-full px-2 py-0.5 text-xs font-medium ${
-                      lo.status === 'active'
-                        ? 'bg-green-100 text-green-800'
-                        : 'bg-red-100 text-red-800'
-                    }`}>
+                    <Badge
+                      variant="outline"
+                      className={
+                        lo.status === 'active'
+                          ? 'bg-green-100 text-green-800 border-green-200'
+                          : 'bg-red-100 text-red-800 border-red-200'
+                      }
+                    >
                       {lo.status}
-                    </span>
+                    </Badge>
                   </td>
                   <td className="px-3 py-2">
                     {lo.createdAt ? new Date(lo.createdAt).toLocaleDateString() : ''}
@@ -125,34 +137,41 @@ export function LoanOfficerManager() {
                     {lo.lastLoginAt ? new Date(lo.lastLoginAt).toLocaleDateString() : 'Never'}
                   </td>
                   <td className="px-3 py-2">
-                    <div className="flex gap-1">
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => {
-                          setEditId(lo.id);
-                          setEditName(lo.name);
-                          setEditEmail(lo.email);
-                          setEditError('');
-                        }}
-                      >
-                        Edit
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => handleRegenerate(lo.id, lo.name)}
-                      >
-                        New Code
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => handleToggleStatus(lo.id, lo.status)}
-                      >
-                        {lo.status === 'active' ? 'Disable' : 'Enable'}
-                      </Button>
-                    </div>
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button variant="ghost" size="icon" className="h-8 w-8">
+                          <MoreHorizontal className="h-4 w-4" />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end">
+                        <DropdownMenuItem
+                          onClick={() => {
+                            setEditId(lo.id);
+                            setEditName(lo.name);
+                            setEditEmail(lo.email);
+                            setEditError('');
+                          }}
+                        >
+                          <Pencil className="mr-2 h-4 w-4" />
+                          Edit
+                        </DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => handleRegenerate(lo.id, lo.name)}>
+                          <KeyRound className="mr-2 h-4 w-4" />
+                          New Code
+                        </DropdownMenuItem>
+                        <DropdownMenuSeparator />
+                        <DropdownMenuItem
+                          onClick={() => handleToggleStatus(lo.id, lo.status)}
+                          className={lo.status === 'active' ? 'text-destructive focus:text-destructive' : ''}
+                        >
+                          {lo.status === 'active' ? (
+                            <><Ban className="mr-2 h-4 w-4" /> Disable</>
+                          ) : (
+                            <><CheckCircle className="mr-2 h-4 w-4" /> Enable</>
+                          )}
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
                   </td>
                 </tr>
               ))
