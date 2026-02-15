@@ -5,7 +5,7 @@ import reactRefresh from 'eslint-plugin-react-refresh';
 import globals from 'globals';
 
 export default tseslint.config(
-  { ignores: ['**/dist/', '**/node_modules/', 'api/'] },
+  { ignores: ['**/dist/', '**/node_modules/', 'api/', 'e2e/', 'playwright.config.ts'] },
 
   // Base JS/TS rules for all files
   js.configs.recommended,
