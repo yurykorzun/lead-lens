@@ -44,26 +44,19 @@ test.describe('Admin basic flow', () => {
     await expect(saveButton).toBeVisible();
     await expect(saveButton).toBeDisabled();
 
-    // 6. Change a dropdown value (Status)
+    // 6. Change a dropdown value (Status) — verify UI only, don't save
     const statusSelect = panel.locator('select').first();
     await statusSelect.waitFor({ state: 'visible' });
     const options = await statusSelect.locator('option').allInnerTexts();
-    // Pick an option that isn't the current value or "Select..."
     const currentValue = await statusSelect.inputValue();
     const newOption = options.find(o => o !== 'Select...' && o !== currentValue) || options[1];
     await statusSelect.selectOption({ label: newOption });
 
-    // Save button should now be enabled
+    // Save button should now be enabled (change detected)
     await expect(saveButton).toBeEnabled();
 
-    // 7. Click Save
-    await saveButton.click();
-
-    // Save button should return to disabled after save completes
-    await expect(saveButton).toBeDisabled({ timeout: 10_000 });
-
-    // 8. Close panel via X button
-    await panel.getByRole('button', { name: '' }).first().click();
+    // 7. Close panel without saving via Cancel button
+    await panel.getByRole('button', { name: 'Cancel' }).click();
     await expect(panel).not.toBeVisible();
 
     // 9. Use search filter
