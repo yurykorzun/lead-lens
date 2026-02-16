@@ -149,6 +149,13 @@ FRONTEND_URL            # CORS origin, e.g., http://localhost:5173
 | `client/src/providers/auth-provider.tsx` | Auth context + token management |
 | `client/src/hooks/use-loan-officers.ts` | TanStack Query hooks for LO CRUD |
 
+## Testing
+
+- **E2e tests must NEVER mutate production data.** Tests should verify UI behavior (fields appear, buttons enable/disable, navigation works) without clicking Save or calling write APIs. Use Cancel to close edit flows.
+- Run against production: `BASE_URL=https://lead-lens-topaz.vercel.app npm run test:e2e`
+- Run locally: `npm run dev` then `npm run test:e2e`
+- Playwright config: `playwright.config.ts`, tests in `e2e/`
+
 ## Rules for Updating This Project
 
 ### TypeScript
