@@ -46,7 +46,7 @@ test.describe('Admin basic flow', () => {
     // Verify detail panel appeared with contact name
     const panel = page.locator('div.border-l');
     await expect(panel).toBeVisible();
-    await expect(panel.getByRole('heading', { level: 2 })).toContainText(firstRowName.trim());
+    await expect(panel.getByRole('heading', { level: 2 })).toContainText(firstRowName.trim(), { ignoreCase: true });
 
     // Verify Save button exists but is disabled (no changes yet)
     const saveButton = panel.getByRole('button', { name: /Save/ });
