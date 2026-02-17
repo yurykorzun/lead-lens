@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { eq, and, ne } from 'drizzle-orm';
+import { eq, and, ne, or, ilike, count } from 'drizzle-orm';
 import type { CreateLoanOfficerRequest, UpdateLoanOfficerRequest } from '@lead-lens/shared';
 import { getDb } from '../db/index.js';
 import { users } from '../db/schema.js';
@@ -11,30 +11,53 @@ const router = Router();
 // All routes require admin
 router.use(requireAuth, requireAdmin);
 
-// GET /api/loan-officers — list all loan officers
-router.get('/', async (_req: AuthenticatedRequest, res) => {
+// GET /api/loan-officers — list loan officers (paginated)
+router.get('/', async (req: AuthenticatedRequest, res) => {
   try {
     const db = getDb();
-    const los = await db
-      .select({
-        id: users.id,
-        name: users.name,
-        email: users.email,
-        status: users.status,
-        createdAt: users.createdAt,
-        lastLoginAt: users.lastLoginAt,
-      })
-      .from(users)
-      .where(eq(users.role, 'loan_officer'));
+    const page = Math.max(1, parseInt(req.query.page as string) || 1);
+    const pageSize = Math.min(100, Math.max(1, parseInt(req.query.pageSize as string) || 25));
+    const search = (req.query.search as string)?.trim() || '';
+    const offset = (page - 1) * pageSize;
+
+    const baseConditions = search
+      ? and(eq(users.role, 'loan_officer'), or(ilike(users.name, `%${search}%`), ilike(users.email, `%${search}%`)))
+      : eq(users.role, 'loan_officer');
+
+    const [los, [{ total }]] = await Promise.all([
+      db
+        .select({
+          id: users.id,
+          name: users.name,
+          email: users.email,
+          status: users.status,
+          createdAt: users.createdAt,
+          lastLoginAt: users.lastLoginAt,
+        })
+        .from(users)
+        .where(baseConditions)
+        .orderBy(users.name)
+        .limit(pageSize)
+        .offset(offset),
+      db
+        .select({ total: count() })
+        .from(users)
+        .where(baseConditions),
+    ]);
 
     res.json({
       success: true,
-      data: los.map(lo => ({
-        ...lo,
-        name: lo.name ?? '',
-        createdAt: lo.createdAt?.toISOString() ?? '',
-        lastLoginAt: lo.lastLoginAt?.toISOString(),
-      })),
+      data: {
+        items: los.map(lo => ({
+          ...lo,
+          name: lo.name ?? '',
+          createdAt: lo.createdAt?.toISOString() ?? '',
+          lastLoginAt: lo.lastLoginAt?.toISOString(),
+        })),
+        total,
+        page,
+        pageSize,
+      },
     });
   } catch (err) {
     console.error('List LOs error:', err);

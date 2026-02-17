@@ -45,3 +45,10 @@ export interface LoanOfficerListItem {
 export interface RegenerateCodeResponse {
   accessCode: string;
 }
+
+export interface PaginatedLoanOfficerResponse {
+  items: LoanOfficerListItem[];
+  total: number;
+  page: number;
+  pageSize: number;
+}

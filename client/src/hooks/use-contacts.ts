@@ -1,10 +1,11 @@
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, keepPreviousData } from '@tanstack/react-query';
 import { api } from '@/lib/api';
 import type { PaginatedResponse, ContactRow, ContactFilters } from '@lead-lens/shared';
 
 export function useContacts(filters: ContactFilters) {
   return useQuery({
     queryKey: ['contacts', filters],
+    placeholderData: keepPreviousData,
     queryFn: () => {
       const params = new URLSearchParams();
       if (filters.loanOfficerId) params.set('loanOfficerId', filters.loanOfficerId);

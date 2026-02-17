@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { MoreHorizontal, Pencil, KeyRound, Ban, CheckCircle } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { MoreHorizontal, Pencil, KeyRound, Ban, CheckCircle, Search, ChevronLeft, ChevronRight } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -21,8 +21,27 @@ import {
   useDeleteLoanOfficer,
 } from '@/hooks/use-loan-officers';
 
+const PAGE_SIZE = 25;
+
 export function LoanOfficerManager() {
-  const { data: response, isLoading } = useLoanOfficers();
+  const [page, setPage] = useState(1);
+  const [search, setSearch] = useState('');
+  const [debouncedSearch, setDebouncedSearch] = useState('');
+
+  // Debounce search input
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearch(search);
+      setPage(1);
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [search]);
+
+  const { data: response, isLoading, isFetching } = useLoanOfficers({
+    page,
+    pageSize: PAGE_SIZE,
+    search: debouncedSearch,
+  });
   const createMutation = useCreateLoanOfficer();
   const updateMutation = useUpdateLoanOfficer();
   const regenerateMutation = useRegenerateCode();
@@ -40,7 +59,9 @@ export function LoanOfficerManager() {
 
   const [codeModal, setCodeModal] = useState<{ name: string; code: string } | null>(null);
 
-  const loanOfficers = response?.data ?? [];
+  const loanOfficers = response?.data?.items ?? [];
+  const total = response?.data?.total ?? 0;
+  const totalPages = Math.ceil(total / PAGE_SIZE);
 
   const handleCreate = async () => {
     setCreateError('');
@@ -83,10 +104,6 @@ export function LoanOfficerManager() {
     }
   };
 
-  if (isLoading) {
-    return <p className="text-muted-foreground">Loading loan officers...</p>;
-  }
-
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
@@ -94,6 +111,18 @@ export function LoanOfficerManager() {
         <Button onClick={() => setShowCreate(true)}>Add Loan Officer</Button>
       </div>
 
+      {/* Search */}
+      <div className="relative max-w-sm">
+        <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+        <Input
+          placeholder="Search by name or email..."
+          value={search}
+          onChange={e => setSearch(e.target.value)}
+          className="pl-9"
+        />
+      </div>
+
+      {/* Table */}
       <div className="overflow-x-auto rounded-md border">
         <table className="w-full text-sm">
           <thead>
@@ -107,10 +136,16 @@ export function LoanOfficerManager() {
             </tr>
           </thead>
           <tbody>
-            {loanOfficers.length === 0 ? (
+            {isLoading ? (
               <tr>
                 <td colSpan={6} className="px-3 py-8 text-center text-muted-foreground">
-                  No loan officers yet. Add one to get started.
+                  Loading loan officers...
+                </td>
+              </tr>
+            ) : loanOfficers.length === 0 ? (
+              <tr>
+                <td colSpan={6} className="px-3 py-8 text-center text-muted-foreground">
+                  {debouncedSearch ? 'No loan officers match your search.' : 'No loan officers yet. Add one to get started.'}
                 </td>
               </tr>
             ) : (
@@ -179,6 +214,36 @@ export function LoanOfficerManager() {
           </tbody>
         </table>
       </div>
+
+      {/* Pagination */}
+      {totalPages > 1 && (
+        <div className="flex items-center justify-between text-sm text-muted-foreground">
+          <span>
+            Showing {(page - 1) * PAGE_SIZE + 1}–{Math.min(page * PAGE_SIZE, total)} of {total.toLocaleString()}
+          </span>
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setPage(p => p - 1)}
+              disabled={page <= 1 || isFetching}
+            >
+              <ChevronLeft className="h-4 w-4" />
+            </Button>
+            <span>
+              Page {page} of {totalPages.toLocaleString()}
+            </span>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setPage(p => p + 1)}
+              disabled={page >= totalPages || isFetching}
+            >
+              <ChevronRight className="h-4 w-4" />
+            </Button>
+          </div>
+        </div>
+      )}
 
       {/* Create Modal */}
       <Dialog open={showCreate} onOpenChange={setShowCreate}>
