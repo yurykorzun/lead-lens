@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Navigate } from 'react-router-dom';
 import { useAuth } from '@/hooks/use-auth';
 import { useContacts } from '@/hooks/use-contacts';
@@ -14,7 +14,21 @@ import type { ContactRow, ContactFilters } from '@lead-lens/shared';
 export default function DashboardPage() {
   const { user, isLoading: authLoading } = useAuth();
   const [filters, setFilters] = useState<ContactFilters>({ page: 1, pageSize: 50 });
-  const { data, isLoading, error } = useContacts(filters);
+  const [debouncedFilters, setDebouncedFilters] = useState(filters);
+  const debounceRef = useRef<ReturnType<typeof setTimeout>>();
+
+  // Debounce search, apply other filters immediately
+  useEffect(() => {
+    clearTimeout(debounceRef.current);
+    if (filters.search !== debouncedFilters.search) {
+      debounceRef.current = setTimeout(() => setDebouncedFilters(filters), 300);
+    } else {
+      setDebouncedFilters(filters);
+    }
+    return () => clearTimeout(debounceRef.current);
+  }, [filters]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const { data, isLoading, error } = useContacts(debouncedFilters);
   const { data: metadataRes } = useMetadata();
 
   const [selectedId, setSelectedId] = useState<string | null>(null);

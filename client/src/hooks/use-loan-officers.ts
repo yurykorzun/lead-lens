@@ -1,10 +1,10 @@
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import type { LoanOfficerListItem, CreateLoanOfficerRequest, UpdateLoanOfficerRequest } from '@lead-lens/shared';
+import { useQuery, useMutation, useQueryClient, keepPreviousData } from '@tanstack/react-query';
+import type { LoanOfficerListItem, PaginatedLoanOfficerResponse, CreateLoanOfficerRequest, UpdateLoanOfficerRequest } from '@lead-lens/shared';
 import { api } from '@/lib/api';
 
 interface LoanOfficerListResponse {
   success: boolean;
-  data: LoanOfficerListItem[];
+  data: PaginatedLoanOfficerResponse;
 }
 
 interface CreateLoanOfficerResponse {
@@ -25,10 +25,20 @@ interface RegenerateCodeResponse {
   data: { accessCode: string };
 }
 
-export function useLoanOfficers() {
+export interface UseLoanOfficersParams {
+  page?: number;
+  pageSize?: number;
+  search?: string;
+}
+
+export function useLoanOfficers({ page = 1, pageSize = 25, search = '' }: UseLoanOfficersParams = {}) {
+  const params = new URLSearchParams({ page: String(page), pageSize: String(pageSize) });
+  if (search) params.set('search', search);
+
   return useQuery({
-    queryKey: ['loan-officers'],
-    queryFn: () => api.get<LoanOfficerListResponse>('/loan-officers'),
+    queryKey: ['loan-officers', { page, pageSize, search }],
+    queryFn: () => api.get<LoanOfficerListResponse>(`/loan-officers?${params}`),
+    placeholderData: keepPreviousData,
   });
 }
 

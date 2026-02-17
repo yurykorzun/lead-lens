@@ -7,6 +7,7 @@ import {
   jsonb,
   primaryKey,
   check,
+  index,
 } from 'drizzle-orm/pg-core';
 import { sql } from 'drizzle-orm';
 
@@ -24,6 +25,7 @@ export const users = pgTable('users', {
 }, (table) => [
   check('users_role_check', sql`${table.role} IN ('admin', 'loan_officer')`),
   check('users_status_check', sql`${table.status} IN ('active', 'disabled')`),
+  index('users_role_idx').on(table.role),
 ]);
 
 export const auditLog = pgTable('audit_log', {

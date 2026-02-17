@@ -3,8 +3,17 @@ import { test, expect } from '@playwright/test';
 const ADMIN_EMAIL = 'leon@leonbelov.com';
 const ADMIN_PASSWORD = 'test1234';
 
+async function loginAsAdmin(page: import('@playwright/test').Page) {
+  await page.goto('/login');
+  await page.getByRole('button', { name: 'Admin' }).click();
+  await page.getByLabel('Email').fill(ADMIN_EMAIL);
+  await page.getByLabel('Password').fill(ADMIN_PASSWORD);
+  await page.getByRole('button', { name: 'Sign in' }).click();
+  await expect(page.locator('table')).toBeVisible({ timeout: 15_000 });
+}
+
 test.describe('Admin basic flow', () => {
-  test('login, browse contacts, open detail panel, edit and save', async ({ page }) => {
+  test('login, browse contacts, open detail panel, edit and cancel', async ({ page }) => {
     // 1. Navigate to app — should redirect to login
     await page.goto('/');
     await expect(page).toHaveURL(/\/login/);
@@ -59,7 +68,7 @@ test.describe('Admin basic flow', () => {
     await panel.getByRole('button', { name: 'Cancel' }).click();
     await expect(panel).not.toBeVisible();
 
-    // 9. Use search filter
+    // 8. Use search filter
     await page.getByPlaceholder('Search').fill('a');
     // Table should still have rows (or show "No contacts found")
     await page.waitForTimeout(500);
@@ -69,31 +78,49 @@ test.describe('Admin basic flow', () => {
     await page.getByPlaceholder('Search').clear();
   });
 
-  test('admin can navigate to Manage LOs page', async ({ page }) => {
-    // Login
-    await page.goto('/login');
-    await page.getByRole('button', { name: 'Admin' }).click();
-    await page.getByLabel('Email').fill(ADMIN_EMAIL);
-    await page.getByLabel('Password').fill(ADMIN_PASSWORD);
-    await page.getByRole('button', { name: 'Sign in' }).click();
-    await expect(page.locator('table')).toBeVisible({ timeout: 15_000 });
+  test('admin can navigate to Manage LOs page and see paginated list', async ({ page }) => {
+    await loginAsAdmin(page);
 
     // Navigate to Manage LOs
     await page.getByRole('link', { name: 'Manage LOs' }).click();
     await expect(page).toHaveURL(/\/admin/);
 
-    // Verify admin page loaded
+    // Verify admin page loaded with key elements
     await expect(page.getByRole('button', { name: /Add Loan Officer/ })).toBeVisible();
+    await expect(page.getByPlaceholder('Search by name or email')).toBeVisible();
+
+    // Verify table has loaded (at least the header row)
+    await expect(page.locator('table thead')).toBeVisible();
+
+    // Verify table rows loaded (or shows empty state)
+    const tbody = page.locator('tbody');
+    await expect(tbody).toBeVisible({ timeout: 10_000 });
+  });
+
+  test('Manage LOs search filters the list', async ({ page }) => {
+    await loginAsAdmin(page);
+    await page.getByRole('link', { name: 'Manage LOs' }).click();
+    await expect(page).toHaveURL(/\/admin/);
+
+    // Wait for table to load
+    await expect(page.locator('tbody tr').first()).toBeVisible({ timeout: 10_000 });
+
+    // Type a search term — should filter results after debounce
+    const searchInput = page.getByPlaceholder('Search by name or email');
+    await searchInput.fill('zzz_nonexistent_query_zzz');
+    await page.waitForTimeout(500);
+
+    // Should show no results message
+    await expect(page.getByText(/no loan officers match/i)).toBeVisible({ timeout: 5_000 });
+
+    // Clear search — results should reappear
+    await searchInput.clear();
+    await page.waitForTimeout(500);
+    await expect(page.locator('tbody tr').first()).toBeVisible({ timeout: 10_000 });
   });
 
   test('logout redirects to login', async ({ page }) => {
-    // Login
-    await page.goto('/login');
-    await page.getByRole('button', { name: 'Admin' }).click();
-    await page.getByLabel('Email').fill(ADMIN_EMAIL);
-    await page.getByLabel('Password').fill(ADMIN_PASSWORD);
-    await page.getByRole('button', { name: 'Sign in' }).click();
-    await expect(page.locator('table')).toBeVisible({ timeout: 15_000 });
+    await loginAsAdmin(page);
 
     // Logout
     await page.locator('header').getByRole('button').last().click();
