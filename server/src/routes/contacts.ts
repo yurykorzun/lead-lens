@@ -2,7 +2,7 @@ import { Router } from 'express';
 import { requireAuth, type AuthenticatedRequest } from '../middleware/auth.js';
 import type { ContactFilters, BulkUpdatePayload, ContactRow } from '@lead-lens/shared';
 import { FIELD_MAP } from '@lead-lens/shared';
-import { executeSoql, buildContactQuery } from '../services/salesforce/query.js';
+import { executeSoql, buildContactQuery, verifyContactScope } from '../services/salesforce/query.js';
 import { bulkUpdate } from '../services/salesforce/update.js';
 import { writeAuditLog } from '../services/audit.js';
 
@@ -112,6 +112,17 @@ router.patch('/', requireAuth, async (req: AuthenticatedRequest, res) => {
     if (updates.length > 200) {
       res.status(400).json({ success: false, error: { code: 'VALIDATION', message: 'Max 200 records per request' } });
       return;
+    }
+
+    // Verify all contact IDs are within the user's scope
+    if (req.userRole !== 'admin' && req.sfField && req.sfValue) {
+      const contactIds = updates.map(u => u.id);
+      const inScope = await verifyContactScope(contactIds, req.userRole, req.sfField, req.sfValue);
+      const outOfScope = contactIds.filter(id => !inScope.has(id));
+      if (outOfScope.length > 0) {
+        res.status(403).json({ success: false, error: { code: 'FORBIDDEN', message: 'Some contacts are outside your scope' } });
+        return;
+      }
     }
 
     // Map camelCase fields to SF API names, validating against allowlist

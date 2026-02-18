@@ -50,8 +50,8 @@ interface ContactQueryParams {
 
 // LO contacts matched across all three partner fields
 const LO_PARTNER_FIELDS = ['Loan_Partners__c', 'Leon_Loan_Partner__c', 'Marat__c'];
-// Agent contacts matched by referred-by text or lead source
-const AGENT_SCOPE_FIELDS = ['MtgPlanner_CRM__Referred_By_Text__c', 'LeadSource'];
+// Agent contacts matched by referred-by text
+const AGENT_SCOPE_FIELDS = ['MtgPlanner_CRM__Referred_By_Text__c'];
 
 function buildScopeCondition(role: string | undefined, sfField: string, sfValue: string): string {
   const escaped = escapeSOQL(sfValue);
@@ -62,6 +62,26 @@ function buildScopeCondition(role: string | undefined, sfField: string, sfValue:
     return `(${AGENT_SCOPE_FIELDS.map(f => `${f} = '${escaped}'`).join(' OR ')})`;
   }
   return `${sfField} = '${escaped}'`;
+}
+
+/**
+ * Verify that the given contact IDs fall within the user's scope.
+ * Returns the set of IDs that are in scope.
+ */
+export async function verifyContactScope(
+  ids: string[],
+  role: string | undefined,
+  sfField: string,
+  sfValue: string,
+): Promise<Set<string>> {
+  if (role === 'admin') return new Set(ids);
+  if (ids.length === 0) return new Set();
+
+  const scopeCondition = buildScopeCondition(role, sfField, sfValue);
+  const idList = ids.map(id => `'${escapeSOQL(id)}'`).join(',');
+  const soql = `SELECT Id FROM Contact WHERE Id IN (${idList}) AND ${scopeCondition}`;
+  const result = await executeSoql(soql);
+  return new Set(result.records.map(r => r.Id as string));
 }
 
 export function buildContactQuery(params: ContactQueryParams): { dataQuery: string; countQuery: string } {
