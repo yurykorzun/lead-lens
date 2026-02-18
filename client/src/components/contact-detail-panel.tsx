@@ -9,6 +9,7 @@ import { Label } from '@/components/ui/label';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Separator } from '@/components/ui/separator';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { toast } from 'sonner';
 
 export interface ContactDetailPanelProps {
   contact: ContactRow;
@@ -133,8 +134,11 @@ export function ContactDetailPanel({
     try {
       await api.patch('/contacts', { updates: [{ id: contact.id, fields: changed }] });
       queryClient.invalidateQueries({ queryKey: ['contacts'] });
+      toast.success('Contact saved');
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to save');
+      const msg = err instanceof Error ? err.message : 'Failed to save';
+      setError(msg);
+      toast.error(msg);
     } finally {
       setSaving(false);
     }

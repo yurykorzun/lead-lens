@@ -65,11 +65,22 @@ export default function DashboardPage() {
                 className="min-h-0 flex-1"
                 isLoading={isLoading}
               />
-              {pagination && pagination.totalPages > 1 && (
-                <div className="flex shrink-0 items-center justify-between rounded-lg border p-3">
-                  <span className="text-sm text-muted-foreground">
-                    Page {pagination.page} of {pagination.totalPages} ({pagination.totalCount} contacts)
-                  </span>
+              {pagination && (
+                <div className="flex shrink-0 items-center justify-between rounded-lg border border-slate-200 p-3">
+                  <div className="flex items-center gap-3">
+                    <span className="text-sm text-slate-500">
+                      {((pagination.page - 1) * (filters.pageSize || 50) + 1)}–{Math.min(pagination.page * (filters.pageSize || 50), pagination.totalCount)} of {pagination.totalCount.toLocaleString()}
+                    </span>
+                    <select
+                      value={filters.pageSize || 50}
+                      onChange={e => setFilters(f => ({ ...f, pageSize: Number(e.target.value), page: 1 }))}
+                      className="h-8 rounded border border-slate-200 bg-white px-2 text-sm text-slate-700"
+                    >
+                      <option value={25}>25 / page</option>
+                      <option value={50}>50 / page</option>
+                      <option value={100}>100 / page</option>
+                    </select>
+                  </div>
                   <div className="flex gap-2">
                     <Button
                       variant="outline"
@@ -79,6 +90,9 @@ export default function DashboardPage() {
                     >
                       Previous
                     </Button>
+                    <span className="flex items-center text-sm text-slate-500">
+                      {pagination.page} / {pagination.totalPages}
+                    </span>
                     <Button
                       variant="outline"
                       size="sm"
