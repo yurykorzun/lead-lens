@@ -55,7 +55,7 @@ export function AppLayout({ children }: { children: ReactNode }) {
           )}
         </div>
       </header>
-      <main className="container mx-auto min-h-0 flex-1 overflow-auto px-4 py-4">{children}</main>
+      <main className="min-h-0 flex-1 overflow-auto px-4 py-4">{children}</main>
     </div>
   );
 }

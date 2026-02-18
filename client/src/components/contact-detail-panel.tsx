@@ -144,7 +144,7 @@ export function ContactDetailPanel({
   const formatDate = (val?: string) => (val ? new Date(val).toLocaleDateString() : '');
 
   return (
-    <div className="flex h-full w-[480px] shrink-0 flex-col border-l bg-background">
+    <div className="flex h-full w-[400px] shrink-0 flex-col border-l bg-background xl:w-[480px]">
       {/* Header */}
       <div className="flex items-start justify-between px-5 pt-5 pb-3">
         <div className="min-w-0 flex-1">
