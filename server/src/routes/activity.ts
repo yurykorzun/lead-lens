@@ -65,4 +65,30 @@ router.get('/:id/activity', requireAuth, async (req, res) => {
   }
 });
 
+// GET /api/contacts/:id/history — SF ContactHistory (field change tracking)
+router.get('/:id/history', requireAuth, async (req, res) => {
+  try {
+    const contactId = req.params.id;
+    const soql = `SELECT Field, OldValue, NewValue, CreatedDate, CreatedBy.Name FROM ContactHistory WHERE ContactId = '${contactId}' ORDER BY CreatedDate DESC LIMIT 50`;
+
+    const result = await executeSoql(soql).catch(() => ({ records: [] as Record<string, unknown>[] }));
+
+    const history = result.records.map(r => {
+      const createdBy = r.CreatedBy as Record<string, unknown> | undefined;
+      return {
+        field: r.Field as string,
+        oldValue: r.OldValue as string | null,
+        newValue: r.NewValue as string | null,
+        date: r.CreatedDate as string,
+        changedBy: createdBy?.Name as string | undefined,
+      };
+    });
+
+    res.json({ success: true, data: history });
+  } catch (err) {
+    console.error('History GET error:', err);
+    res.status(500).json({ success: false, error: { code: 'SERVER_ERROR', message: 'Failed to fetch history' } });
+  }
+});
+
 export default router;

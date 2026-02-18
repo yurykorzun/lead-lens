@@ -23,6 +23,8 @@ export interface ContactRow {
   maratBdr?: string;
   leadSource?: string;
   isClient?: boolean;
+  referredByText?: string;
+  description?: string;
   ownerId?: string;
   ownerName?: string;
   recordType?: string;

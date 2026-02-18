@@ -7,7 +7,7 @@ import { AppLayout } from '@/components/layout/app-layout';
 import { ContactGrid } from '@/components/grid/contact-grid';
 import { FilterBar } from '@/components/grid/filter-bar';
 import { ContactDetailPanel } from '@/components/contact-detail-panel';
-import { adminColumns, loanOfficerColumns } from '@/components/grid/columns';
+import { adminColumns, loanOfficerColumns, agentColumns } from '@/components/grid/columns';
 import { Button } from '@/components/ui/button';
 import type { ContactRow, ContactFilters } from '@lead-lens/shared';
 
@@ -15,7 +15,7 @@ export default function DashboardPage() {
   const { user, isLoading: authLoading } = useAuth();
   const [filters, setFilters] = useState<ContactFilters>({ page: 1, pageSize: 50 });
   const [debouncedFilters, setDebouncedFilters] = useState(filters);
-  const debounceRef = useRef<ReturnType<typeof setTimeout>>();
+  const debounceRef = useRef<ReturnType<typeof setTimeout>>(undefined);
 
   // Debounce search, apply other filters immediately
   useEffect(() => {
@@ -34,7 +34,7 @@ export default function DashboardPage() {
   const [selectedId, setSelectedId] = useState<string | null>(null);
 
   const dropdowns = metadataRes?.data ?? {};
-  const columns = user?.role === 'admin' ? adminColumns : loanOfficerColumns;
+  const columns = user?.role === 'admin' ? adminColumns : user?.role === 'agent' ? agentColumns : loanOfficerColumns;
 
   // Derive selected contact from fresh data — no useEffect sync needed
   const selectedContact = selectedId
@@ -101,7 +101,7 @@ export default function DashboardPage() {
             contact={selectedContact}
             onClose={() => setSelectedId(null)}
             dropdowns={dropdowns}
-            role={user.role as 'admin' | 'loan_officer'}
+            role={user.role as 'admin' | 'loan_officer' | 'agent'}
           />
         )}
       </div>

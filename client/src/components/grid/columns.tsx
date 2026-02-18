@@ -121,3 +121,46 @@ export const loanOfficerColumns: ColumnDef<ContactRow, any>[] = [
     },
   }),
 ];
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export const agentColumns: ColumnDef<ContactRow, any>[] = [
+  columnHelper.accessor('name', {
+    id: 'name',
+    header: 'Name',
+    cell: info => {
+      const name = info.getValue();
+      return <span className="font-medium">{name ? toTitleCase(name) : ''}</span>;
+    },
+  }),
+  columnHelper.accessor('phone', {
+    header: 'Phone',
+    cell: info => info.getValue(),
+  }),
+  columnHelper.accessor('status', {
+    header: 'Status',
+    cell: badgeCell(STATUS_COLORS),
+  }),
+  columnHelper.accessor('temperature', {
+    header: 'Temperature',
+    cell: badgeCell(TEMP_COLORS),
+  }),
+  columnHelper.accessor('stage', {
+    header: 'Stage',
+    cell: badgeCell(STAGE_COLORS),
+  }),
+  columnHelper.accessor('leadSource', {
+    header: 'Lead Source',
+    cell: info => info.getValue(),
+  }),
+  columnHelper.accessor('referredByText', {
+    header: 'Referred By',
+    cell: info => info.getValue(),
+  }),
+  columnHelper.accessor('createdDate', {
+    header: 'Created',
+    cell: info => {
+      const val = info.getValue();
+      return val ? new Date(val).toLocaleDateString() : '';
+    },
+  }),
+];

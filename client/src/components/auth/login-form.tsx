@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 
-type LoginMode = 'admin' | 'loan_officer';
+type LoginMode = 'admin' | 'loan_officer' | 'agent';
 
 export function LoginForm() {
   const { login } = useAuth();
@@ -19,7 +19,7 @@ export function LoginForm() {
     setError('');
     setLoading(true);
     try {
-      await login(email, credential, mode === 'loan_officer');
+      await login(email, credential, mode !== 'admin');
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Login failed');
     } finally {
@@ -48,6 +48,15 @@ export function LoginForm() {
         >
           Loan Officer
         </button>
+        <button
+          type="button"
+          onClick={() => { setMode('agent'); setCredential(''); setError(''); }}
+          className={`flex-1 rounded-md px-3 py-1.5 text-sm font-medium transition-colors ${
+            mode === 'agent' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-foreground'
+          }`}
+        >
+          Agent
+        </button>
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-4">
@@ -64,7 +73,7 @@ export function LoginForm() {
             type={mode === 'admin' ? 'password' : 'text'}
             value={credential}
             onChange={e => setCredential(e.target.value)}
-            placeholder={mode === 'loan_officer' ? 'Enter your access code' : ''}
+            placeholder={mode !== 'admin' ? 'Enter your access code' : ''}
             required
           />
         </div>

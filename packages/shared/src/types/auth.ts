@@ -2,7 +2,7 @@ export interface User {
   id: string;
   email: string;
   name?: string;
-  role: 'admin' | 'loan_officer';
+  role: 'admin' | 'loan_officer' | 'agent';
   status: 'active' | 'disabled';
   sfField?: string;
   sfValue?: string;
@@ -48,6 +48,33 @@ export interface RegenerateCodeResponse {
 
 export interface PaginatedLoanOfficerResponse {
   items: LoanOfficerListItem[];
+  total: number;
+  page: number;
+  pageSize: number;
+}
+
+export interface AgentListItem {
+  id: string;
+  name: string;
+  email: string;
+  status: string;
+  createdAt: string;
+  lastLoginAt?: string;
+}
+
+export interface CreateAgentRequest {
+  name: string;
+  email: string;
+}
+
+export interface UpdateAgentRequest {
+  name?: string;
+  email?: string;
+  status?: 'active' | 'disabled';
+}
+
+export interface PaginatedAgentResponse {
+  items: AgentListItem[];
   total: number;
   page: number;
   pageSize: number;

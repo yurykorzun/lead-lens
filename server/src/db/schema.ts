@@ -23,7 +23,7 @@ export const users = pgTable('users', {
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow(),
   lastLoginAt: timestamp('last_login_at', { withTimezone: true }),
 }, (table) => [
-  check('users_role_check', sql`${table.role} IN ('admin', 'loan_officer')`),
+  check('users_role_check', sql`${table.role} IN ('admin', 'loan_officer', 'agent')`),
   check('users_status_check', sql`${table.status} IN ('active', 'disabled')`),
   index('users_role_idx').on(table.role),
 ]);

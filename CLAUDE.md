@@ -1,6 +1,6 @@
 # Lead Lens
 
-A dashboard for managing Salesforce contacts. Built for a mortgage company using Jungo CRM on Salesforce. Admins manage loan officers and see all contacts; loan officers see only their assigned contacts with limited edit permissions.
+A dashboard for managing Salesforce contacts. Built for a mortgage company using Jungo CRM on Salesforce. Admins manage loan officers and real estate agents, each seeing their own scoped contacts with limited edit permissions.
 
 ## Architecture
 
@@ -22,10 +22,11 @@ api/[...path].ts   → Vercel serverless entry point
 
 | Role | Login Method | Dashboard | Editable Fields | Contacts Scope |
 |------|-------------|-----------|----------------|---------------|
-| **Admin** | Email + password | All columns, full edit, nav with "Manage LOs" | All fields | Scoped by `sf_field`/`sf_value` (e.g. `Owner.Name = 'Leon Belov'`) |
-| **Loan Officer** | Email + access code | 7 columns, limited edit | Stage, Status, Temperature only | `Loan_Partners__c = <name>` sorted by `CreatedDate DESC` |
+| **Admin** | Email + password | All columns, full edit, nav with "Manage LOs" + "Manage Agents" | All fields | Scoped by `sf_field`/`sf_value` (e.g. `Owner.Name = 'Leon Belov'`) |
+| **Loan Officer** | Email + access code | 7 columns, limited edit | Stage, Status, Temperature only | `Loan_Partners__c OR Leon_Loan_Partner__c OR Marat__c = <name>` sorted by `CreatedDate DESC` |
+| **Agent** | Email + access code | 8 columns (incl. Lead Source, Referred By), limited edit | Stage, Status, Temperature only | `MtgPlanner_CRM__Referred_By_Text__c OR LeadSource = <name>` sorted by `CreatedDate DESC` |
 
-- No self-signup. Admins create loan officers via the admin panel
+- No self-signup. Admins create loan officers and agents via admin panels
 - Access codes are generated server-side, shown once, stored as bcrypt hash
 - Current admins: Leon Belov, Marat Belov
 
@@ -58,10 +59,10 @@ npx tsx server/src/seed.ts               # seed/migrate admin users
 
 **Tables**: `users`, `audit_log`, `sf_metadata_cache`
 
-- `users` stores both admins and loan officers (role column distinguishes them)
+- `users` stores admins, loan officers, and agents (role column distinguishes them)
 - Each user has `sf_field`/`sf_value` that determines their Salesforce data scope
-- Access codes for LOs are stored as bcrypt hashes in `password_hash` column
-- Role CHECK: `('admin', 'loan_officer')`, Status CHECK: `('active', 'disabled')`
+- Access codes for LOs/agents are stored as bcrypt hashes in `password_hash` column
+- Role CHECK: `('admin', 'loan_officer', 'agent')`, Status CHECK: `('active', 'disabled')`
 
 ## Salesforce Integration
 
@@ -79,12 +80,39 @@ npx tsx server/src/seed.ts               # seed/migrate admin users
 - `thankYouToReferralSource` → `MtgPlanner_CRM__Thank_you_to_Referral_Source__c` (Jungo managed)
 - `message` → `Message_QuickUpdate__c` (not Message_to_Realtor)
 - `loanPartner` → `Loan_Partners__c` (plural)
+- `referredByText` → `MtgPlanner_CRM__Referred_By_Text__c` (Jungo managed, text field for name matching)
+
+### Salesforce Contact Custom Fields
+
+| Label | API Name | Type | Package |
+|-------|----------|------|---------|
+| BDR | `BDR__c` | Picklist | Custom |
+| Hot Lead | `Hot_Lead__c` | Checkbox | Custom |
+| In Process | `In_Process__c` | Checkbox | Custom |
+| Is Client | `Is_Client__c` | Checkbox | Custom |
+| Leon Loan Partner | `Leon_Loan_Partner__c` | Text(255) | Custom |
+| Loan Partners | `Loan_Partners__c` | Text(255) | Custom |
+| Marat | `Marat__c` | Text(255) | Custom |
+| Message Quick Update | `Message_QuickUpdate__c` | Text Area(Long) | Custom |
+| No of Calls | `No_of_Calls__c` | Picklist | Custom |
+| PAAL | `PAAL__c` | Checkbox | Custom |
+| Status | `Status__c` | Picklist | Custom |
+| Temperature | `Temparture__c` | Picklist | Custom (typo in org!) |
+| Referred By | `MtgPlanner_CRM__Referred_By__c` | Lookup(Contact) | Jungo |
+| Referred By Text | `MtgPlanner_CRM__Referred_By_Text__c` | Text(255) | Jungo |
+| Referred By First Name | `MtgPlanner_CRM__Referred_By_First_Name__c` | Formula(Text) | Jungo |
+| Stage | `MtgPlanner_CRM__Stage__c` | Picklist | Jungo |
+| Thank You to Referral Source | `MtgPlanner_CRM__Thank_you_to_Referral_Source__c` | Checkbox | Jungo |
+
+**Standard fields used:** `Name`, `FirstName`, `LastName`, `Email`, `Phone`, `MobilePhone`, `OwnerId`, `Owner.Name`, `LeadSource`, `Description`, `CreatedDate`
 
 ### Scoping
 
-Contacts are scoped per user via their `sf_field`/`sf_value` (stored in JWT):
+Contacts are scoped per user via their `sf_field`/`sf_value` (stored in JWT). Multi-field OR logic is in `buildScopeCondition()` in `query.ts`:
+
 - **Admins** (Leon, Marat): `Owner.Name = 'Leon Belov'` — sees all contacts they own
-- **Loan officers**: `Loan_Partners__c = 'Yury Korzun'` — sees contacts assigned to them
+- **Loan officers**: `(Loan_Partners__c = 'X' OR Leon_Loan_Partner__c = 'X' OR Marat__c = 'X')` — OR across all three partner fields
+- **Agents**: `(MtgPlanner_CRM__Referred_By_Text__c = 'X' OR LeadSource = 'X')` — OR across referred by and lead source
 
 ### Inaccessible Fields
 
@@ -96,18 +124,24 @@ All routes prefixed with `/api/`. Auth via `Authorization: Bearer <jwt>` header.
 
 | Method | Path | Description |
 |--------|------|-------------|
-| POST | /auth/login | Login (admin: email+password, LO: email+accessCode) |
+| POST | /auth/login | Login (admin: email+password, LO/agent: email+accessCode) |
 | GET | /auth/verify | Validate token, return user |
 | POST | /auth/logout | Stateless (client discards token) |
 | GET | /contacts | Paginated contacts (SOQL, scoped by role) |
-| PATCH | /contacts | Bulk update contacts (LOs restricted to stage/status/temperature) |
+| PATCH | /contacts | Bulk update contacts (LOs/agents restricted to stage/status/temperature) |
 | GET | /contacts/:id/activity | SF Tasks + audit log timeline |
+| GET | /contacts/:id/history | SF ContactHistory field changes |
 | GET | /metadata/dropdowns | Picklist values (cached 30min) |
-| GET | /loan-officers | List all LOs (admin only) |
+| GET | /loan-officers | List all LOs (admin only, paginated+search) |
 | POST | /loan-officers | Create LO (admin only, returns access code) |
 | PATCH | /loan-officers/:id | Update LO name/email/status (admin only) |
 | POST | /loan-officers/:id/regenerate-code | Generate new access code (admin only) |
 | DELETE | /loan-officers/:id | Soft delete / disable LO (admin only) |
+| GET | /agents | List all agents (admin only, paginated+search) |
+| POST | /agents | Create agent (admin only, returns access code) |
+| PATCH | /agents/:id | Update agent name/email/status (admin only) |
+| POST | /agents/:id/regenerate-code | Generate new access code (admin only) |
+| DELETE | /agents/:id | Soft delete / disable agent (admin only) |
 
 ## Environment Variables
 
@@ -127,27 +161,33 @@ FRONTEND_URL            # CORS origin, e.g., http://localhost:5173
 | File | Purpose |
 |------|---------|
 | `packages/shared/src/constants/field-map.ts` | camelCase ↔ SF field name mapping |
-| `packages/shared/src/types/auth.ts` | User, LO management types |
+| `packages/shared/src/types/auth.ts` | User, LO, Agent management types |
 | `packages/shared/src/types/contact.ts` | ContactRow type definition |
 | `server/src/app.ts` | Express app (used by dev + Vercel) |
 | `server/src/dev.ts` | Dev entry (dotenv + listen) |
 | `server/src/db/schema.ts` | Drizzle table definitions |
 | `server/src/services/auth.ts` | Password/access code hashing, JWT creation |
 | `server/src/services/salesforce/auth.ts` | SF OAuth token acquisition |
-| `server/src/services/salesforce/query.ts` | SOQL query builder + executor |
+| `server/src/services/salesforce/query.ts` | SOQL query builder + executor (multi-field scoping) |
 | `server/src/services/salesforce/update.ts` | sObject Collections bulk update |
 | `server/src/routes/auth.ts` | Login/verify/logout handlers |
 | `server/src/routes/contacts.ts` | GET/PATCH contacts handlers |
-| `server/src/routes/loan-officers.ts` | LO CRUD (admin only) |
+| `server/src/routes/loan-officers.ts` | LO CRUD (admin only, paginated) |
+| `server/src/routes/agents.ts` | Agent CRUD (admin only, paginated) |
+| `server/src/routes/activity.ts` | Activity + ContactHistory endpoints |
 | `server/src/routes/metadata.ts` | Picklist dropdown values |
 | `server/src/middleware/auth.ts` | JWT verification + requireAdmin middleware |
-| `client/src/components/grid/columns.tsx` | Admin + LO column definitions |
+| `client/src/components/grid/columns.tsx` | Admin, LO, and Agent column definitions |
 | `client/src/components/grid/contact-grid.tsx` | Data grid component |
+| `client/src/components/contact-detail-panel.tsx` | Detail panel with tabs (Details/Activity/History) |
 | `client/src/components/admin/loan-officer-manager.tsx` | Admin panel LO management |
+| `client/src/components/admin/agent-manager.tsx` | Admin panel Agent management |
 | `client/src/pages/dashboard.tsx` | Main dashboard (role-aware) |
-| `client/src/pages/admin.tsx` | Admin panel page |
+| `client/src/pages/admin.tsx` | Admin panel page (LO management) |
+| `client/src/pages/agents.tsx` | Admin panel page (Agent management) |
 | `client/src/providers/auth-provider.tsx` | Auth context + token management |
 | `client/src/hooks/use-loan-officers.ts` | TanStack Query hooks for LO CRUD |
+| `client/src/hooks/use-agents.ts` | TanStack Query hooks for Agent CRUD |
 
 ## Testing
 
@@ -178,21 +218,22 @@ FRONTEND_URL            # CORS origin, e.g., http://localhost:5173
 - Never add `Jungo_LOS__` prefixed fields to SOQL queries — they are inaccessible.
 - `Temparture__c` is a typo in the SF org. Do NOT rename it.
 - `Stage` is `MtgPlanner_CRM__Stage__c` (Jungo managed), not `Stage__c`.
+- `MtgPlanner_CRM__Referred_By__c` is a Lookup(Contact) — stores ID. Use `MtgPlanner_CRM__Referred_By_Text__c` for name matching.
 - sObject Collections limit: 200 records per call.
 - Field mapping changes go in `packages/shared/src/constants/field-map.ts`.
 
 ### Auth & Roles
-- No self-signup. Admins create LOs via `/api/loan-officers` endpoint.
+- No self-signup. Admins create LOs via `/api/loan-officers` and agents via `/api/agents`.
 - Both passwords and access codes are stored as bcrypt hashes in `password_hash`.
-- LO `sf_field` is always `Loan_Partners__c`, `sf_value` is the LO's name.
-- `requireAdmin` middleware gates all `/api/loan-officers` routes.
-- LOs can only edit fields in `LO_EDITABLE_FIELDS` set (stage, status, temperature).
+- LO `sf_field` is always `Loan_Partners__c`, `sf_value` is the LO's name. Scoping uses OR across 3 partner fields.
+- Agent `sf_field` is always `MtgPlanner_CRM__Referred_By_Text__c`, `sf_value` is the agent's name. Scoping uses OR with `LeadSource`.
+- `requireAdmin` middleware gates all `/api/loan-officers` and `/api/agents` routes.
+- LOs and agents can only edit fields in `RESTRICTED_EDITABLE_FIELDS` set (stage, status, temperature).
 
 ### Frontend
 - Tailwind CSS v4 with `@tailwindcss/vite` plugin (CSS-based config, no tailwind.config).
 - `@/` path alias resolves to `client/src/`.
 - shadcn/ui components in `client/src/components/ui/`.
-- Editable cells use TanStack Table `meta` to pass `onDirty` + `dropdowns` callbacks.
-- Dirty tracking via `useDirtyTracker` hook, save bar appears when changes exist.
+- Contact detail panel uses tabs: Details (editable fields), Activity (SF Tasks + audit), History (ContactHistory).
 - Vite proxy: `/api` → `http://localhost:3001` (configured in `client/vite.config.ts`).
-- Column definitions are split: `adminColumns` (all fields) and `loanOfficerColumns` (7 fields).
+- Column definitions are split: `adminColumns`, `loanOfficerColumns`, and `agentColumns`.
