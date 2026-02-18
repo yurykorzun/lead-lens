@@ -111,9 +111,8 @@ export function AgentManager() {
       </div>
 
       <p className="text-sm text-muted-foreground">
-        Contacts are matched by the agent's <strong>name</strong> across two Salesforce fields:{' '}
-        <span className="font-mono text-xs">Referred_By_Text</span> and{' '}
-        <span className="font-mono text-xs">LeadSource</span>.
+        Contacts are matched by the agent's <strong>name</strong> in the Salesforce field{' '}
+        <span className="font-mono text-xs">Referred_By_Text</span>.
         The name entered here must match exactly how it appears in Salesforce.
       </p>
 

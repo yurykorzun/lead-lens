@@ -24,7 +24,7 @@ api/[...path].ts   → Vercel serverless entry point
 |------|-------------|-----------|----------------|---------------|
 | **Admin** | Email + password | All columns, full edit, nav with "Manage LOs" + "Manage Agents" | All fields | Scoped by `sf_field`/`sf_value` (e.g. `Owner.Name = 'Leon Belov'`) |
 | **Loan Officer** | Email + access code | 7 columns, limited edit | Stage, Status, Temperature only | `Loan_Partners__c OR Leon_Loan_Partner__c OR Marat__c = <name>` sorted by `CreatedDate DESC` |
-| **Agent** | Email + access code | 8 columns (incl. Lead Source, Referred By), limited edit | Stage, Status, Temperature only | `MtgPlanner_CRM__Referred_By_Text__c OR LeadSource = <name>` sorted by `CreatedDate DESC` |
+| **Agent** | Email + access code | 8 columns (incl. Lead Source, Referred By), limited edit | Stage, Status, Temperature only | `MtgPlanner_CRM__Referred_By_Text__c = <name>` sorted by `CreatedDate DESC` |
 
 - No self-signup. Admins create loan officers and agents via admin panels
 - Access codes are generated server-side, shown once, stored as bcrypt hash
@@ -112,7 +112,7 @@ Contacts are scoped per user via their `sf_field`/`sf_value` (stored in JWT). Mu
 
 - **Admins** (Leon, Marat): `Owner.Name = 'Leon Belov'` — sees all contacts they own
 - **Loan officers**: `(Loan_Partners__c = 'X' OR Leon_Loan_Partner__c = 'X' OR Marat__c = 'X')` — OR across all three partner fields
-- **Agents**: `(MtgPlanner_CRM__Referred_By_Text__c = 'X' OR LeadSource = 'X')` — OR across referred by and lead source
+- **Agents**: `MtgPlanner_CRM__Referred_By_Text__c = 'X'` — matched by referred-by text field
 
 ### Inaccessible Fields
 
@@ -226,7 +226,7 @@ FRONTEND_URL            # CORS origin, e.g., http://localhost:5173
 - No self-signup. Admins create LOs via `/api/loan-officers` and agents via `/api/agents`.
 - Both passwords and access codes are stored as bcrypt hashes in `password_hash`.
 - LO `sf_field` is always `Loan_Partners__c`, `sf_value` is the LO's name. Scoping uses OR across 3 partner fields.
-- Agent `sf_field` is always `MtgPlanner_CRM__Referred_By_Text__c`, `sf_value` is the agent's name. Scoping uses OR with `LeadSource`.
+- Agent `sf_field` is always `MtgPlanner_CRM__Referred_By_Text__c`, `sf_value` is the agent's name.
 - `requireAdmin` middleware gates all `/api/loan-officers` and `/api/agents` routes.
 - LOs and agents can only edit fields in `RESTRICTED_EDITABLE_FIELDS` set (stage, status, temperature).
 
