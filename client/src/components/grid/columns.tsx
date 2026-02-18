@@ -64,12 +64,14 @@ export const adminColumns: ColumnDef<ContactRow, any>[] = [
     header: 'Name',
     cell: info => {
       const name = info.getValue();
-      return <span className="font-medium">{name ? toTitleCase(name) : ''}</span>;
+      const email = info.row.original.email;
+      return (
+        <div>
+          <span className="font-medium">{name ? toTitleCase(name) : ''}</span>
+          {email && <p className="text-xs text-slate-500">{email}</p>}
+        </div>
+      );
     },
-  }),
-  columnHelper.accessor('email', {
-    header: 'Email',
-    cell: info => <span className="text-slate-500">{info.getValue()}</span>,
   }),
   columnHelper.accessor('phone', {
     header: 'Phone',
