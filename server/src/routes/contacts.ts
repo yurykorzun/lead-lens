@@ -37,6 +37,8 @@ function mapSfToContact(record: Record<string, unknown>): ContactRow {
     maratBdr: record.Marat_BDR__c as string | undefined,
     leadSource: record.LeadSource as string | undefined,
     isClient: record.Is_Client__c as boolean | undefined,
+    referredByText: record.MtgPlanner_CRM__Referred_By_Text__c as string | undefined,
+    description: record.Description as string | undefined,
     ownerId: record.OwnerId as string | undefined,
     ownerName: owner?.Name as string | undefined,
     recordType: record.RecordTypeId as string | undefined,
@@ -57,6 +59,7 @@ router.get('/', requireAuth, async (req: AuthenticatedRequest, res) => {
     const { dataQuery, countQuery } = buildContactQuery({
       sfField: req.sfField,
       sfValue: req.sfValue,
+      role: req.userRole,
       search: filters.search,
       status: filters.status,
       temperature: filters.temperature,
@@ -64,7 +67,7 @@ router.get('/', requireAuth, async (req: AuthenticatedRequest, res) => {
       dateTo: filters.dateTo,
       page: filters.page ? Number(filters.page) : 1,
       pageSize: filters.pageSize ? Number(filters.pageSize) : 50,
-      orderBy: req.userRole === 'loan_officer' ? 'CreatedDate DESC' : 'LastModifiedDate DESC',
+      orderBy: req.userRole === 'loan_officer' || req.userRole === 'agent' ? 'CreatedDate DESC' : 'LastModifiedDate DESC',
     });
 
     const [dataResult, countResult] = await Promise.all([
@@ -94,8 +97,8 @@ router.get('/', requireAuth, async (req: AuthenticatedRequest, res) => {
   }
 });
 
-// Editable fields for loan_officer role
-const LO_EDITABLE_FIELDS = new Set(['stage', 'status', 'temperature']);
+// Editable fields for loan_officer and agent roles
+const RESTRICTED_EDITABLE_FIELDS = new Set(['stage', 'status', 'temperature']);
 
 router.patch('/', requireAuth, async (req: AuthenticatedRequest, res) => {
   try {
@@ -123,7 +126,7 @@ router.patch('/', requireAuth, async (req: AuthenticatedRequest, res) => {
         }
 
         // Check role-based permissions
-        if (req.userRole === 'loan_officer' && !LO_EDITABLE_FIELDS.has(key)) {
+        if ((req.userRole === 'loan_officer' || req.userRole === 'agent') && !RESTRICTED_EDITABLE_FIELDS.has(key)) {
           throw new Error(`Field not editable: ${key}`);
         }
 

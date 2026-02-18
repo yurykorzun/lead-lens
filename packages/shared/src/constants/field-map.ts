@@ -16,6 +16,7 @@ export const FIELD_MAP = {
   maratBdr: 'Marat_BDR__c',
   leadSource: 'LeadSource',
   isClient: 'Is_Client__c',
+  referredByText: 'MtgPlanner_CRM__Referred_By_Text__c',
 } as const;
 
 export type FrontendField = keyof typeof FIELD_MAP;

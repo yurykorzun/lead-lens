@@ -9,6 +9,7 @@ const CONTACT_FIELDS = [
   'Is_Client__c', 'MtgPlanner_CRM__Stage__c', 'MtgPlanner_CRM__Thank_you_to_Referral_Source__c',
   'BDR__c', 'Leon_BDR__c', 'Marat_BDR__c',
   'Loan_Partners__c', 'Leon_Loan_Partner__c', 'Marat__c',
+  'MtgPlanner_CRM__Referred_By_Text__c', 'Description',
   'RecordTypeId',
 ].join(', ');
 
@@ -36,6 +37,7 @@ function escapeSOQL(value: string): string {
 interface ContactQueryParams {
   sfField: string;
   sfValue: string;
+  role?: string;
   search?: string;
   status?: string;
   temperature?: string;
@@ -46,14 +48,30 @@ interface ContactQueryParams {
   orderBy?: string;
 }
 
+// LO contacts matched across all three partner fields
+const LO_PARTNER_FIELDS = ['Loan_Partners__c', 'Leon_Loan_Partner__c', 'Marat__c'];
+// Agent contacts matched by referred-by text or lead source
+const AGENT_SCOPE_FIELDS = ['MtgPlanner_CRM__Referred_By_Text__c', 'LeadSource'];
+
+function buildScopeCondition(role: string | undefined, sfField: string, sfValue: string): string {
+  const escaped = escapeSOQL(sfValue);
+  if (role === 'loan_officer') {
+    return `(${LO_PARTNER_FIELDS.map(f => `${f} = '${escaped}'`).join(' OR ')})`;
+  }
+  if (role === 'agent') {
+    return `(${AGENT_SCOPE_FIELDS.map(f => `${f} = '${escaped}'`).join(' OR ')})`;
+  }
+  return `${sfField} = '${escaped}'`;
+}
+
 export function buildContactQuery(params: ContactQueryParams): { dataQuery: string; countQuery: string } {
-  const { sfField, sfValue, search, status, temperature, dateFrom, dateTo } = params;
+  const { sfField, sfValue, role, search, status, temperature, dateFrom, dateTo } = params;
   const page = params.page || 1;
   const pageSize = Math.min(params.pageSize || 50, 200);
   const offset = (page - 1) * pageSize;
 
   const conditions: string[] = [];
-  conditions.push(`${sfField} = '${escapeSOQL(sfValue)}'`);
+  conditions.push(buildScopeCondition(role, sfField, sfValue));
 
   if (status) {
     conditions.push(`Status__c = '${escapeSOQL(status)}'`);

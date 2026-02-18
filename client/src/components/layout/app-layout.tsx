@@ -32,6 +32,14 @@ export function AppLayout({ children }: { children: ReactNode }) {
                 >
                   Manage LOs
                 </Link>
+                <Link
+                  to="/agents"
+                  className={`text-sm font-medium transition-colors ${
+                    location.pathname === '/agents' ? 'text-foreground' : 'text-muted-foreground hover:text-foreground'
+                  }`}
+                >
+                  Manage Agents
+                </Link>
               </nav>
             )}
           </div>
