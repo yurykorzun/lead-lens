@@ -40,6 +40,7 @@ export interface LoanOfficerListItem {
   status: string;
   createdAt: string;
   lastLoginAt?: string;
+  activeLeads?: number;
 }
 
 export interface RegenerateCodeResponse {
@@ -60,6 +61,7 @@ export interface AgentListItem {
   status: string;
   createdAt: string;
   lastLoginAt?: string;
+  activeLeads?: number;
 }
 
 export interface CreateAgentRequest {

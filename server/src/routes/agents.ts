@@ -5,6 +5,7 @@ import { getDb } from '../db/index.js';
 import { users } from '../db/schema.js';
 import { generateAccessCode, hashPassword } from '../services/auth.js';
 import { requireAuth, requireAdmin, type AuthenticatedRequest } from '../middleware/auth.js';
+import { countContactsForUsers } from '../services/salesforce/query.js';
 
 const router = Router();
 
@@ -44,6 +45,10 @@ router.get('/', async (req: AuthenticatedRequest, res) => {
         .where(baseConditions),
     ]);
 
+    // Fetch active leads count from Salesforce in parallel
+    const agentNames = agents.map(a => a.name ?? '').filter(Boolean);
+    const leadCounts = await countContactsForUsers(agentNames, 'agent', 'MtgPlanner_CRM__Referred_By_Text__c');
+
     res.json({
       success: true,
       data: {
@@ -52,6 +57,7 @@ router.get('/', async (req: AuthenticatedRequest, res) => {
           name: a.name ?? '',
           createdAt: a.createdAt?.toISOString() ?? '',
           lastLoginAt: a.lastLoginAt?.toISOString(),
+          activeLeads: leadCounts.get(a.name ?? '') ?? 0,
         })),
         total,
         page,

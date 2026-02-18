@@ -1,4 +1,5 @@
 import { useReactTable, getCoreRowModel, flexRender, type ColumnDef } from '@tanstack/react-table';
+import { Phone, Mail } from 'lucide-react';
 import type { ContactRow } from '@lead-lens/shared';
 import { cn } from '@/lib/utils';
 
@@ -17,7 +18,7 @@ function SkeletonRows({ columns }: { columns: number }) {
     <>
       {Array.from({ length: 10 }).map((_, i) => (
         <tr key={i} className={cn('border-b', i % 2 === 1 && 'bg-slate-50/50')}>
-          {Array.from({ length: columns }).map((_, j) => (
+          {Array.from({ length: columns + 1 }).map((_, j) => (
             <td key={j} className="px-3 py-3">
               <div className="h-4 animate-pulse rounded bg-slate-200" style={{ width: `${50 + Math.random() * 40}%` }} />
             </td>
@@ -25,6 +26,36 @@ function SkeletonRows({ columns }: { columns: number }) {
         </tr>
       ))}
     </>
+  );
+}
+
+function InlineActions({ contact }: { contact: ContactRow }) {
+  const phone = contact.phone || contact.mobilePhone;
+  const email = contact.email;
+
+  return (
+    <div className="flex items-center gap-1 opacity-0 transition-opacity group-hover:opacity-100">
+      {phone && (
+        <a
+          href={`tel:${phone}`}
+          onClick={e => e.stopPropagation()}
+          className="rounded p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-700"
+          title={`Call ${phone}`}
+        >
+          <Phone className="h-3.5 w-3.5" />
+        </a>
+      )}
+      {email && (
+        <a
+          href={`mailto:${email}`}
+          onClick={e => e.stopPropagation()}
+          className="rounded p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-700"
+          title={`Email ${email}`}
+        >
+          <Mail className="h-3.5 w-3.5" />
+        </a>
+      )}
+    </div>
   );
 }
 
@@ -59,6 +90,7 @@ export function ContactGrid({ data, columns, onRowClick, selectedId, className, 
                   </th>
                 );
               })}
+              <th className="w-16 px-2 py-2.5" />
             </tr>
           ))}
         </thead>
@@ -67,7 +99,7 @@ export function ContactGrid({ data, columns, onRowClick, selectedId, className, 
             <SkeletonRows columns={columns.length} />
           ) : table.getRowModel().rows.length === 0 ? (
             <tr>
-              <td colSpan={columns.length} className="px-3 py-12 text-center">
+              <td colSpan={columns.length + 1} className="px-3 py-12 text-center">
                 <p className="text-sm text-slate-500">No contacts match your filters.</p>
               </td>
             </tr>
@@ -110,6 +142,9 @@ export function ContactGrid({ data, columns, onRowClick, selectedId, className, 
                       </td>
                     );
                   })}
+                  <td className="px-2 py-2.5">
+                    <InlineActions contact={row.original} />
+                  </td>
                 </tr>
               );
             })

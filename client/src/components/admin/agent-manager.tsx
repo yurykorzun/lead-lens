@@ -132,6 +132,7 @@ export function AgentManager() {
             <tr className="border-b bg-muted/60">
               <th className="px-3 py-2 text-left text-xs font-medium uppercase tracking-wider text-muted-foreground">Name</th>
               <th className="px-3 py-2 text-left text-xs font-medium uppercase tracking-wider text-muted-foreground">Email</th>
+              <th className="px-3 py-2 text-left text-xs font-medium uppercase tracking-wider text-muted-foreground">Leads</th>
               <th className="px-3 py-2 text-left text-xs font-medium uppercase tracking-wider text-muted-foreground">Status</th>
               <th className="px-3 py-2 text-left text-xs font-medium uppercase tracking-wider text-muted-foreground">Created</th>
               <th className="px-3 py-2 text-left text-xs font-medium uppercase tracking-wider text-muted-foreground">Last Login</th>
@@ -141,11 +142,11 @@ export function AgentManager() {
           <tbody>
             {isLoading ? (
               <tr>
-                <td colSpan={6} className="px-3 py-8 text-center text-muted-foreground">Loading agents...</td>
+                <td colSpan={7} className="px-3 py-8 text-center text-muted-foreground">Loading agents...</td>
               </tr>
             ) : agents.length === 0 ? (
               <tr>
-                <td colSpan={6} className="px-3 py-8 text-center text-muted-foreground">
+                <td colSpan={7} className="px-3 py-8 text-center text-muted-foreground">
                   {debouncedSearch ? 'No agents match your search.' : 'No agents yet. Add one to get started.'}
                 </td>
               </tr>
@@ -154,6 +155,7 @@ export function AgentManager() {
                 <tr key={a.id} className="border-b transition-colors hover:bg-muted/50">
                   <td className="px-3 py-2 font-medium">{a.name}</td>
                   <td className="px-3 py-2">{a.email}</td>
+                  <td className="px-3 py-2 tabular-nums">{a.activeLeads?.toLocaleString() ?? '—'}</td>
                   <td className="px-3 py-2">
                     <Badge variant="outline" className={a.status === 'active' ? 'bg-green-100 text-green-800 border-green-200' : 'bg-red-100 text-red-800 border-red-200'}>
                       {a.status}
