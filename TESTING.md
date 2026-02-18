@@ -5,7 +5,7 @@ Open the app at **https://lead-lens-topaz.vercel.app** (or http://localhost:5173
 ## 1. Log In as Admin
 
 - On the login screen, select the **Admin** tab
-- Email: `leon@leonbelov.com`
+- Email: `leon@leon-belov.com`
 - Password: `test1234`
 - Click **Sign in**
 - You should see the contacts table with your name in the top right

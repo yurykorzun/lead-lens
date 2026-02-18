@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { Save, X, Phone, Mail, User, Calendar } from 'lucide-react';
+import { Save, X, Phone, Mail, User, Calendar, ExternalLink } from 'lucide-react';
 import type { ContactRow } from '@lead-lens/shared';
 import { api } from '@/lib/api';
 import { Button } from '@/components/ui/button';
@@ -21,6 +21,8 @@ type FormState = Record<string, unknown>;
 
 const RESTRICTED_EDITABLE_FIELDS = new Set(['stage', 'status', 'temperature']);
 
+const SF_BASE_URL = 'https://leonbelov.my.salesforce.com';
+
 const EDITABLE_FIELDS: Array<{
   section: string;
   fields: Array<{
@@ -36,25 +38,12 @@ const EDITABLE_FIELDS: Array<{
       { key: 'status', label: 'Status', type: 'select', sfField: 'Status__c' },
       { key: 'temperature', label: 'Temperature', type: 'select', sfField: 'Temparture__c' },
       { key: 'stage', label: 'Stage', type: 'select', sfField: 'MtgPlanner_CRM__Stage__c' },
-      { key: 'noOfCalls', label: '# Calls', type: 'select', sfField: 'No_of_Calls__c' },
-    ],
-  },
-  {
-    section: 'Flags',
-    fields: [
-      { key: 'hotLead', label: 'Hot Lead', type: 'checkbox' },
-      { key: 'paal', label: 'PAAL', type: 'checkbox' },
-      { key: 'inProcess', label: 'In Process', type: 'checkbox' },
-      { key: 'thankYouToReferralSource', label: 'Thank You to Referral Source', type: 'checkbox' },
     ],
   },
   {
     section: 'Details',
     fields: [
       { key: 'message', label: 'Message', type: 'textarea' },
-      { key: 'leadSource', label: 'Lead Source', type: 'select', sfField: 'LeadSource' },
-      { key: 'bdr', label: 'BDR', type: 'select', sfField: 'BDR__c' },
-      { key: 'loanPartner', label: 'Loan Partner', type: 'select', sfField: 'Loan_Partners__c' },
     ],
   },
 ];
@@ -159,7 +148,18 @@ export function ContactDetailPanel({
       {/* Header */}
       <div className="flex items-start justify-between px-5 pt-5 pb-3">
         <div className="min-w-0 flex-1">
-          <h2 className="truncate text-lg font-semibold">{contact.name}</h2>
+          <div className="flex items-center gap-2">
+            <h2 className="truncate text-lg font-semibold">{contact.name}</h2>
+            <a
+              href={`${SF_BASE_URL}/${contact.id}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="shrink-0 text-muted-foreground hover:text-foreground"
+              title="Open in Salesforce"
+            >
+              <ExternalLink className="h-4 w-4" />
+            </a>
+          </div>
           <div className="mt-1.5 flex flex-wrap gap-x-4 gap-y-1 text-sm text-muted-foreground">
             {contact.email && (
               <span className="inline-flex items-center gap-1.5">
