@@ -55,8 +55,6 @@ export default function DashboardPage() {
 
           {error ? (
             <p className="text-red-600">Error loading contacts: {error.message}</p>
-          ) : isLoading ? (
-            <p className="text-muted-foreground">Loading contacts...</p>
           ) : (
             <>
               <ContactGrid
@@ -65,6 +63,7 @@ export default function DashboardPage() {
                 onRowClick={(c: ContactRow) => setSelectedId(c.id)}
                 selectedId={selectedId ?? undefined}
                 className="min-h-0 flex-1"
+                isLoading={isLoading}
               />
               {pagination && pagination.totalPages > 1 && (
                 <div className="flex shrink-0 items-center justify-between rounded-lg border p-3">
