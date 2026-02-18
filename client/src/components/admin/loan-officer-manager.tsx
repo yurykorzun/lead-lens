@@ -136,6 +136,7 @@ export function LoanOfficerManager() {
             <tr className="border-b bg-muted/60">
               <th className="px-3 py-2 text-left text-xs font-medium uppercase tracking-wider text-muted-foreground">Name</th>
               <th className="px-3 py-2 text-left text-xs font-medium uppercase tracking-wider text-muted-foreground">Email</th>
+              <th className="px-3 py-2 text-left text-xs font-medium uppercase tracking-wider text-muted-foreground">Leads</th>
               <th className="px-3 py-2 text-left text-xs font-medium uppercase tracking-wider text-muted-foreground">Status</th>
               <th className="px-3 py-2 text-left text-xs font-medium uppercase tracking-wider text-muted-foreground">Created</th>
               <th className="px-3 py-2 text-left text-xs font-medium uppercase tracking-wider text-muted-foreground">Last Login</th>
@@ -145,13 +146,13 @@ export function LoanOfficerManager() {
           <tbody>
             {isLoading ? (
               <tr>
-                <td colSpan={6} className="px-3 py-8 text-center text-muted-foreground">
+                <td colSpan={7} className="px-3 py-8 text-center text-muted-foreground">
                   Loading loan officers...
                 </td>
               </tr>
             ) : loanOfficers.length === 0 ? (
               <tr>
-                <td colSpan={6} className="px-3 py-8 text-center text-muted-foreground">
+                <td colSpan={7} className="px-3 py-8 text-center text-muted-foreground">
                   {debouncedSearch ? 'No loan officers match your search.' : 'No loan officers yet. Add one to get started.'}
                 </td>
               </tr>
@@ -160,6 +161,7 @@ export function LoanOfficerManager() {
                 <tr key={lo.id} className="border-b transition-colors hover:bg-muted/50">
                   <td className="px-3 py-2 font-medium">{lo.name}</td>
                   <td className="px-3 py-2">{lo.email}</td>
+                  <td className="px-3 py-2 tabular-nums">{lo.activeLeads?.toLocaleString() ?? '—'}</td>
                   <td className="px-3 py-2">
                     <Badge
                       variant="outline"

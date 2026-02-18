@@ -84,6 +84,33 @@ export async function verifyContactScope(
   return new Set(result.records.map(r => r.Id as string));
 }
 
+/**
+ * Count contacts in scope for multiple users in parallel.
+ * Returns a map of sfValue (name) → count.
+ */
+export async function countContactsForUsers(
+  userNames: string[],
+  role: 'loan_officer' | 'agent',
+  sfField: string,
+): Promise<Map<string, number>> {
+  if (userNames.length === 0) return new Map();
+
+  const counts = await Promise.all(
+    userNames.map(async (name) => {
+      const condition = buildScopeCondition(role, sfField, name);
+      const soql = `SELECT COUNT() FROM Contact WHERE ${condition}`;
+      try {
+        const result = await executeSoql(soql);
+        return [name, result.totalSize] as const;
+      } catch {
+        return [name, 0] as const;
+      }
+    }),
+  );
+
+  return new Map(counts);
+}
+
 export function buildContactQuery(params: ContactQueryParams): { dataQuery: string; countQuery: string } {
   const { sfField, sfValue, role, search, status, temperature, dateFrom, dateTo } = params;
   const page = params.page || 1;
