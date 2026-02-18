@@ -111,7 +111,14 @@ export function LoanOfficerManager() {
         <Button onClick={() => setShowCreate(true)}>Add Loan Officer</Button>
       </div>
 
-      {/* Search */}
+      <p className="text-sm text-muted-foreground">
+        Contacts are matched by the loan officer's <strong>name</strong> across three Salesforce fields:{' '}
+        <span className="font-mono text-xs">Loan_Partners__c</span>,{' '}
+        <span className="font-mono text-xs">Leon_Loan_Partner__c</span>, and{' '}
+        <span className="font-mono text-xs">Marat__c</span>.
+        The name entered here must match exactly how it appears in Salesforce.
+      </p>
+
       <div className="relative max-w-sm">
         <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
         <Input

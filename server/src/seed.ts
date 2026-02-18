@@ -21,12 +21,12 @@ async function seed() {
   const [leon] = await db
     .select()
     .from(schema.users)
-    .where(eq(schema.users.email, 'leon@leonbelov.com'));
+    .where(eq(schema.users.email, 'leon@leon-belov.com'));
 
   if (leon) {
     await db.update(schema.users)
       .set({ role: 'admin', name: 'Leon Belov', sfField: 'Owner.Name', sfValue: 'Leon Belov' })
-      .where(eq(schema.users.email, 'leon@leonbelov.com'));
+      .where(eq(schema.users.email, 'leon@leon-belov.com'));
     console.log('Updated Leon → admin');
   }
 

@@ -110,6 +110,13 @@ export function AgentManager() {
         <Button onClick={() => setShowCreate(true)}>Add Agent</Button>
       </div>
 
+      <p className="text-sm text-muted-foreground">
+        Contacts are matched by the agent's <strong>name</strong> across two Salesforce fields:{' '}
+        <span className="font-mono text-xs">Referred_By_Text</span> and{' '}
+        <span className="font-mono text-xs">LeadSource</span>.
+        The name entered here must match exactly how it appears in Salesforce.
+      </p>
+
       <div className="relative max-w-sm">
         <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
         <Input
