@@ -9,7 +9,7 @@ const CONTACT_FIELDS = [
   'Is_Client__c', 'MtgPlanner_CRM__Stage__c', 'MtgPlanner_CRM__Thank_you_to_Referral_Source__c',
   'BDR__c', 'Leon_BDR__c', 'Marat_BDR__c',
   'Loan_Partners__c', 'Leon_Loan_Partner__c', 'Marat__c',
-  'MtgPlanner_CRM__Referred_By_Text__c', 'MtgPlanner_CRM__Last_Touch__c', 'Description',
+  'MtgPlanner_CRM__Referred_By_Text__c', 'MtgPlanner_CRM__Last_Touch__c', 'Last_Touch_via_360_SMS__c', 'Description',
   'RecordTypeId',
 ].join(', ');
 
