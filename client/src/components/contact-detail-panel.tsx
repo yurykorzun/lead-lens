@@ -318,22 +318,6 @@ export function ContactDetailPanel({
         </TabsContent>
 
         <TabsContent value="activity" className="mt-0 min-h-0 flex-1 overflow-y-auto px-5 py-4">
-          {(contact.lastTouch || contact.lastTouchSms) && (
-            <div className="mb-4 space-y-2">
-              {contact.lastTouch && (
-                <div className="rounded-lg border border-blue-200 bg-blue-50 p-3 dark:border-blue-900 dark:bg-blue-950">
-                  <p className="text-xs font-medium text-blue-700 dark:text-blue-300">Last Touch</p>
-                  <p className="mt-1 whitespace-pre-wrap text-sm">{contact.lastTouch}</p>
-                </div>
-              )}
-              {contact.lastTouchSms && (
-                <div className="rounded-lg border border-blue-200 bg-blue-50 p-3 dark:border-blue-900 dark:bg-blue-950">
-                  <p className="text-xs font-medium text-blue-700 dark:text-blue-300">Last Touch (360 SMS)</p>
-                  <p className="mt-1 whitespace-pre-wrap text-sm">{contact.lastTouchSms}</p>
-                </div>
-              )}
-            </div>
-          )}
           <ActivityTab contactId={contact.id} />
         </TabsContent>
 
