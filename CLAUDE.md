@@ -16,7 +16,7 @@ api/[...path].ts   → Vercel serverless entry point
 - **Backend**: Express, Drizzle ORM, Neon Postgres (serverless), JWT auth, bcryptjs
 - **Frontend**: React 19, Vite, TanStack Table + Query, shadcn/ui, Tailwind CSS v4
 - **Deployment**: Vercel (static frontend + serverless API functions)
-- **Production URL**: `https://lead-lens-topaz.vercel.app`
+- **Production URL**: `https://lead-lens-portal.vercel.app`
 
 ## User Roles
 

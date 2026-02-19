@@ -1,6 +1,6 @@
 # Lead Lens — How to Test
 
-Open the app at **https://lead-lens-topaz.vercel.app** (or http://localhost:5173 if running locally).
+Open the app at **https://lead-lens-portal.vercel.app** (or http://localhost:5173 if running locally).
 
 ## 1. Log In as Admin
 
