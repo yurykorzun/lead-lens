@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { MoreHorizontal, Pencil, Ban, CheckCircle, Search, ChevronLeft, ChevronRight } from 'lucide-react';
+import { MoreHorizontal, Pencil, Ban, CheckCircle, Trash2, Search, ChevronLeft, ChevronRight } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -100,11 +100,13 @@ export function AdminManager() {
   };
 
   const handleToggleStatus = async (id: string, currentStatus: string) => {
-    if (currentStatus === 'active') {
-      await deleteMutation.mutateAsync(id);
-    } else {
-      await updateMutation.mutateAsync({ id, data: { status: 'active' } });
-    }
+    const newStatus = currentStatus === 'active' ? 'disabled' : 'active';
+    await updateMutation.mutateAsync({ id, data: { status: newStatus } });
+  };
+
+  const handleDeleteAdmin = async (id: string, name: string) => {
+    if (!confirm(`Permanently delete admin "${name}"? This cannot be undone.`)) return;
+    await deleteMutation.mutateAsync(id);
   };
 
   return (
@@ -205,6 +207,12 @@ export function AdminManager() {
                               ) : (
                                 <><CheckCircle className="mr-2 h-4 w-4" /> Enable</>
                               )}
+                            </DropdownMenuItem>
+                            <DropdownMenuItem
+                              onClick={() => handleDeleteAdmin(admin.id, admin.name)}
+                              className="text-destructive focus:text-destructive"
+                            >
+                              <Trash2 className="mr-2 h-4 w-4" /> Delete
                             </DropdownMenuItem>
                           </>
                         )}

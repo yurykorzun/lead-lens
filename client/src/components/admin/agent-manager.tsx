@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { MoreHorizontal, Pencil, KeyRound, Ban, CheckCircle, Search, ChevronLeft, ChevronRight } from 'lucide-react';
+import { MoreHorizontal, Pencil, KeyRound, Ban, CheckCircle, Trash2, Search, ChevronLeft, ChevronRight } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -110,11 +110,13 @@ export function AgentManager() {
   };
 
   const handleToggleStatus = async (id: string, currentStatus: string) => {
-    if (currentStatus === 'active') {
-      await deleteMutation.mutateAsync(id);
-    } else {
-      await updateMutation.mutateAsync({ id, data: { status: 'active' } });
-    }
+    const newStatus = currentStatus === 'active' ? 'disabled' : 'active';
+    await updateMutation.mutateAsync({ id, data: { status: newStatus } });
+  };
+
+  const handleDelete = async (id: string, name: string) => {
+    if (!confirm(`Permanently delete agent "${name}"? This cannot be undone.`)) return;
+    await deleteMutation.mutateAsync(id);
   };
 
   return (
@@ -192,6 +194,12 @@ export function AgentManager() {
                         <DropdownMenuSeparator />
                         <DropdownMenuItem onClick={() => handleToggleStatus(a.id, a.status)} className={a.status === 'active' ? 'text-destructive focus:text-destructive' : ''}>
                           {a.status === 'active' ? <><Ban className="mr-2 h-4 w-4" /> Disable</> : <><CheckCircle className="mr-2 h-4 w-4" /> Enable</>}
+                        </DropdownMenuItem>
+                        <DropdownMenuItem
+                          onClick={() => handleDelete(a.id, a.name)}
+                          className="text-destructive focus:text-destructive"
+                        >
+                          <Trash2 className="mr-2 h-4 w-4" /> Delete
                         </DropdownMenuItem>
                       </DropdownMenuContent>
                     </DropdownMenu>

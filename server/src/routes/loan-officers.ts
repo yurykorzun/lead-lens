@@ -2,7 +2,7 @@ import { Router } from 'express';
 import { eq, and, ne, or, ilike, count } from 'drizzle-orm';
 import type { CreateLoanOfficerRequest, UpdateLoanOfficerRequest } from '@lead-lens/shared';
 import { getDb } from '../db/index.js';
-import { users } from '../db/schema.js';
+import { users, auditLog } from '../db/schema.js';
 import { generateAccessCode, hashPassword } from '../services/auth.js';
 import { requireAuth, requireAdmin, type AuthenticatedRequest } from '../middleware/auth.js';
 import { countContactsForUsers } from '../services/salesforce/query.js';
@@ -90,14 +90,14 @@ router.post('/', async (req: AuthenticatedRequest, res) => {
 
     const db = getDb();
 
-    // Check if email already exists
+    // Check if email already exists for this role
     const [existing] = await db
       .select()
       .from(users)
-      .where(eq(users.email, email.toLowerCase()));
+      .where(and(eq(users.email, email.toLowerCase()), eq(users.role, 'loan_officer')));
 
     if (existing) {
-      res.status(409).json({ success: false, error: { code: 'EXISTS', message: 'A user with this email already exists' } });
+      res.status(409).json({ success: false, error: { code: 'EXISTS', message: 'A loan officer with this email already exists' } });
       return;
     }
 
@@ -162,15 +162,15 @@ router.patch('/:id', async (req: AuthenticatedRequest, res) => {
       return;
     }
 
-    // Check email uniqueness if changing
+    // Check email uniqueness within role if changing
     if (email && email.toLowerCase() !== existing.email) {
       const [emailConflict] = await db
         .select()
         .from(users)
-        .where(and(eq(users.email, email.toLowerCase()), ne(users.id, id)));
+        .where(and(eq(users.email, email.toLowerCase()), eq(users.role, 'loan_officer'), ne(users.id, id)));
 
       if (emailConflict) {
-        res.status(409).json({ success: false, error: { code: 'EXISTS', message: 'Email already in use' } });
+        res.status(409).json({ success: false, error: { code: 'EXISTS', message: 'Email already in use by another loan officer' } });
         return;
       }
     }
@@ -245,7 +245,7 @@ router.post('/:id/regenerate-code', async (req: AuthenticatedRequest, res) => {
   }
 });
 
-// DELETE /api/loan-officers/:id — soft delete (set status=disabled)
+// DELETE /api/loan-officers/:id — hard delete
 router.delete('/:id', async (req: AuthenticatedRequest, res) => {
   try {
     const id = req.params.id as string;
@@ -261,12 +261,17 @@ router.delete('/:id', async (req: AuthenticatedRequest, res) => {
       return;
     }
 
+    // Nullify audit_log FK before deleting
     await db
-      .update(users)
-      .set({ status: 'disabled' })
+      .update(auditLog)
+      .set({ userId: null })
+      .where(eq(auditLog.userId, id));
+
+    await db
+      .delete(users)
       .where(eq(users.id, id));
 
-    res.json({ success: true, data: { message: 'Loan officer disabled' } });
+    res.json({ success: true, data: { message: 'Loan officer deleted' } });
   } catch (err) {
     console.error('Delete LO error:', err);
     res.status(500).json({ success: false, error: { code: 'SERVER_ERROR', message: 'Internal server error' } });
