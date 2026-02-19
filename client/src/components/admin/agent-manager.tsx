@@ -64,12 +64,19 @@ export function AgentManager() {
 
   const handleCreate = async () => {
     setCreateError('');
+    const trimmedName = createName.trim();
+    const trimmedEmail = createEmail.trim().toLowerCase();
+
+    if (!trimmedName) { setCreateError('Name is required'); return; }
+    if (!trimmedEmail) { setCreateError('Email is required'); return; }
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmedEmail)) { setCreateError('Please enter a valid email address'); return; }
+
     try {
-      const res = await createMutation.mutateAsync({ name: createName, email: createEmail });
+      const res = await createMutation.mutateAsync({ name: trimmedName, email: trimmedEmail });
       setShowCreate(false);
       setCreateName('');
       setCreateEmail('');
-      setCodeModal({ name: createName, code: res.data.accessCode });
+      setCodeModal({ name: trimmedName, code: res.data.accessCode });
     } catch (err) {
       setCreateError(err instanceof Error ? err.message : 'Failed to create');
     }
@@ -78,8 +85,15 @@ export function AgentManager() {
   const handleEdit = async () => {
     if (!editId) return;
     setEditError('');
+    const trimmedName = editName.trim();
+    const trimmedEmail = editEmail.trim().toLowerCase();
+
+    if (!trimmedName) { setEditError('Name is required'); return; }
+    if (!trimmedEmail) { setEditError('Email is required'); return; }
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmedEmail)) { setEditError('Please enter a valid email address'); return; }
+
     try {
-      await updateMutation.mutateAsync({ id: editId, data: { name: editName, email: editEmail } });
+      await updateMutation.mutateAsync({ id: editId, data: { name: trimmedName, email: trimmedEmail } });
       setEditId(null);
     } catch (err) {
       setEditError(err instanceof Error ? err.message : 'Failed to update');
@@ -107,7 +121,7 @@ export function AgentManager() {
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <h2 className="text-lg font-semibold">Real Estate Agents</h2>
-        <Button onClick={() => setShowCreate(true)}>Add Agent</Button>
+        <Button onClick={() => { setShowCreate(true); setCreateName(''); setCreateEmail(''); setCreateError(''); }}>Add Agent</Button>
       </div>
 
       <p className="text-sm text-muted-foreground">
