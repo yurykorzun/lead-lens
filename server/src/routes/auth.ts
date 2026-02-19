@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { eq } from 'drizzle-orm';
+import { eq, and } from 'drizzle-orm';
 import type { LoginRequest } from '@lead-lens/shared';
 import { getDb } from '../db/index.js';
 import { users } from '../db/schema.js';
@@ -20,23 +20,32 @@ router.post('/login', async (req, res) => {
 
     const db = getDb();
 
-    const [user] = await db
+    // Same email can exist across roles, so find all matching users and try credentials
+    const matchingUsers = await db
       .select()
       .from(users)
       .where(eq(users.email, email.toLowerCase()));
 
-    if (!user) {
+    if (matchingUsers.length === 0) {
       res.status(401).json({ success: false, error: { code: 'INVALID_CREDENTIALS', message: 'Invalid credentials' } });
       return;
     }
 
-    if (user.status === 'disabled') {
-      res.status(403).json({ success: false, error: { code: 'DISABLED', message: 'Account disabled. Contact admin.' } });
-      return;
+    // Try each matching user (typically 1, possibly 2-3 if same email across roles)
+    let user = null;
+    for (const candidate of matchingUsers) {
+      if (candidate.status === 'disabled') continue;
+      const valid = await verifyPassword(credential, candidate.passwordHash);
+      if (valid) { user = candidate; break; }
     }
 
-    const valid = await verifyPassword(credential, user.passwordHash);
-    if (!valid) {
+    if (!user) {
+      // Check if all matches were disabled
+      const allDisabled = matchingUsers.every(u => u.status === 'disabled');
+      if (allDisabled) {
+        res.status(403).json({ success: false, error: { code: 'DISABLED', message: 'Account disabled. Contact admin.' } });
+        return;
+      }
       res.status(401).json({ success: false, error: { code: 'INVALID_CREDENTIALS', message: 'Invalid credentials' } });
       return;
     }

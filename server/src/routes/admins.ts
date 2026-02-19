@@ -2,7 +2,7 @@ import { Router } from 'express';
 import { eq, and, ne, or, ilike, count } from 'drizzle-orm';
 import type { CreateAdminRequest, UpdateAdminRequest } from '@lead-lens/shared';
 import { getDb } from '../db/index.js';
-import { users } from '../db/schema.js';
+import { users, auditLog } from '../db/schema.js';
 import { hashPassword } from '../services/auth.js';
 import { requireAuth, requireAdmin, type AuthenticatedRequest } from '../middleware/auth.js';
 
@@ -96,10 +96,10 @@ router.post('/', async (req: AuthenticatedRequest, res) => {
     const [existing] = await db
       .select()
       .from(users)
-      .where(eq(users.email, email));
+      .where(and(eq(users.email, email), eq(users.role, 'admin')));
 
     if (existing) {
-      res.status(409).json({ success: false, error: { code: 'EXISTS', message: 'A user with this email already exists' } });
+      res.status(409).json({ success: false, error: { code: 'EXISTS', message: 'An admin with this email already exists' } });
       return;
     }
 
@@ -164,10 +164,10 @@ router.patch('/:id', async (req: AuthenticatedRequest, res) => {
       const [emailConflict] = await db
         .select()
         .from(users)
-        .where(and(eq(users.email, email.toLowerCase()), ne(users.id, id)));
+        .where(and(eq(users.email, email.toLowerCase()), eq(users.role, 'admin'), ne(users.id, id)));
 
       if (emailConflict) {
-        res.status(409).json({ success: false, error: { code: 'EXISTS', message: 'Email already in use' } });
+        res.status(409).json({ success: false, error: { code: 'EXISTS', message: 'Email already in use by another admin' } });
         return;
       }
     }
@@ -209,14 +209,14 @@ router.patch('/:id', async (req: AuthenticatedRequest, res) => {
   }
 });
 
-// DELETE /api/admins/:id — soft delete (set status=disabled)
+// DELETE /api/admins/:id — hard delete
 router.delete('/:id', async (req: AuthenticatedRequest, res) => {
   try {
     const id = req.params.id as string;
 
-    // Prevent self-disable
+    // Prevent self-delete
     if (id === req.userId) {
-      res.status(400).json({ success: false, error: { code: 'VALIDATION', message: 'Cannot disable your own account' } });
+      res.status(400).json({ success: false, error: { code: 'VALIDATION', message: 'Cannot delete your own account' } });
       return;
     }
 
@@ -232,12 +232,17 @@ router.delete('/:id', async (req: AuthenticatedRequest, res) => {
       return;
     }
 
+    // Nullify audit_log FK before deleting
     await db
-      .update(users)
-      .set({ status: 'disabled' })
+      .update(auditLog)
+      .set({ userId: null })
+      .where(eq(auditLog.userId, id));
+
+    await db
+      .delete(users)
       .where(eq(users.id, id));
 
-    res.json({ success: true, data: { message: 'Admin disabled' } });
+    res.json({ success: true, data: { message: 'Admin deleted' } });
   } catch (err) {
     console.error('Delete admin error:', err);
     res.status(500).json({ success: false, error: { code: 'SERVER_ERROR', message: 'Internal server error' } });
