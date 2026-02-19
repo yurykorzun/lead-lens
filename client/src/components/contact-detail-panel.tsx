@@ -20,7 +20,7 @@ export interface ContactDetailPanelProps {
 
 type FormState = Record<string, unknown>;
 
-const RESTRICTED_EDITABLE_FIELDS = new Set(['stage', 'status', 'temperature']);
+const RESTRICTED_EDITABLE_FIELDS = new Set(['stage', 'status', 'temperature', 'lastTouch']);
 
 const SF_BASE_URL = 'https://leonbelov.my.salesforce.com';
 
@@ -39,6 +39,7 @@ const EDITABLE_FIELDS: Array<{
       { key: 'status', label: 'Status', type: 'select', sfField: 'Status__c' },
       { key: 'temperature', label: 'Temperature', type: 'select', sfField: 'Temparture__c' },
       { key: 'stage', label: 'Stage', type: 'select', sfField: 'MtgPlanner_CRM__Stage__c' },
+      { key: 'lastTouch', label: 'Last Touch', type: 'textarea' },
     ],
   },
   {
@@ -170,9 +171,14 @@ export function ContactDetailPanel({
                 <Mail className="h-3.5 w-3.5 shrink-0" /> {contact.email}
               </span>
             )}
-            {(contact.phone || contact.mobilePhone) && (
+            {contact.phone && (
               <span className="inline-flex items-center gap-1.5">
-                <Phone className="h-3.5 w-3.5 shrink-0" /> {contact.phone || contact.mobilePhone}
+                <Phone className="h-3.5 w-3.5 shrink-0" /> {contact.phone}
+              </span>
+            )}
+            {contact.mobilePhone && contact.mobilePhone !== contact.phone && (
+              <span className="inline-flex items-center gap-1.5">
+                <Phone className="h-3.5 w-3.5 shrink-0" /> {contact.mobilePhone}
               </span>
             )}
             {contact.ownerName && (

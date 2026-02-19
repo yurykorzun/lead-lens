@@ -81,3 +81,42 @@ export interface PaginatedAgentResponse {
   page: number;
   pageSize: number;
 }
+
+export interface AdminListItem {
+  id: string;
+  name: string;
+  email: string;
+  status: string;
+  sfField?: string;
+  sfValue?: string;
+  createdAt: string;
+  lastLoginAt?: string;
+}
+
+export interface CreateAdminRequest {
+  name: string;
+  email: string;
+  password: string;
+  sfField?: string;
+  sfValue?: string;
+}
+
+export interface UpdateAdminRequest {
+  name?: string;
+  email?: string;
+  status?: 'active' | 'disabled';
+  sfField?: string;
+  sfValue?: string;
+}
+
+export interface PaginatedAdminResponse {
+  items: AdminListItem[];
+  total: number;
+  page: number;
+  pageSize: number;
+}
+
+export interface ChangePasswordRequest {
+  currentPassword: string;
+  newPassword: string;
+}

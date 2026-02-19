@@ -3,7 +3,7 @@ import { eq } from 'drizzle-orm';
 import type { LoginRequest } from '@lead-lens/shared';
 import { getDb } from '../db/index.js';
 import { users } from '../db/schema.js';
-import { verifyPassword, createSessionToken } from '../services/auth.js';
+import { verifyPassword, hashPassword, createSessionToken } from '../services/auth.js';
 import { requireAuth, type AuthenticatedRequest } from '../middleware/auth.js';
 
 const router = Router();
@@ -109,6 +109,45 @@ router.get('/verify', requireAuth, async (req: AuthenticatedRequest, res) => {
     });
   } catch (err) {
     console.error('Verify error:', err);
+    res.status(500).json({ success: false, error: { code: 'SERVER_ERROR', message: 'Internal server error' } });
+  }
+});
+
+// PATCH /api/auth/password — change own password
+router.patch('/password', requireAuth, async (req: AuthenticatedRequest, res) => {
+  try {
+    const { currentPassword, newPassword } = req.body as { currentPassword: string; newPassword: string };
+
+    if (!currentPassword || !newPassword) {
+      res.status(400).json({ success: false, error: { code: 'VALIDATION', message: 'Current and new password required' } });
+      return;
+    }
+
+    if (newPassword.length < 6) {
+      res.status(400).json({ success: false, error: { code: 'VALIDATION', message: 'New password must be at least 6 characters' } });
+      return;
+    }
+
+    const db = getDb();
+    const [user] = await db.select().from(users).where(eq(users.id, req.userId!));
+
+    if (!user) {
+      res.status(401).json({ success: false, error: { code: 'UNAUTHORIZED', message: 'User not found' } });
+      return;
+    }
+
+    const valid = await verifyPassword(currentPassword, user.passwordHash);
+    if (!valid) {
+      res.status(401).json({ success: false, error: { code: 'INVALID_CREDENTIALS', message: 'Current password is incorrect' } });
+      return;
+    }
+
+    const newHash = await hashPassword(newPassword);
+    await db.update(users).set({ passwordHash: newHash }).where(eq(users.id, user.id));
+
+    res.json({ success: true, data: { message: 'Password changed' } });
+  } catch (err) {
+    console.error('Change password error:', err);
     res.status(500).json({ success: false, error: { code: 'SERVER_ERROR', message: 'Internal server error' } });
   }
 });
