@@ -74,10 +74,17 @@ router.get('/', async (req: AuthenticatedRequest, res) => {
 // POST /api/loan-officers — create loan officer
 router.post('/', async (req: AuthenticatedRequest, res) => {
   try {
-    const { name, email } = req.body as CreateLoanOfficerRequest;
+    const rawBody = req.body as CreateLoanOfficerRequest;
+    const name = rawBody.name?.trim();
+    const email = rawBody.email?.trim().toLowerCase();
 
     if (!name || !email) {
       res.status(400).json({ success: false, error: { code: 'VALIDATION', message: 'Name and email required' } });
+      return;
+    }
+
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      res.status(400).json({ success: false, error: { code: 'VALIDATION', message: 'Invalid email format' } });
       return;
     }
 
@@ -126,7 +133,8 @@ router.post('/', async (req: AuthenticatedRequest, res) => {
     });
   } catch (err) {
     console.error('Create LO error:', err);
-    res.status(500).json({ success: false, error: { code: 'SERVER_ERROR', message: 'Internal server error' } });
+    const message = err instanceof Error ? err.message : 'Failed to create loan officer';
+    res.status(500).json({ success: false, error: { code: 'SERVER_ERROR', message } });
   }
 });
 

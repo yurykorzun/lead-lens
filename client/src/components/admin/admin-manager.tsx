@@ -62,8 +62,16 @@ export function AdminManager() {
 
   const handleCreate = async () => {
     setCreateError('');
+    const trimmedName = createName.trim();
+    const trimmedEmail = createEmail.trim().toLowerCase();
+
+    if (!trimmedName) { setCreateError('Name is required'); return; }
+    if (!trimmedEmail) { setCreateError('Email is required'); return; }
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmedEmail)) { setCreateError('Please enter a valid email address'); return; }
+    if (createPassword.length < 6) { setCreateError('Password must be at least 6 characters'); return; }
+
     try {
-      await createMutation.mutateAsync({ name: createName, email: createEmail, password: createPassword });
+      await createMutation.mutateAsync({ name: trimmedName, email: trimmedEmail, password: createPassword });
       setShowCreate(false);
       setCreateName('');
       setCreateEmail('');
@@ -76,8 +84,15 @@ export function AdminManager() {
   const handleEdit = async () => {
     if (!editId) return;
     setEditError('');
+    const trimmedName = editName.trim();
+    const trimmedEmail = editEmail.trim().toLowerCase();
+
+    if (!trimmedName) { setEditError('Name is required'); return; }
+    if (!trimmedEmail) { setEditError('Email is required'); return; }
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmedEmail)) { setEditError('Please enter a valid email address'); return; }
+
     try {
-      await updateMutation.mutateAsync({ id: editId, data: { name: editName, email: editEmail } });
+      await updateMutation.mutateAsync({ id: editId, data: { name: trimmedName, email: trimmedEmail } });
       setEditId(null);
     } catch (err) {
       setEditError(err instanceof Error ? err.message : 'Failed to update');
@@ -96,7 +111,7 @@ export function AdminManager() {
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <h2 className="text-lg font-semibold">Admins</h2>
-        <Button onClick={() => setShowCreate(true)}>Add Admin</Button>
+        <Button onClick={() => { setShowCreate(true); setCreateName(''); setCreateEmail(''); setCreatePassword(''); setCreateError(''); }}>Add Admin</Button>
       </div>
 
       <div className="relative max-w-sm">
