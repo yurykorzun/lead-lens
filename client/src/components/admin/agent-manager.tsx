@@ -36,7 +36,7 @@ export function AgentManager() {
     return () => clearTimeout(timer);
   }, [search]);
 
-  const { data: response, isLoading, isFetching } = useAgents({
+  const { data: response, isPending, isFetching } = useAgents({
     page,
     pageSize: PAGE_SIZE,
     search: debouncedSearch,
@@ -156,7 +156,7 @@ export function AgentManager() {
             </tr>
           </thead>
           <tbody>
-            {isLoading ? (
+            {isPending ? (
               <tr>
                 <td colSpan={7} className="px-3 py-8 text-center text-muted-foreground">Loading agents...</td>
               </tr>

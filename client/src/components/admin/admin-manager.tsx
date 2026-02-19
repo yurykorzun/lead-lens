@@ -36,7 +36,7 @@ export function AdminManager() {
     return () => clearTimeout(timer);
   }, [search]);
 
-  const { data: response, isLoading, isFetching } = useAdmins({
+  const { data: response, isPending, isFetching } = useAdmins({
     page,
     pageSize: PAGE_SIZE,
     search: debouncedSearch,
@@ -140,7 +140,7 @@ export function AdminManager() {
             </tr>
           </thead>
           <tbody>
-            {isLoading ? (
+            {isPending ? (
               <tr>
                 <td colSpan={7} className="px-3 py-8 text-center text-muted-foreground">
                   Loading admins...
