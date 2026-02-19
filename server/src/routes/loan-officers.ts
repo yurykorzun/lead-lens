@@ -133,6 +133,11 @@ router.post('/', async (req: AuthenticatedRequest, res) => {
     });
   } catch (err) {
     console.error('Create LO error:', err);
+    const pgErr = err as { code?: string };
+    if (pgErr.code === '23505') {
+      res.status(409).json({ success: false, error: { code: 'EXISTS', message: 'A user with this email already exists' } });
+      return;
+    }
     const message = err instanceof Error ? err.message : 'Failed to create loan officer';
     res.status(500).json({ success: false, error: { code: 'SERVER_ERROR', message } });
   }

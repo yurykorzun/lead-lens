@@ -71,10 +71,18 @@ router.get('/', async (req: AuthenticatedRequest, res) => {
 // POST /api/admins — create admin
 router.post('/', async (req: AuthenticatedRequest, res) => {
   try {
-    const { name, email, password, sfField, sfValue } = req.body as CreateAdminRequest;
+    const rawBody = req.body as CreateAdminRequest;
+    const name = rawBody.name?.trim();
+    const email = rawBody.email?.trim().toLowerCase();
+    const password = rawBody.password;
 
     if (!name || !email || !password) {
       res.status(400).json({ success: false, error: { code: 'VALIDATION', message: 'Name, email, and password required' } });
+      return;
+    }
+
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      res.status(400).json({ success: false, error: { code: 'VALIDATION', message: 'Invalid email format' } });
       return;
     }
 
@@ -88,7 +96,7 @@ router.post('/', async (req: AuthenticatedRequest, res) => {
     const [existing] = await db
       .select()
       .from(users)
-      .where(eq(users.email, email.toLowerCase()));
+      .where(eq(users.email, email));
 
     if (existing) {
       res.status(409).json({ success: false, error: { code: 'EXISTS', message: 'A user with this email already exists' } });
@@ -100,13 +108,13 @@ router.post('/', async (req: AuthenticatedRequest, res) => {
     const [user] = await db
       .insert(users)
       .values({
-        email: email.toLowerCase(),
+        email,
         name,
         passwordHash,
         role: 'admin',
         status: 'active',
-        sfField: sfField || null,
-        sfValue: sfValue || null,
+        sfField: rawBody.sfField?.trim() || null,
+        sfValue: rawBody.sfValue?.trim() || null,
       })
       .returning();
 
@@ -125,6 +133,11 @@ router.post('/', async (req: AuthenticatedRequest, res) => {
     });
   } catch (err) {
     console.error('Create admin error:', err);
+    const pgErr = err as { code?: string };
+    if (pgErr.code === '23505') {
+      res.status(409).json({ success: false, error: { code: 'EXISTS', message: 'A user with this email already exists' } });
+      return;
+    }
     res.status(500).json({ success: false, error: { code: 'SERVER_ERROR', message: 'Internal server error' } });
   }
 });
