@@ -1,10 +1,13 @@
 import type { SFSaveResult } from '@lead-lens/shared';
 import { getSalesforceToken } from './auth.js';
+import { mockBulkUpdate } from './mock.js';
 
 export async function bulkUpdate(
   sObjectType: string,
   records: Array<{ Id: string } & Record<string, unknown>>
 ): Promise<SFSaveResult[]> {
+  if (process.env.MOCK_SALESFORCE === 'true') return mockBulkUpdate(sObjectType, records);
+
   const { accessToken, instanceUrl } = await getSalesforceToken();
 
   const response = await fetch(

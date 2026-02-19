@@ -1,7 +1,10 @@
 import type { SFDescribeResult } from '@lead-lens/shared';
 import { getSalesforceToken } from './auth.js';
+import { mockDescribeObject } from './mock.js';
 
 export async function describeObject(sObjectType: string): Promise<SFDescribeResult> {
+  if (process.env.MOCK_SALESFORCE === 'true') return mockDescribeObject(sObjectType);
+
   const { accessToken, instanceUrl } = await getSalesforceToken();
 
   const response = await fetch(

@@ -1,3 +1,5 @@
+import type { PaginatedResponse } from './api.js';
+
 export interface User {
   id: string;
   email: string;
@@ -22,6 +24,36 @@ export interface Session {
   expiresAt: string;
 }
 
+// ── User list items ─────────────────────────────────────────────────
+
+export interface UserListItem {
+  id: string;
+  name: string;
+  email: string;
+  status: string;
+  createdAt: string;
+  lastLoginAt?: string;
+  activeLeads?: number;
+}
+
+export interface AdminListItem extends UserListItem {
+  sfField?: string;
+  sfValue?: string;
+}
+
+/** @deprecated Use UserListItem instead */
+export type LoanOfficerListItem = UserListItem;
+/** @deprecated Use UserListItem instead */
+export type AgentListItem = UserListItem;
+/** @deprecated Use PaginatedResponse<UserListItem> instead */
+export type PaginatedLoanOfficerResponse = PaginatedResponse<UserListItem>;
+/** @deprecated Use PaginatedResponse<UserListItem> instead */
+export type PaginatedAgentResponse = PaginatedResponse<UserListItem>;
+/** @deprecated Use PaginatedResponse<AdminListItem> instead */
+export type PaginatedAdminResponse = PaginatedResponse<AdminListItem>;
+
+// ── Loan Officer requests ───────────────────────────────────────────
+
 export interface CreateLoanOfficerRequest {
   name: string;
   email: string;
@@ -33,36 +65,11 @@ export interface UpdateLoanOfficerRequest {
   status?: 'active' | 'disabled';
 }
 
-export interface LoanOfficerListItem {
-  id: string;
-  name: string;
-  email: string;
-  status: string;
-  createdAt: string;
-  lastLoginAt?: string;
-  activeLeads?: number;
-}
-
 export interface RegenerateCodeResponse {
   accessCode: string;
 }
 
-export interface PaginatedLoanOfficerResponse {
-  items: LoanOfficerListItem[];
-  total: number;
-  page: number;
-  pageSize: number;
-}
-
-export interface AgentListItem {
-  id: string;
-  name: string;
-  email: string;
-  status: string;
-  createdAt: string;
-  lastLoginAt?: string;
-  activeLeads?: number;
-}
+// ── Agent requests ──────────────────────────────────────────────────
 
 export interface CreateAgentRequest {
   name: string;
@@ -75,23 +82,7 @@ export interface UpdateAgentRequest {
   status?: 'active' | 'disabled';
 }
 
-export interface PaginatedAgentResponse {
-  items: AgentListItem[];
-  total: number;
-  page: number;
-  pageSize: number;
-}
-
-export interface AdminListItem {
-  id: string;
-  name: string;
-  email: string;
-  status: string;
-  sfField?: string;
-  sfValue?: string;
-  createdAt: string;
-  lastLoginAt?: string;
-}
+// ── Admin requests ──────────────────────────────────────────────────
 
 export interface CreateAdminRequest {
   name: string;
@@ -107,13 +98,6 @@ export interface UpdateAdminRequest {
   status?: 'active' | 'disabled';
   sfField?: string;
   sfValue?: string;
-}
-
-export interface PaginatedAdminResponse {
-  items: AdminListItem[];
-  total: number;
-  page: number;
-  pageSize: number;
 }
 
 export interface ChangePasswordRequest {

@@ -1,5 +1,6 @@
 import type { SFQueryResponse } from '@lead-lens/shared';
 import { getSalesforceToken } from './auth.js';
+import { mockExecuteSoql, mockVerifyContactScope, mockCountContactsForUsers } from './mock.js';
 
 const CONTACT_FIELDS = [
   'Id', 'Name', 'FirstName', 'LastName', 'Email', 'Phone', 'MobilePhone',
@@ -16,6 +17,8 @@ const CONTACT_FIELDS = [
 export async function executeSoql<T = Record<string, unknown>>(
   soql: string
 ): Promise<SFQueryResponse<T>> {
+  if (process.env.MOCK_SALESFORCE === 'true') return mockExecuteSoql(soql);
+
   const { accessToken, instanceUrl } = await getSalesforceToken();
 
   const response = await fetch(
@@ -74,6 +77,7 @@ export async function verifyContactScope(
   sfField: string,
   sfValue: string,
 ): Promise<Set<string>> {
+  if (process.env.MOCK_SALESFORCE === 'true') return mockVerifyContactScope(ids);
   if (role === 'admin') return new Set(ids);
   if (ids.length === 0) return new Set();
 
@@ -93,6 +97,7 @@ export async function countContactsForUsers(
   role: 'loan_officer' | 'agent',
   sfField: string,
 ): Promise<Map<string, number>> {
+  if (process.env.MOCK_SALESFORCE === 'true') return mockCountContactsForUsers(userNames);
   if (userNames.length === 0) return new Map();
 
   const counts = await Promise.all(

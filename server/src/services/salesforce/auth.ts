@@ -1,8 +1,11 @@
 import type { SFTokenResponse } from '@lead-lens/shared';
+import { mockGetSalesforceToken } from './mock.js';
 
 let cachedToken: { accessToken: string; instanceUrl: string; expiresAt: number } | null = null;
 
 export async function getSalesforceToken(): Promise<{ accessToken: string; instanceUrl: string }> {
+  if (process.env.MOCK_SALESFORCE === 'true') return mockGetSalesforceToken();
+
   // Return cached token if still valid (with 5-min buffer)
   if (cachedToken && Date.now() < cachedToken.expiresAt - 300_000) {
     return { accessToken: cachedToken.accessToken, instanceUrl: cachedToken.instanceUrl };
