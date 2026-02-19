@@ -39,6 +39,7 @@ function mapSfToContact(record: Record<string, unknown>): ContactRow {
     isClient: record.Is_Client__c as boolean | undefined,
     referredByText: record.MtgPlanner_CRM__Referred_By_Text__c as string | undefined,
     lastTouch: record.MtgPlanner_CRM__Last_Touch__c as string | undefined,
+    lastTouchSms: record.Last_Touch_via_360_SMS__c as string | undefined,
     description: record.Description as string | undefined,
     ownerId: record.OwnerId as string | undefined,
     ownerName: owner?.Name as string | undefined,
@@ -100,7 +101,7 @@ router.get('/', requireAuth, async (req: AuthenticatedRequest, res) => {
 });
 
 // Editable fields for loan_officer and agent roles
-const RESTRICTED_EDITABLE_FIELDS = new Set(['stage', 'status', 'temperature', 'lastTouch']);
+const RESTRICTED_EDITABLE_FIELDS = new Set(['stage', 'status', 'temperature', 'lastTouch', 'lastTouchSms']);
 
 router.patch('/', requireAuth, async (req: AuthenticatedRequest, res) => {
   try {

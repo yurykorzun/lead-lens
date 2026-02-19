@@ -25,6 +25,7 @@ export interface ContactRow {
   isClient?: boolean;
   referredByText?: string;
   lastTouch?: string;
+  lastTouchSms?: string;
   description?: string;
   ownerId?: string;
   ownerName?: string;

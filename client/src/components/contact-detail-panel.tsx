@@ -20,7 +20,7 @@ export interface ContactDetailPanelProps {
 
 type FormState = Record<string, unknown>;
 
-const RESTRICTED_EDITABLE_FIELDS = new Set(['stage', 'status', 'temperature', 'lastTouch']);
+const RESTRICTED_EDITABLE_FIELDS = new Set(['stage', 'status', 'temperature', 'lastTouch', 'lastTouchSms']);
 
 const SF_BASE_URL = 'https://leonbelov.my.salesforce.com';
 
@@ -40,6 +40,7 @@ const EDITABLE_FIELDS: Array<{
       { key: 'temperature', label: 'Temperature', type: 'select', sfField: 'Temparture__c' },
       { key: 'stage', label: 'Stage', type: 'select', sfField: 'MtgPlanner_CRM__Stage__c' },
       { key: 'lastTouch', label: 'Last Touch', type: 'textarea' },
+      { key: 'lastTouchSms', label: 'Last Touch (360 SMS)', type: 'textarea' },
     ],
   },
   {
@@ -278,13 +279,15 @@ export function ContactDetailPanel({
                             <div key={f.key} className="space-y-1.5">
                               <Label className="text-xs font-medium text-muted-foreground">{f.label}</Label>
                               {editable ? (
-                                <Input
+                                <textarea
                                   value={(form[f.key] as string) ?? ''}
                                   onChange={e => setField(f.key, e.target.value || undefined)}
-                                  placeholder="Add a message..."
+                                  placeholder="Add a note..."
+                                  rows={3}
+                                  className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
                                 />
                               ) : (
-                                <p className="text-sm">{(form[f.key] as string) || '—'}</p>
+                                <p className="whitespace-pre-wrap text-sm">{(form[f.key] as string) || '—'}</p>
                               )}
                             </div>
                           );
@@ -315,10 +318,20 @@ export function ContactDetailPanel({
         </TabsContent>
 
         <TabsContent value="activity" className="mt-0 min-h-0 flex-1 overflow-y-auto px-5 py-4">
-          {contact.lastTouch && (
-            <div className="mb-4 rounded-lg border border-blue-200 bg-blue-50 p-3 dark:border-blue-900 dark:bg-blue-950">
-              <p className="text-xs font-medium text-blue-700 dark:text-blue-300">Last Touch</p>
-              <p className="mt-1 whitespace-pre-wrap text-sm">{contact.lastTouch}</p>
+          {(contact.lastTouch || contact.lastTouchSms) && (
+            <div className="mb-4 space-y-2">
+              {contact.lastTouch && (
+                <div className="rounded-lg border border-blue-200 bg-blue-50 p-3 dark:border-blue-900 dark:bg-blue-950">
+                  <p className="text-xs font-medium text-blue-700 dark:text-blue-300">Last Touch</p>
+                  <p className="mt-1 whitespace-pre-wrap text-sm">{contact.lastTouch}</p>
+                </div>
+              )}
+              {contact.lastTouchSms && (
+                <div className="rounded-lg border border-blue-200 bg-blue-50 p-3 dark:border-blue-900 dark:bg-blue-950">
+                  <p className="text-xs font-medium text-blue-700 dark:text-blue-300">Last Touch (360 SMS)</p>
+                  <p className="mt-1 whitespace-pre-wrap text-sm">{contact.lastTouchSms}</p>
+                </div>
+              )}
             </div>
           )}
           <ActivityTab contactId={contact.id} />
