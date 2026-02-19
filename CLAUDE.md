@@ -186,15 +186,40 @@ FRONTEND_URL            # CORS origin, e.g., http://localhost:5173
 | `client/src/pages/admin.tsx` | Admin panel page (LO management) |
 | `client/src/pages/agents.tsx` | Admin panel page (Agent management) |
 | `client/src/providers/auth-provider.tsx` | Auth context + token management |
-| `client/src/hooks/use-loan-officers.ts` | TanStack Query hooks for LO CRUD |
-| `client/src/hooks/use-agents.ts` | TanStack Query hooks for Agent CRUD |
+| `client/src/hooks/use-crud.ts` | Generic CRUD hook factory (list, create, update, delete, regenerate) |
+| `client/src/hooks/use-loan-officers.ts` | LO hooks (thin wrappers around use-crud) |
+| `client/src/hooks/use-agents.ts` | Agent hooks (thin wrappers around use-crud) |
+| `client/src/hooks/use-admins.ts` | Admin hooks (thin wrappers around use-crud + change password) |
+| `server/src/services/user-management.ts` | Shared utilities for user CRUD routes (pagination, validation, DB helpers) |
+| `server/src/services/salesforce/mock.ts` | Mock SF layer for staging/testing |
+| `server/src/staging.ts` | Staging server entry point (port 3002, mock SF, staging DB) |
+| `server/src/seed-staging.ts` | Seed staging DB with test users |
+| `e2e/staging/fixtures.ts` | Test credentials + login helpers for staging e2e |
+| `e2e/staging/global-setup.ts` | Staging DB reset before/after tests |
 
 ## Testing
 
-- **E2e tests must NEVER mutate production data.** Tests should verify UI behavior (fields appear, buttons enable/disable, navigation works) without clicking Save or calling write APIs. Use Cancel to close edit flows.
-- Run against production: `BASE_URL=https://lead-lens-topaz.vercel.app npm run test:e2e`
-- Run locally: `npm run dev` then `npm run test:e2e`
-- Playwright config: `playwright.config.ts`, tests in `e2e/`
+### Unit Tests (Vitest)
+- Framework: Vitest in both `server` and `packages/shared` workspaces
+- Run all: `npm test` (runs shared then server)
+- Run workspace: `npm test --workspace=server` or `npm test --workspace=packages/shared`
+- Watch mode: `npm run test:watch --workspace=server`
+- Test files: `src/__tests__/*.test.ts` in each workspace
+- Coverage: user-management utilities, field-map constants, SF mock layer
+
+### E2E Tests (Playwright — staging only)
+
+**NEVER run tests against production.** All e2e tests run against the local staging environment (mock SF + staging Neon branch). There are no production test scripts.
+
+- Start staging: `npm run staging` (server :3002 + client :5174)
+- Run tests: `npm run test:e2e` (auto-runs DB setup + teardown)
+- Config: `playwright.config.ts`, tests in `e2e/staging/`
+- Seed data: `npm run seed:staging` (3 test users: admin, LO, agent)
+- DB reset: `npm run reset:staging`
+- SF mocking: `MOCK_SALESFORCE=true` in staging server activates mock layer
+- Mock data: `server/src/services/salesforce/mock.ts` (8 fake contacts, tasks, history, picklists)
+- Test fixtures: `e2e/staging/fixtures.ts` (credentials + login helpers)
+- BaseURL is hardcoded to `http://localhost:5174` in playwright config — no env var override
 
 ## Rules for Updating This Project
 
@@ -235,5 +260,44 @@ FRONTEND_URL            # CORS origin, e.g., http://localhost:5173
 - `@/` path alias resolves to `client/src/`.
 - shadcn/ui components in `client/src/components/ui/`.
 - Contact detail panel uses tabs: Details (editable fields), Activity (SF Tasks + audit), History (ContactHistory).
-- Vite proxy: `/api` → `http://localhost:3001` (configured in `client/vite.config.ts`).
+- Vite proxy: `/api` → `http://localhost:3001` (configured in `client/vite.config.ts`). Configurable via `VITE_API_TARGET` env var.
 - Column definitions are split: `adminColumns`, `loanOfficerColumns`, and `agentColumns`.
+
+### Code Patterns & Guidance
+
+**Server route files** — User management routes (admins, loan-officers, agents) share utilities from `server/src/services/user-management.ts`:
+- Use `parsePagination`, `validateNameAndEmail`, `buildUserListConditions` for list/create handlers
+- Use `findUserByIdAndRole`, `checkEmailUniqueness`, `deleteUserWithAuditCleanup` for CRUD operations
+- Use `sendError` / `sendSuccess` for consistent response format
+- Use `isUniqueViolation` to handle Drizzle unique constraint errors
+- Express `req.params.id` is typed `string | string[]` — always cast with `as string`
+- Each route file defines `ROLE` and `SF_FIELD` constants at the top
+
+**Client hooks** — CRUD hooks use factory functions from `client/src/hooks/use-crud.ts`:
+- `useList<T>(endpoint, queryKey, params)` for paginated lists
+- `useCreate<TReq, TRes>(endpoint, queryKey)` for create mutations
+- `useUpdate<TReq>(endpoint, queryKey)` for update mutations
+- `useDelete(endpoint, queryKey)` for delete mutations
+- `useRegenerate(endpoint)` for access code regeneration
+- Each hook file is a thin wrapper that sets endpoint + queryKey
+
+**Shared types** — `packages/shared/src/types/auth.ts`:
+- `UserListItem` is the base type for LO/agent list items
+- `AdminListItem extends UserListItem` adds `sfField`/`sfValue`
+- `PaginatedResponse<T>` in `api.ts` is generic — use it instead of per-role paginated types
+- Legacy types (`LoanOfficerListItem`, `AgentListItem`, `PaginatedXResponse`) are kept as deprecated aliases
+
+**When adding a new user role**:
+1. Add role to CHECK constraint in `server/src/db/schema.ts` and `UserRole` type in `user-management.ts`
+2. Create route file following the pattern: define `ROLE`/`SF_FIELD` constants, import shared utilities
+3. Create client hook file: define `ENDPOINT`/`KEY`, wrap factory functions
+4. Add types to `packages/shared/src/types/auth.ts` (extend `UserListItem` if needed)
+5. Add unit tests in `server/src/__tests__/` for any new business logic
+6. Add staging e2e tests in `e2e/staging/` for the new CRUD flows
+
+**Testing guidelines**:
+- Pure functions (validation, formatting, field maps) → unit tests with Vitest
+- DB-dependent logic → test via staging e2e (mock SF + staging Neon branch)
+- New SF mock data → add to `server/src/services/salesforce/mock.ts`
+- Run `npm test` before committing to catch regressions
+- Run `npm run typecheck` to verify type safety across workspaces

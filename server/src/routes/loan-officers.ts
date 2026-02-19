@@ -1,280 +1,132 @@
 import { Router } from 'express';
-import { eq, and, ne, or, ilike, count } from 'drizzle-orm';
+import { eq, count } from 'drizzle-orm';
 import type { CreateLoanOfficerRequest, UpdateLoanOfficerRequest } from '@lead-lens/shared';
 import { getDb } from '../db/index.js';
-import { users, auditLog } from '../db/schema.js';
+import { users } from '../db/schema.js';
 import { generateAccessCode, hashPassword } from '../services/auth.js';
 import { requireAuth, requireAdmin, type AuthenticatedRequest } from '../middleware/auth.js';
 import { countContactsForUsers } from '../services/salesforce/query.js';
+import {
+  parsePagination, validateNameAndEmail, buildUserListConditions,
+  findUserByIdAndRole, checkEmailUniqueness, deleteUserWithAuditCleanup,
+  formatUserItem, isUniqueViolation, sendError, sendSuccess,
+} from '../services/user-management.js';
+
+const ROLE = 'loan_officer' as const;
+const SF_FIELD = 'Loan_Partners__c';
 
 const router = Router();
-
-// All routes require admin
 router.use(requireAuth, requireAdmin);
 
-// GET /api/loan-officers — list loan officers (paginated)
 router.get('/', async (req: AuthenticatedRequest, res) => {
   try {
     const db = getDb();
-    const page = Math.max(1, parseInt(req.query.page as string) || 1);
-    const pageSize = Math.min(100, Math.max(1, parseInt(req.query.pageSize as string) || 25));
-    const search = (req.query.search as string)?.trim() || '';
-    const offset = (page - 1) * pageSize;
-
-    const baseConditions = search
-      ? and(eq(users.role, 'loan_officer'), or(ilike(users.name, `%${search}%`), ilike(users.email, `%${search}%`)))
-      : eq(users.role, 'loan_officer');
+    const { page, pageSize, search, offset } = parsePagination(req.query as Record<string, unknown>);
+    const conditions = buildUserListConditions(ROLE, search);
 
     const [los, [{ total }]] = await Promise.all([
-      db
-        .select({
-          id: users.id,
-          name: users.name,
-          email: users.email,
-          status: users.status,
-          createdAt: users.createdAt,
-          lastLoginAt: users.lastLoginAt,
-        })
-        .from(users)
-        .where(baseConditions)
-        .orderBy(users.name)
-        .limit(pageSize)
-        .offset(offset),
-      db
-        .select({ total: count() })
-        .from(users)
-        .where(baseConditions),
+      db.select({ id: users.id, name: users.name, email: users.email, status: users.status, createdAt: users.createdAt, lastLoginAt: users.lastLoginAt })
+        .from(users).where(conditions).orderBy(users.name).limit(pageSize).offset(offset),
+      db.select({ total: count() }).from(users).where(conditions),
     ]);
 
-    // Fetch active leads count from Salesforce in parallel
     const loNames = los.map(lo => lo.name ?? '').filter(Boolean);
-    const leadCounts = await countContactsForUsers(loNames, 'loan_officer', 'Loan_Partners__c');
+    const leadCounts = await countContactsForUsers(loNames, ROLE, SF_FIELD);
 
-    res.json({
-      success: true,
-      data: {
-        items: los.map(lo => ({
-          ...lo,
-          name: lo.name ?? '',
-          createdAt: lo.createdAt?.toISOString() ?? '',
-          lastLoginAt: lo.lastLoginAt?.toISOString(),
-          activeLeads: leadCounts.get(lo.name ?? '') ?? 0,
-        })),
-        total,
-        page,
-        pageSize,
-      },
+    sendSuccess(res, {
+      items: los.map(lo => ({ ...formatUserItem(lo), activeLeads: leadCounts.get(lo.name ?? '') ?? 0 })),
+      total, page, pageSize,
     });
   } catch (err) {
     console.error('List LOs error:', err);
-    res.status(500).json({ success: false, error: { code: 'SERVER_ERROR', message: 'Internal server error' } });
+    sendError(res, 500, 'SERVER_ERROR', 'Internal server error');
   }
 });
 
-// POST /api/loan-officers — create loan officer
 router.post('/', async (req: AuthenticatedRequest, res) => {
   try {
-    const rawBody = req.body as CreateLoanOfficerRequest;
-    const name = rawBody.name?.trim();
-    const email = rawBody.email?.trim().toLowerCase();
+    const raw = req.body as CreateLoanOfficerRequest;
+    const validated = validateNameAndEmail(raw.name, raw.email);
+    if (typeof validated === 'string') { sendError(res, 400, 'VALIDATION', validated); return; }
 
-    if (!name || !email) {
-      res.status(400).json({ success: false, error: { code: 'VALIDATION', message: 'Name and email required' } });
-      return;
-    }
-
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-      res.status(400).json({ success: false, error: { code: 'VALIDATION', message: 'Invalid email format' } });
-      return;
-    }
-
-    const db = getDb();
-
-    // Check if email already exists for this role
-    const [existing] = await db
-      .select()
-      .from(users)
-      .where(and(eq(users.email, email.toLowerCase()), eq(users.role, 'loan_officer')));
-
-    if (existing) {
-      res.status(409).json({ success: false, error: { code: 'EXISTS', message: 'A loan officer with this email already exists' } });
-      return;
-    }
+    const { name, email } = validated;
+    const existing = await checkEmailUniqueness(email, ROLE);
+    if (existing) { sendError(res, 409, 'EXISTS', 'A loan officer with this email already exists'); return; }
 
     const accessCode = generateAccessCode();
     const passwordHash = await hashPassword(accessCode);
+    const db = getDb();
 
-    const [user] = await db
-      .insert(users)
-      .values({
-        email: email.toLowerCase(),
-        name,
-        passwordHash,
-        role: 'loan_officer',
-        status: 'active',
-        sfField: 'Loan_Partners__c',
-        sfValue: name,
-      })
-      .returning();
+    const [user] = await db.insert(users).values({
+      email, name, passwordHash, role: ROLE, status: 'active', sfField: SF_FIELD, sfValue: name,
+    }).returning();
 
-    res.json({
-      success: true,
-      data: {
-        user: {
-          id: user.id,
-          name: user.name,
-          email: user.email,
-          status: user.status,
-          createdAt: user.createdAt?.toISOString() ?? '',
-          lastLoginAt: user.lastLoginAt?.toISOString(),
-        },
-        accessCode,
-      },
-    });
+    sendSuccess(res, { user: formatUserItem(user), accessCode });
   } catch (err) {
-    const cause = err instanceof Error ? (err.cause as { code?: string; message?: string }) : undefined;
-    console.error('Create LO error:', { message: (err as Error).message, causeCode: cause?.code, causeMessage: cause?.message });
-    if (cause?.code === '23505') {
-      res.status(409).json({ success: false, error: { code: 'EXISTS', message: 'A user with this email already exists' } });
-      return;
-    }
-    const message = cause?.message || (err instanceof Error ? err.message : 'Failed to create loan officer');
-    res.status(500).json({ success: false, error: { code: 'SERVER_ERROR', message } });
+    console.error('Create LO error:', err);
+    if (isUniqueViolation(err)) { sendError(res, 409, 'EXISTS', 'A user with this email already exists'); return; }
+    sendError(res, 500, 'SERVER_ERROR', 'Internal server error');
   }
 });
 
-// PATCH /api/loan-officers/:id — update loan officer
 router.patch('/:id', async (req: AuthenticatedRequest, res) => {
   try {
     const id = req.params.id as string;
     const { name, email, status } = req.body as UpdateLoanOfficerRequest;
 
-    const db = getDb();
+    const existing = await findUserByIdAndRole(id, ROLE);
+    if (!existing) { sendError(res, 404, 'NOT_FOUND', 'Loan officer not found'); return; }
 
-    // Verify the user exists and is a loan officer
-    const [existing] = await db
-      .select()
-      .from(users)
-      .where(and(eq(users.id, id), eq(users.role, 'loan_officer')));
-
-    if (!existing) {
-      res.status(404).json({ success: false, error: { code: 'NOT_FOUND', message: 'Loan officer not found' } });
-      return;
-    }
-
-    // Check email uniqueness within role if changing
     if (email && email.toLowerCase() !== existing.email) {
-      const [emailConflict] = await db
-        .select()
-        .from(users)
-        .where(and(eq(users.email, email.toLowerCase()), eq(users.role, 'loan_officer'), ne(users.id, id)));
-
-      if (emailConflict) {
-        res.status(409).json({ success: false, error: { code: 'EXISTS', message: 'Email already in use by another loan officer' } });
-        return;
-      }
+      const conflict = await checkEmailUniqueness(email, ROLE, id);
+      if (conflict) { sendError(res, 409, 'EXISTS', 'Email already in use by another loan officer'); return; }
     }
 
     const updates: Record<string, unknown> = {};
-    if (name !== undefined) {
-      updates.name = name;
-      updates.sfValue = name; // Keep sfValue in sync with name
-    }
+    if (name !== undefined) { updates.name = name; updates.sfValue = name; }
     if (email !== undefined) updates.email = email.toLowerCase();
     if (status !== undefined) updates.status = status;
 
-    if (Object.keys(updates).length === 0) {
-      res.status(400).json({ success: false, error: { code: 'VALIDATION', message: 'No fields to update' } });
-      return;
-    }
+    if (Object.keys(updates).length === 0) { sendError(res, 400, 'VALIDATION', 'No fields to update'); return; }
 
-    const [updated] = await db
-      .update(users)
-      .set(updates)
-      .where(eq(users.id, id))
-      .returning();
-
-    res.json({
-      success: true,
-      data: {
-        id: updated.id,
-        name: updated.name ?? '',
-        email: updated.email,
-        status: updated.status,
-        createdAt: updated.createdAt?.toISOString() ?? '',
-        lastLoginAt: updated.lastLoginAt?.toISOString(),
-      },
-    });
+    const db = getDb();
+    const [updated] = await db.update(users).set(updates).where(eq(users.id, id)).returning();
+    sendSuccess(res, formatUserItem(updated));
   } catch (err) {
     console.error('Update LO error:', err);
-    res.status(500).json({ success: false, error: { code: 'SERVER_ERROR', message: 'Internal server error' } });
+    sendError(res, 500, 'SERVER_ERROR', 'Internal server error');
   }
 });
 
-// POST /api/loan-officers/:id/regenerate-code — generate new access code
 router.post('/:id/regenerate-code', async (req: AuthenticatedRequest, res) => {
   try {
     const id = req.params.id as string;
-    const db = getDb();
-
-    const [existing] = await db
-      .select()
-      .from(users)
-      .where(and(eq(users.id, id), eq(users.role, 'loan_officer')));
-
-    if (!existing) {
-      res.status(404).json({ success: false, error: { code: 'NOT_FOUND', message: 'Loan officer not found' } });
-      return;
-    }
+    const existing = await findUserByIdAndRole(id, ROLE);
+    if (!existing) { sendError(res, 404, 'NOT_FOUND', 'Loan officer not found'); return; }
 
     const accessCode = generateAccessCode();
     const passwordHash = await hashPassword(accessCode);
+    const db = getDb();
+    await db.update(users).set({ passwordHash }).where(eq(users.id, id));
 
-    await db
-      .update(users)
-      .set({ passwordHash })
-      .where(eq(users.id, id));
-
-    res.json({
-      success: true,
-      data: { accessCode },
-    });
+    sendSuccess(res, { accessCode });
   } catch (err) {
     console.error('Regenerate code error:', err);
-    res.status(500).json({ success: false, error: { code: 'SERVER_ERROR', message: 'Internal server error' } });
+    sendError(res, 500, 'SERVER_ERROR', 'Internal server error');
   }
 });
 
-// DELETE /api/loan-officers/:id — hard delete
 router.delete('/:id', async (req: AuthenticatedRequest, res) => {
   try {
     const id = req.params.id as string;
-    const db = getDb();
+    const existing = await findUserByIdAndRole(id, ROLE);
+    if (!existing) { sendError(res, 404, 'NOT_FOUND', 'Loan officer not found'); return; }
 
-    const [existing] = await db
-      .select()
-      .from(users)
-      .where(and(eq(users.id, id), eq(users.role, 'loan_officer')));
-
-    if (!existing) {
-      res.status(404).json({ success: false, error: { code: 'NOT_FOUND', message: 'Loan officer not found' } });
-      return;
-    }
-
-    // Nullify audit_log FK before deleting
-    await db
-      .update(auditLog)
-      .set({ userId: null })
-      .where(eq(auditLog.userId, id));
-
-    await db
-      .delete(users)
-      .where(eq(users.id, id));
-
-    res.json({ success: true, data: { message: 'Loan officer deleted' } });
+    await deleteUserWithAuditCleanup(id);
+    sendSuccess(res, { message: 'Loan officer deleted' });
   } catch (err) {
     console.error('Delete LO error:', err);
-    res.status(500).json({ success: false, error: { code: 'SERVER_ERROR', message: 'Internal server error' } });
+    sendError(res, 500, 'SERVER_ERROR', 'Internal server error');
   }
 });
 

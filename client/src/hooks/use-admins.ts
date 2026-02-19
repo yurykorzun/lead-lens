@@ -1,70 +1,27 @@
-import { useQuery, useMutation, useQueryClient, keepPreviousData } from '@tanstack/react-query';
-import type { AdminListItem, PaginatedAdminResponse, CreateAdminRequest, UpdateAdminRequest } from '@lead-lens/shared';
+import { useMutation } from '@tanstack/react-query';
+import type { AdminListItem, CreateAdminRequest, UpdateAdminRequest } from '@lead-lens/shared';
 import { api } from '@/lib/api';
+import { useList, useCreate, useUpdate, useDelete, type UseListParams } from './use-crud';
 
-interface AdminListResponse {
-  success: boolean;
-  data: PaginatedAdminResponse;
-}
+const ENDPOINT = '/admins';
+const KEY = 'admins';
 
-interface CreateAdminResponse {
-  success: boolean;
-  data: AdminListItem;
-}
+export type { UseListParams as UseAdminsParams };
 
-interface UpdateAdminResponse {
-  success: boolean;
-  data: AdminListItem;
-}
-
-export interface UseAdminsParams {
-  page?: number;
-  pageSize?: number;
-  search?: string;
-}
-
-export function useAdmins({ page = 1, pageSize = 25, search = '' }: UseAdminsParams = {}) {
-  const params = new URLSearchParams({ page: String(page), pageSize: String(pageSize) });
-  if (search) params.set('search', search);
-
-  return useQuery({
-    queryKey: ['admins', { page, pageSize, search }],
-    queryFn: () => api.get<AdminListResponse>(`/admins?${params}`),
-    placeholderData: keepPreviousData,
-  });
+export function useAdmins(params: UseListParams = {}) {
+  return useList<AdminListItem>(ENDPOINT, KEY, params);
 }
 
 export function useCreateAdmin() {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: (data: CreateAdminRequest) =>
-      api.post<CreateAdminResponse>('/admins', data),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['admins'] });
-    },
-  });
+  return useCreate<CreateAdminRequest, AdminListItem>(ENDPOINT, KEY);
 }
 
 export function useUpdateAdmin() {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: ({ id, data }: { id: string; data: UpdateAdminRequest }) =>
-      api.patch<UpdateAdminResponse>(`/admins/${id}`, data),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['admins'] });
-    },
-  });
+  return useUpdate<UpdateAdminRequest>(ENDPOINT, KEY);
 }
 
 export function useDeleteAdmin() {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: (id: string) =>
-      api.delete<{ success: boolean }>(`/admins/${id}`),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['admins'] });
-    },
-  });
+  return useDelete(ENDPOINT, KEY);
 }
 
 export function useChangePassword() {
