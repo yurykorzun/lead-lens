@@ -38,6 +38,7 @@ function mapSfToContact(record: Record<string, unknown>): ContactRow {
     leadSource: record.LeadSource as string | undefined,
     isClient: record.Is_Client__c as boolean | undefined,
     referredByText: record.MtgPlanner_CRM__Referred_By_Text__c as string | undefined,
+    lastTouch: record.MtgPlanner_CRM__Last_Touch__c as string | undefined,
     description: record.Description as string | undefined,
     ownerId: record.OwnerId as string | undefined,
     ownerName: owner?.Name as string | undefined,
@@ -49,7 +50,8 @@ function mapSfToContact(record: Record<string, unknown>): ContactRow {
 
 router.get('/', requireAuth, async (req: AuthenticatedRequest, res) => {
   try {
-    if (!req.sfField || !req.sfValue) {
+    // Non-admin users must have scope configured
+    if (req.userRole !== 'admin' && (!req.sfField || !req.sfValue)) {
       res.status(403).json({ success: false, error: { code: 'NO_SCOPE', message: 'User has no Salesforce scope configured' } });
       return;
     }
@@ -57,8 +59,8 @@ router.get('/', requireAuth, async (req: AuthenticatedRequest, res) => {
     const filters = req.query as unknown as ContactFilters;
 
     const { dataQuery, countQuery } = buildContactQuery({
-      sfField: req.sfField,
-      sfValue: req.sfValue,
+      sfField: req.sfField || undefined,
+      sfValue: req.sfValue || undefined,
       role: req.userRole,
       search: filters.search,
       status: filters.status,
@@ -98,7 +100,7 @@ router.get('/', requireAuth, async (req: AuthenticatedRequest, res) => {
 });
 
 // Editable fields for loan_officer and agent roles
-const RESTRICTED_EDITABLE_FIELDS = new Set(['stage', 'status', 'temperature']);
+const RESTRICTED_EDITABLE_FIELDS = new Set(['stage', 'status', 'temperature', 'lastTouch']);
 
 router.patch('/', requireAuth, async (req: AuthenticatedRequest, res) => {
   try {

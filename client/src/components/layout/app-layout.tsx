@@ -1,12 +1,14 @@
-import type { ReactNode } from 'react';
+import { useState, type ReactNode } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { useAuth } from '@/hooks/use-auth';
 import { Button } from '@/components/ui/button';
-import { LogOut } from 'lucide-react';
+import { LogOut, KeyRound } from 'lucide-react';
+import { ChangePasswordDialog } from '@/components/admin/change-password-dialog';
 
 export function AppLayout({ children }: { children: ReactNode }) {
   const { user, logout } = useAuth();
   const location = useLocation();
+  const [showChangePassword, setShowChangePassword] = useState(false);
 
   return (
     <div className="flex h-dvh flex-col bg-background">
@@ -40,6 +42,14 @@ export function AppLayout({ children }: { children: ReactNode }) {
                 >
                   Manage Agents
                 </Link>
+                <Link
+                  to="/admins"
+                  className={`text-sm font-medium transition-colors ${
+                    location.pathname === '/admins' ? 'text-foreground' : 'text-muted-foreground hover:text-foreground'
+                  }`}
+                >
+                  Manage Admins
+                </Link>
               </nav>
             )}
           </div>
@@ -48,6 +58,11 @@ export function AppLayout({ children }: { children: ReactNode }) {
               <span className="text-sm text-muted-foreground">
                 {user.name || user.email}
               </span>
+              {user.role === 'admin' && (
+                <Button variant="ghost" size="icon" onClick={() => setShowChangePassword(true)} title="Change Password">
+                  <KeyRound className="h-4 w-4" />
+                </Button>
+              )}
               <Button variant="ghost" size="icon" onClick={logout}>
                 <LogOut className="h-4 w-4" />
               </Button>
@@ -56,6 +71,7 @@ export function AppLayout({ children }: { children: ReactNode }) {
         </div>
       </header>
       <main className="min-h-0 flex-1 overflow-auto px-4 py-4">{children}</main>
+      <ChangePasswordDialog open={showChangePassword} onOpenChange={setShowChangePassword} />
     </div>
   );
 }

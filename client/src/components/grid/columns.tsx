@@ -45,6 +45,21 @@ function badgeCell(colorMap: Record<string, string>) {
   };
 }
 
+function phoneCell(info: { getValue: () => unknown; row: { original: ContactRow } }) {
+  const phone = info.getValue() as string | undefined;
+  const mobile = info.row.original.mobilePhone;
+  if (!phone && !mobile) return null;
+  if (phone && mobile && phone !== mobile) {
+    return (
+      <div>
+        <div>{phone}</div>
+        <div className="text-xs text-slate-500">{mobile}</div>
+      </div>
+    );
+  }
+  return phone || mobile;
+}
+
 function temperatureCell(info: { getValue: () => unknown }) {
   const val = info.getValue() as string | undefined;
   if (!val) return null;
@@ -75,7 +90,7 @@ export const adminColumns: ColumnDef<ContactRow, any>[] = [
   }),
   columnHelper.accessor('phone', {
     header: 'Phone',
-    cell: info => info.getValue(),
+    cell: phoneCell,
   }),
   columnHelper.accessor('status', {
     header: 'Status',
@@ -118,7 +133,7 @@ export const loanOfficerColumns: ColumnDef<ContactRow, any>[] = [
   }),
   columnHelper.accessor('phone', {
     header: 'Phone',
-    cell: info => info.getValue(),
+    cell: phoneCell,
   }),
   columnHelper.accessor('status', {
     header: 'Status',
@@ -153,7 +168,7 @@ export const agentColumns: ColumnDef<ContactRow, any>[] = [
   }),
   columnHelper.accessor('phone', {
     header: 'Phone',
-    cell: info => info.getValue(),
+    cell: phoneCell,
   }),
   columnHelper.accessor('status', {
     header: 'Status',

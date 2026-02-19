@@ -9,7 +9,7 @@ const CONTACT_FIELDS = [
   'Is_Client__c', 'MtgPlanner_CRM__Stage__c', 'MtgPlanner_CRM__Thank_you_to_Referral_Source__c',
   'BDR__c', 'Leon_BDR__c', 'Marat_BDR__c',
   'Loan_Partners__c', 'Leon_Loan_Partner__c', 'Marat__c',
-  'MtgPlanner_CRM__Referred_By_Text__c', 'Description',
+  'MtgPlanner_CRM__Referred_By_Text__c', 'MtgPlanner_CRM__Last_Touch__c', 'Description',
   'RecordTypeId',
 ].join(', ');
 
@@ -35,8 +35,8 @@ function escapeSOQL(value: string): string {
 }
 
 interface ContactQueryParams {
-  sfField: string;
-  sfValue: string;
+  sfField?: string;
+  sfValue?: string;
   role?: string;
   search?: string;
   status?: string;
@@ -51,7 +51,7 @@ interface ContactQueryParams {
 // LO contacts matched across all three partner fields
 const LO_PARTNER_FIELDS = ['Loan_Partners__c', 'Leon_Loan_Partner__c', 'Marat__c'];
 // Agent contacts matched by referred-by text
-const AGENT_SCOPE_FIELDS = ['MtgPlanner_CRM__Referred_By_Text__c'];
+const AGENT_SCOPE_FIELDS = ['MtgPlanner_CRM__Referred_By_Text__c', 'MtgPlanner_CRM__Referred_By__r.Name'];
 
 function buildScopeCondition(role: string | undefined, sfField: string, sfValue: string): string {
   const escaped = escapeSOQL(sfValue);
@@ -118,7 +118,10 @@ export function buildContactQuery(params: ContactQueryParams): { dataQuery: stri
   const offset = (page - 1) * pageSize;
 
   const conditions: string[] = [];
-  conditions.push(buildScopeCondition(role, sfField, sfValue));
+  // Admins without scope see all contacts
+  if (sfField && sfValue) {
+    conditions.push(buildScopeCondition(role, sfField, sfValue));
+  }
 
   if (status) {
     conditions.push(`Status__c = '${escapeSOQL(status)}'`);
@@ -136,11 +139,11 @@ export function buildContactQuery(params: ContactQueryParams): { dataQuery: stri
     conditions.push(`CreatedDate <= ${dateTo}T23:59:59Z`);
   }
 
-  const where = conditions.join(' AND ');
+  const where = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
 
   const orderBy = params.orderBy || 'LastModifiedDate DESC';
-  const dataQuery = `SELECT ${CONTACT_FIELDS} FROM Contact WHERE ${where} ORDER BY ${orderBy} LIMIT ${pageSize} OFFSET ${offset}`;
-  const countQuery = `SELECT COUNT() FROM Contact WHERE ${where}`;
+  const dataQuery = `SELECT ${CONTACT_FIELDS} FROM Contact ${where} ORDER BY ${orderBy} LIMIT ${pageSize} OFFSET ${offset}`;
+  const countQuery = `SELECT COUNT() FROM Contact ${where}`;
 
   return { dataQuery, countQuery };
 }

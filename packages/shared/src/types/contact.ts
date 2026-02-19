@@ -24,6 +24,7 @@ export interface ContactRow {
   leadSource?: string;
   isClient?: boolean;
   referredByText?: string;
+  lastTouch?: string;
   description?: string;
   ownerId?: string;
   ownerName?: string;
