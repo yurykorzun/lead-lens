@@ -37,7 +37,7 @@ export function LoanOfficerManager() {
     return () => clearTimeout(timer);
   }, [search]);
 
-  const { data: response, isLoading, isFetching } = useLoanOfficers({
+  const { data: response, isPending, isFetching } = useLoanOfficers({
     page,
     pageSize: PAGE_SIZE,
     search: debouncedSearch,
@@ -160,7 +160,7 @@ export function LoanOfficerManager() {
             </tr>
           </thead>
           <tbody>
-            {isLoading ? (
+            {isPending ? (
               <tr>
                 <td colSpan={7} className="px-3 py-8 text-center text-muted-foreground">
                   Loading loan officers...
