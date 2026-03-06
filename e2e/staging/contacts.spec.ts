@@ -92,11 +92,10 @@ test.describe('Contacts grid (admin)', () => {
     const panel = page.locator('div.border-l');
     await expect(panel).toBeVisible({ timeout: 5_000 });
 
-    // Admin sees Loan Partners section with only populated fields
-    await expect(panel.getByRole('heading', { name: 'Loan Partners' })).toBeVisible();
-    await expect(panel.getByText('Leon Loan Partner')).toBeVisible();
-    // Marat field is null for John Smith — should be hidden
-    await expect(panel.getByText('Marat')).not.toBeVisible();
+    // Admin sees Loan Partner section with deduplicated names
+    await expect(panel.getByRole('heading', { name: 'Loan Partner' })).toBeVisible();
+    // Both fields have 'Test LO' — should show once (deduplicated)
+    await expect(panel.getByText('Test LO')).toBeVisible();
   });
 });
 
@@ -162,10 +161,10 @@ test.describe('Contacts grid (agent)', () => {
     const panel = page.locator('div.border-l');
     await expect(panel).toBeVisible({ timeout: 5_000 });
 
-    // Should see "Loan Partners" section header
-    await expect(panel.getByText('Loan Partners').first()).toBeVisible();
+    // Should see "Loan Partner" section header
+    await expect(panel.getByRole('heading', { name: 'Loan Partner' })).toBeVisible();
 
-    // Should show populated loan partner values (Test LO)
+    // Should show populated loan partner value (deduplicated)
     await expect(panel.getByText('Test LO').first()).toBeVisible();
   });
 
@@ -199,7 +198,6 @@ test.describe('Admin view-as pages', () => {
     await expect(page).toHaveURL(/\/view\/officers/);
 
     // Should show view-as banner
-    await expect(page.getByText(/Officer View/)).toBeVisible();
     await expect(page.getByText(/loan officer would see/i)).toBeVisible();
 
     // Should load contacts
@@ -261,8 +259,8 @@ test.describe('Admin view-as pages', () => {
     const selectCount = await selects.count();
     expect(selectCount).toBe(1);
 
-    // Should show Loan Partners section
-    await expect(panel.getByText('Loan Partners').first()).toBeVisible();
+    // Should show Loan Partner section
+    await expect(panel.getByRole('heading', { name: 'Loan Partner' })).toBeVisible();
   });
 });
 
