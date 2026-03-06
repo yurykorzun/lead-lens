@@ -102,7 +102,7 @@ router.get('/', requireAuth, async (req: AuthenticatedRequest, res) => {
 
 // Editable fields per restricted role
 const LO_EDITABLE_FIELDS = new Set(['stage', 'status', 'temperature', 'lastTouch', 'lastTouchSms']);
-const AGENT_EDITABLE_FIELDS = new Set(['status']);
+const AGENT_EDITABLE_FIELDS = new Set<string>();
 
 router.patch('/', requireAuth, async (req: AuthenticatedRequest, res) => {
   try {
