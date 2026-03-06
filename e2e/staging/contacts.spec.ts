@@ -137,17 +137,15 @@ test.describe('Contacts grid (agent)', () => {
     const panel = page.locator('div.border-l');
     await expect(panel).toBeVisible({ timeout: 5_000 });
 
-    // Agent should see Status as editable (dropdown)
+    // Agent should have no editable dropdowns (fully read-only)
     const selects = panel.locator('select');
-    await expect(selects.first()).toBeVisible();
-
-    // Agent should only have 1 dropdown (Status only, not Temperature or Stage)
     const selectCount = await selects.count();
-    expect(selectCount).toBe(1);
+    expect(selectCount).toBe(0);
 
-    // Agent should see Temperature and Stage as read-only text (not dropdowns)
-    await expect(panel.getByText('Temperature')).toBeVisible();
-    await expect(panel.getByText('Stage')).toBeVisible();
+    // Agent should see Status, Temperature and Stage as read-only labels
+    await expect(panel.getByText('Status', { exact: true })).toBeVisible();
+    await expect(panel.getByText('Temperature', { exact: true })).toBeVisible();
+    await expect(panel.getByText('Stage', { exact: true })).toBeVisible();
   });
 
   test('agent sees loan partner fields when populated', async ({ page }) => {
@@ -253,11 +251,10 @@ test.describe('Admin view-as pages', () => {
     const panel = page.locator('div.border-l');
     await expect(panel).toBeVisible({ timeout: 5_000 });
 
-    // Agent view should have only 1 dropdown (Status only)
+    // Agent view should have no editable dropdowns (fully read-only)
     const selects = panel.locator('select');
-    await expect(selects.first()).toBeVisible();
     const selectCount = await selects.count();
-    expect(selectCount).toBe(1);
+    expect(selectCount).toBe(0);
 
     // Should show Loan Partner section
     await expect(panel.getByRole('heading', { name: 'Loan Partner' })).toBeVisible();

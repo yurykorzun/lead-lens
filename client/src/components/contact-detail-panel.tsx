@@ -24,8 +24,8 @@ type FormState = Record<string, unknown>;
 const LO_EDITABLE_FIELDS = new Set(['stage', 'status', 'temperature', 'lastTouch', 'lastTouchSms']);
 // Fields agents can see in the panel
 const AGENT_VISIBLE_FIELDS = new Set(['status', 'temperature', 'stage', 'lastTouch', 'lastTouchSms', 'loanPartner', 'leonLoanPartner', 'maratLoanPartner']);
-// Fields agents can edit
-const AGENT_EDITABLE_FIELDS = new Set(['status']);
+// Fields agents can edit (none — fully read-only)
+const AGENT_EDITABLE_FIELDS = new Set<string>();
 
 const SF_BASE_URL = 'https://leonbelov.my.salesforce.com';
 
