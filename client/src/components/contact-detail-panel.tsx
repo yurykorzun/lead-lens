@@ -51,11 +51,11 @@ const PANEL_FIELDS: Array<{
     ],
   },
   {
-    section: 'Loan Partners',
+    section: 'Loan Partner',
     fields: [
-      { key: 'loanPartner', label: 'Loan Partners', type: 'text' },
-      { key: 'leonLoanPartner', label: 'Leon Loan Partner', type: 'text' },
-      { key: 'maratLoanPartner', label: 'Marat', type: 'text' },
+      { key: 'loanPartner', label: 'Loan Partner', type: 'text' },
+      { key: 'leonLoanPartner', label: 'Loan Partner', type: 'text' },
+      { key: 'maratLoanPartner', label: 'Loan Partner', type: 'text' },
     ],
   },
   {
@@ -247,12 +247,31 @@ export function ContactDetailPanel({
                 let visibleFields = section.fields.filter(f => isVisible(f.key));
                 if (visibleFields.length === 0) return null;
 
-                // Loan Partners: show only fields with values, or just the first one as fallback
-                if (section.section === 'Loan Partners') {
-                  const populated = visibleFields.filter(
-                    f => contact[f.key as keyof ContactRow],
+                // Loan Partners: collect unique non-empty values and display them
+                if (section.section === 'Loan Partner') {
+                  const uniqueNames = [
+                    ...new Set(
+                      visibleFields
+                        .map(f => (contact[f.key as keyof ContactRow] as string) || '')
+                        .filter(Boolean),
+                    ),
+                  ];
+                  return (
+                    <section key={section.section}>
+                      <h3 className="mb-3 text-sm font-medium text-muted-foreground">
+                        {section.section}
+                      </h3>
+                      <div className="space-y-3 rounded-lg border bg-muted/30 p-4">
+                        {uniqueNames.length > 0 ? (
+                          uniqueNames.map(name => (
+                            <p key={name} className="text-sm">{name}</p>
+                          ))
+                        ) : (
+                          <p className="text-sm">—</p>
+                        )}
+                      </div>
+                    </section>
                   );
-                  visibleFields = populated.length > 0 ? populated : [visibleFields[0]];
                 }
 
                 return (
