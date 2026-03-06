@@ -30,10 +30,12 @@ test.describe('Contacts grid (admin)', () => {
 
   test('open detail panel, edit, and save contact', async ({ page }) => {
     await loginAsAdmin(page);
-    await expect(page.locator('tbody tr').first()).toBeVisible({ timeout: 15_000 });
+    const firstRow = page.locator('tbody tr').first();
+    await expect(firstRow).toBeVisible({ timeout: 15_000 });
 
     // Click first row to open detail panel
-    await page.locator('tbody tr').first().click();
+    await firstRow.click();
+    await page.waitForTimeout(300);
 
     const panel = page.locator('div.border-l');
     await expect(panel).toBeVisible({ timeout: 5_000 });
@@ -80,6 +82,22 @@ test.describe('Contacts grid (admin)', () => {
     await panel.getByRole('button', { name: 'Cancel' }).click();
     await expect(panel).not.toBeVisible();
   });
+
+  test('admin panel shows Loan Partners section with populated fields only', async ({ page }) => {
+    await loginAsAdmin(page);
+    await expect(page.locator('tbody tr').first()).toBeVisible({ timeout: 15_000 });
+
+    // Click John Smith (has Loan_Partners__c='Test LO' + Leon_Loan_Partner__c='Test LO', Marat__c=null)
+    await page.getByText('John Smith').click();
+    const panel = page.locator('div.border-l');
+    await expect(panel).toBeVisible({ timeout: 5_000 });
+
+    // Admin sees Loan Partners section with only populated fields
+    await expect(panel.getByRole('heading', { name: 'Loan Partners' })).toBeVisible();
+    await expect(panel.getByText('Leon Loan Partner')).toBeVisible();
+    // Marat field is null for John Smith — should be hidden
+    await expect(panel.getByText('Marat')).not.toBeVisible();
+  });
 });
 
 test.describe('Contacts grid (loan officer)', () => {
@@ -94,14 +112,22 @@ test.describe('Contacts grid (loan officer)', () => {
     const panel = page.locator('div.border-l');
     await expect(panel).toBeVisible({ timeout: 5_000 });
 
-    // Should see Status dropdown (restricted editable field)
+    // Should see Status, Temperature, Stage dropdowns (3 selects)
     const selects = panel.locator('select');
     await expect(selects.first()).toBeVisible();
+    const selectCount = await selects.count();
+    expect(selectCount).toBe(3);
+
+    // Should see Last Touch textarea
+    await expect(panel.getByText('Last Touch', { exact: true })).toBeVisible();
+
+    // Should NOT see Loan Partners section (LOs don't see it)
+    await expect(panel.getByText('Leon Loan Partner')).not.toBeVisible();
   });
 });
 
 test.describe('Contacts grid (agent)', () => {
-  test('agent sees contacts and detail panel', async ({ page }) => {
+  test('agent sees contacts and detail panel with correct fields', async ({ page }) => {
     await loginAsAgent(page);
 
     const rows = page.locator('tbody tr');
@@ -111,6 +137,132 @@ test.describe('Contacts grid (agent)', () => {
     await rows.first().click();
     const panel = page.locator('div.border-l');
     await expect(panel).toBeVisible({ timeout: 5_000 });
+
+    // Agent should see Status as editable (dropdown)
+    const selects = panel.locator('select');
+    await expect(selects.first()).toBeVisible();
+
+    // Agent should only have 1 dropdown (Status only, not Temperature or Stage)
+    const selectCount = await selects.count();
+    expect(selectCount).toBe(1);
+
+    // Agent should see Temperature and Stage as read-only text (not dropdowns)
+    await expect(panel.getByText('Temperature')).toBeVisible();
+    await expect(panel.getByText('Stage')).toBeVisible();
+  });
+
+  test('agent sees loan partner fields when populated', async ({ page }) => {
+    await loginAsAgent(page);
+
+    const rows = page.locator('tbody tr');
+    await expect(rows.first()).toBeVisible({ timeout: 15_000 });
+
+    // Click first contact — John Smith has Loan_Partners__c='Test LO' and Leon_Loan_Partner__c='Test LO'
+    await rows.first().click();
+    const panel = page.locator('div.border-l');
+    await expect(panel).toBeVisible({ timeout: 5_000 });
+
+    // Should see "Loan Partners" section header
+    await expect(panel.getByText('Loan Partners').first()).toBeVisible();
+
+    // Should show populated loan partner values (Test LO)
+    await expect(panel.getByText('Test LO').first()).toBeVisible();
+  });
+
+  test('agent Last Touch and Last Touch SMS are read-only', async ({ page }) => {
+    await loginAsAgent(page);
+
+    const rows = page.locator('tbody tr');
+    await expect(rows.first()).toBeVisible({ timeout: 15_000 });
+
+    await rows.first().click();
+    const panel = page.locator('div.border-l');
+    await expect(panel).toBeVisible({ timeout: 5_000 });
+
+    // Agent should see Last Touch labels
+    await expect(panel.getByText('Last Touch', { exact: true })).toBeVisible();
+
+    // Last Touch should NOT have editable textareas (agent can't edit them)
+    // Only the Status dropdown should be editable
+    const textareas = panel.locator('textarea');
+    const textareaCount = await textareas.count();
+    expect(textareaCount).toBe(0);
+  });
+});
+
+test.describe('Admin view-as pages', () => {
+  test('Officer View shows LO columns and banner', async ({ page }) => {
+    await loginAsAdmin(page);
+
+    // Navigate to Officer View
+    await page.getByRole('link', { name: 'Officer View' }).click();
+    await expect(page).toHaveURL(/\/view\/officers/);
+
+    // Should show view-as banner
+    await expect(page.getByText(/Officer View/)).toBeVisible();
+    await expect(page.getByText(/loan officer would see/i)).toBeVisible();
+
+    // Should load contacts
+    await expect(page.locator('tbody tr').first()).toBeVisible({ timeout: 15_000 });
+
+    // LO columns don't have "Lead Source" or "Owner" columns
+    const headers = page.locator('thead th');
+    const headerTexts = await headers.allInnerTexts();
+    expect(headerTexts).not.toContain('Lead Source');
+    expect(headerTexts).not.toContain('Owner');
+  });
+
+  test('Agent View shows agent columns and banner', async ({ page }) => {
+    await loginAsAdmin(page);
+
+    // Navigate to Agent View
+    await page.getByRole('link', { name: 'Agent View' }).click();
+    await expect(page).toHaveURL(/\/view\/agents/);
+
+    // Should show view-as banner
+    await expect(page.getByText(/Agent View/)).toBeVisible();
+    await expect(page.getByText(/real estate agent would see/i)).toBeVisible();
+
+    // Should load contacts
+    await expect(page.locator('tbody tr').first()).toBeVisible({ timeout: 15_000 });
+
+    // Agent columns should have "Referred By" header
+    await expect(page.locator('thead th', { hasText: 'Referred By' })).toBeVisible();
+  });
+
+  test('Officer View detail panel uses LO field permissions', async ({ page }) => {
+    await loginAsAdmin(page);
+    await page.getByRole('link', { name: 'Officer View' }).click();
+    await expect(page.locator('tbody tr').first()).toBeVisible({ timeout: 15_000 });
+
+    await page.locator('tbody tr').first().click();
+    const panel = page.locator('div.border-l');
+    await expect(panel).toBeVisible({ timeout: 5_000 });
+
+    // LO view should have 3 dropdowns (Status, Temperature, Stage)
+    const selects = panel.locator('select');
+    await expect(selects.first()).toBeVisible();
+    const selectCount = await selects.count();
+    expect(selectCount).toBe(3);
+  });
+
+  test('Agent View detail panel uses agent field permissions', async ({ page }) => {
+    await loginAsAdmin(page);
+    await page.getByRole('link', { name: 'Agent View' }).click();
+    await expect(page.locator('tbody tr').first()).toBeVisible({ timeout: 15_000 });
+
+    await page.locator('tbody tr').first().click();
+    const panel = page.locator('div.border-l');
+    await expect(panel).toBeVisible({ timeout: 5_000 });
+
+    // Agent view should have only 1 dropdown (Status only)
+    const selects = panel.locator('select');
+    await expect(selects.first()).toBeVisible();
+    const selectCount = await selects.count();
+    expect(selectCount).toBe(1);
+
+    // Should show Loan Partners section
+    await expect(panel.getByText('Loan Partners').first()).toBeVisible();
   });
 });
 

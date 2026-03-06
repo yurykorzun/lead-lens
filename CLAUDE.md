@@ -23,8 +23,8 @@ api/[...path].ts   → Vercel serverless entry point
 | Role | Login Method | Dashboard | Editable Fields | Contacts Scope |
 |------|-------------|-----------|----------------|---------------|
 | **Admin** | Email + password | All columns, full edit, nav with "Manage LOs" + "Manage Agents" | All fields | Scoped by `sf_field`/`sf_value` (e.g. `Owner.Name = 'Leon Belov'`) |
-| **Loan Officer** | Email + access code | 7 columns, limited edit | Stage, Status, Temperature only | `Loan_Partners__c OR Leon_Loan_Partner__c OR Marat__c = <name>` sorted by `CreatedDate DESC` |
-| **Agent** | Email + access code | 8 columns (incl. Lead Source, Referred By), limited edit | Stage, Status, Temperature only | `MtgPlanner_CRM__Referred_By_Text__c = <name>` sorted by `CreatedDate DESC` |
+| **Loan Officer** | Email + access code | 7 columns, limited edit | Stage, Status, Temperature, Last Touch, Last Touch SMS | `Loan_Partners__c OR Leon_Loan_Partner__c OR Marat__c = <name>` sorted by `CreatedDate DESC` |
+| **Agent** | Email + access code | 8 columns (incl. Lead Source, Referred By), limited edit | Status only | `MtgPlanner_CRM__Referred_By_Text__c = <name>` sorted by `CreatedDate DESC` |
 
 - No self-signup. Admins create loan officers and agents via admin panels
 - Access codes are generated server-side, shown once, stored as bcrypt hash
@@ -103,6 +103,8 @@ npx tsx server/src/seed.ts               # seed/migrate admin users
 | Referred By First Name | `MtgPlanner_CRM__Referred_By_First_Name__c` | Formula(Text) | Jungo |
 | Stage | `MtgPlanner_CRM__Stage__c` | Picklist | Jungo |
 | Thank You to Referral Source | `MtgPlanner_CRM__Thank_you_to_Referral_Source__c` | Checkbox | Jungo |
+| Last Touch | `MtgPlanner_CRM__Last_Touch__c` | Text(255) | Jungo |
+| Last Touch (via 360 SMS) | `Last_Touch_via_360_SMS__c` | Long Text Area(131072) | Custom |
 
 **Standard fields used:** `Name`, `FirstName`, `LastName`, `Email`, `Phone`, `MobilePhone`, `OwnerId`, `Owner.Name`, `LeadSource`, `Description`, `CreatedDate`
 
@@ -253,7 +255,8 @@ FRONTEND_URL            # CORS origin, e.g., http://localhost:5173
 - LO `sf_field` is always `Loan_Partners__c`, `sf_value` is the LO's name. Scoping uses OR across 3 partner fields.
 - Agent `sf_field` is always `MtgPlanner_CRM__Referred_By_Text__c`, `sf_value` is the agent's name.
 - `requireAdmin` middleware gates all `/api/loan-officers` and `/api/agents` routes.
-- LOs and agents can only edit fields in `RESTRICTED_EDITABLE_FIELDS` set (stage, status, temperature).
+- LOs can edit: stage, status, temperature, lastTouch, lastTouchSms.
+- Agents can only edit: status. They can view (read-only) temperature, stage, lastTouch, lastTouchSms, and all three loan partner fields.
 
 ### Frontend
 - Tailwind CSS v4 with `@tailwindcss/vite` plugin (CSS-based config, no tailwind.config).

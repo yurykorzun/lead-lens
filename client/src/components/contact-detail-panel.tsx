@@ -20,18 +20,25 @@ export interface ContactDetailPanelProps {
 
 type FormState = Record<string, unknown>;
 
-const RESTRICTED_EDITABLE_FIELDS = new Set(['stage', 'status', 'temperature', 'lastTouch', 'lastTouchSms']);
+// Fields LOs can see and edit
+const LO_EDITABLE_FIELDS = new Set(['stage', 'status', 'temperature', 'lastTouch', 'lastTouchSms']);
+// Fields agents can see in the panel
+const AGENT_VISIBLE_FIELDS = new Set(['status', 'temperature', 'stage', 'lastTouch', 'lastTouchSms', 'loanPartner', 'leonLoanPartner', 'maratLoanPartner']);
+// Fields agents can edit
+const AGENT_EDITABLE_FIELDS = new Set(['status']);
 
 const SF_BASE_URL = 'https://leonbelov.my.salesforce.com';
 
-const EDITABLE_FIELDS: Array<{
+interface PanelField {
+  key: string;
+  label: string;
+  type: 'select' | 'checkbox' | 'textarea' | 'text';
+  sfField?: string;
+}
+
+const PANEL_FIELDS: Array<{
   section: string;
-  fields: Array<{
-    key: string;
-    label: string;
-    type: 'select' | 'checkbox' | 'textarea';
-    sfField?: string;
-  }>;
+  fields: PanelField[];
 }> = [
   {
     section: 'Status & Tracking',
@@ -41,6 +48,14 @@ const EDITABLE_FIELDS: Array<{
       { key: 'stage', label: 'Stage', type: 'select', sfField: 'MtgPlanner_CRM__Stage__c' },
       { key: 'lastTouch', label: 'Last Touch', type: 'textarea' },
       { key: 'lastTouchSms', label: 'Last Touch (360 SMS)', type: 'textarea' },
+    ],
+  },
+  {
+    section: 'Loan Partners',
+    fields: [
+      { key: 'loanPartner', label: 'Loan Partners', type: 'text' },
+      { key: 'leonLoanPartner', label: 'Leon Loan Partner', type: 'text' },
+      { key: 'maratLoanPartner', label: 'Marat', type: 'text' },
     ],
   },
   {
@@ -97,7 +112,7 @@ export function ContactDetailPanel({
 
   useEffect(() => {
     const initial: FormState = {};
-    for (const section of EDITABLE_FIELDS) {
+    for (const section of PANEL_FIELDS) {
       for (const f of section.fields) {
         initial[f.key] = contact[f.key as keyof ContactRow] ?? (f.type === 'checkbox' ? false : '');
       }
@@ -106,9 +121,18 @@ export function ContactDetailPanel({
     setError('');
   }, [contact]);
 
+  const isVisible = (fieldKey: string) => {
+    if (role === 'admin') return true;
+    if (role === 'loan_officer') return LO_EDITABLE_FIELDS.has(fieldKey);
+    if (role === 'agent') return AGENT_VISIBLE_FIELDS.has(fieldKey);
+    return false;
+  };
+
   const isEditable = (fieldKey: string) => {
     if (role === 'admin') return true;
-    return RESTRICTED_EDITABLE_FIELDS.has(fieldKey);
+    if (role === 'loan_officer') return LO_EDITABLE_FIELDS.has(fieldKey);
+    if (role === 'agent') return AGENT_EDITABLE_FIELDS.has(fieldKey);
+    return false;
   };
 
   const setField = (key: string, value: unknown) => {
@@ -219,12 +243,17 @@ export function ContactDetailPanel({
                 </section>
               )}
 
-              {EDITABLE_FIELDS.map(section => {
-                const visibleFields = section.fields.filter(f => {
-                  if (role === 'admin') return true;
-                  return RESTRICTED_EDITABLE_FIELDS.has(f.key);
-                });
+              {PANEL_FIELDS.map(section => {
+                let visibleFields = section.fields.filter(f => isVisible(f.key));
                 if (visibleFields.length === 0) return null;
+
+                // Loan Partners: show only fields with values, or just the first one as fallback
+                if (section.section === 'Loan Partners') {
+                  const populated = visibleFields.filter(
+                    f => contact[f.key as keyof ContactRow],
+                  );
+                  visibleFields = populated.length > 0 ? populated : [visibleFields[0]];
+                }
 
                 return (
                   <section key={section.section}>
@@ -234,6 +263,15 @@ export function ContactDetailPanel({
                     <div className="space-y-3 rounded-lg border bg-muted/30 p-4">
                       {visibleFields.map(f => {
                         const editable = isEditable(f.key);
+
+                        if (f.type === 'text') {
+                          return (
+                            <div key={f.key} className="space-y-1.5">
+                              <Label className="text-xs font-medium text-muted-foreground">{f.label}</Label>
+                              <p className="text-sm">{(contact[f.key as keyof ContactRow] as string) || '—'}</p>
+                            </div>
+                          );
+                        }
 
                         if (f.type === 'select') {
                           const options = f.sfField ? dropdowns[f.sfField] || [] : [];

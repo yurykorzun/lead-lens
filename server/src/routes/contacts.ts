@@ -100,8 +100,9 @@ router.get('/', requireAuth, async (req: AuthenticatedRequest, res) => {
   }
 });
 
-// Editable fields for loan_officer and agent roles
-const RESTRICTED_EDITABLE_FIELDS = new Set(['stage', 'status', 'temperature', 'lastTouch', 'lastTouchSms']);
+// Editable fields per restricted role
+const LO_EDITABLE_FIELDS = new Set(['stage', 'status', 'temperature', 'lastTouch', 'lastTouchSms']);
+const AGENT_EDITABLE_FIELDS = new Set(['status']);
 
 router.patch('/', requireAuth, async (req: AuthenticatedRequest, res) => {
   try {
@@ -140,7 +141,10 @@ router.patch('/', requireAuth, async (req: AuthenticatedRequest, res) => {
         }
 
         // Check role-based permissions
-        if ((req.userRole === 'loan_officer' || req.userRole === 'agent') && !RESTRICTED_EDITABLE_FIELDS.has(key)) {
+        if (req.userRole === 'loan_officer' && !LO_EDITABLE_FIELDS.has(key)) {
+          throw new Error(`Field not editable: ${key}`);
+        }
+        if (req.userRole === 'agent' && !AGENT_EDITABLE_FIELDS.has(key)) {
           throw new Error(`Field not editable: ${key}`);
         }
 

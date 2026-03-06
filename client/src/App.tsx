@@ -4,6 +4,7 @@ import DashboardPage from '@/pages/dashboard';
 import AdminPage from '@/pages/admin';
 import AgentsPage from '@/pages/agents';
 import AdminsPage from '@/pages/admins';
+import ViewAsPage from '@/pages/view-as';
 
 export default function App() {
   return (
@@ -13,6 +14,7 @@ export default function App() {
         <Route path="/admin" element={<AdminPage />} />
         <Route path="/agents" element={<AgentsPage />} />
         <Route path="/admins" element={<AdminsPage />} />
+        <Route path="/view/:role" element={<ViewAsPage />} />
         <Route path="/" element={<DashboardPage />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>

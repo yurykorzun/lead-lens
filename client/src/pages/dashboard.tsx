@@ -11,8 +11,15 @@ import { adminColumns, loanOfficerColumns, agentColumns } from '@/components/gri
 import { Button } from '@/components/ui/button';
 import type { ContactRow, ContactFilters } from '@lead-lens/shared';
 
-export default function DashboardPage() {
-  const { user, isLoading: authLoading } = useAuth();
+type DisplayRole = 'admin' | 'loan_officer' | 'agent';
+
+const COLUMNS_BY_ROLE = {
+  admin: adminColumns,
+  loan_officer: loanOfficerColumns,
+  agent: agentColumns,
+} as const;
+
+export function DashboardContent({ displayRole }: { displayRole: DisplayRole }) {
   const [filters, setFilters] = useState<ContactFilters>({ page: 1, pageSize: 50 });
   const [debouncedFilters, setDebouncedFilters] = useState(filters);
   const debounceRef = useRef<ReturnType<typeof setTimeout>>(undefined);
@@ -34,90 +41,98 @@ export default function DashboardPage() {
   const [selectedId, setSelectedId] = useState<string | null>(null);
 
   const dropdowns = metadataRes?.data ?? {};
-  const columns = user?.role === 'admin' ? adminColumns : user?.role === 'agent' ? agentColumns : loanOfficerColumns;
+  const columns = COLUMNS_BY_ROLE[displayRole];
 
   // Derive selected contact from fresh data — no useEffect sync needed
   const selectedContact = selectedId
     ? data?.data?.find(c => c.id === selectedId) ?? null
     : null;
 
-  if (authLoading) return null;
-  if (!user) return <Navigate to="/login" replace />;
-
   const pagination = data?.pagination;
 
   return (
-    <AppLayout>
-      <div className="flex h-full gap-4">
-        {/* Left: table area */}
-        <div className="flex min-w-0 flex-1 flex-col gap-4">
-          <FilterBar filters={filters} onChange={setFilters} dropdowns={dropdowns} />
+    <div className="flex h-full gap-4">
+      {/* Left: table area */}
+      <div className="flex min-w-0 flex-1 flex-col gap-4">
+        <FilterBar filters={filters} onChange={setFilters} dropdowns={dropdowns} />
 
-          {error ? (
-            <p className="text-red-600">Error loading contacts: {error.message}</p>
-          ) : (
-            <>
-              <ContactGrid
-                data={data?.data ?? []}
-                columns={columns}
-                onRowClick={(c: ContactRow) => setSelectedId(c.id)}
-                selectedId={selectedId ?? undefined}
-                className="min-h-0 flex-1"
-                isLoading={isLoading}
-              />
-              {pagination && (
-                <div className="flex shrink-0 items-center justify-between rounded-lg border border-slate-200 p-3">
-                  <div className="flex items-center gap-3">
-                    <span className="text-sm text-slate-500">
-                      {((pagination.page - 1) * (filters.pageSize || 50) + 1)}–{Math.min(pagination.page * (filters.pageSize || 50), pagination.totalCount)} of {pagination.totalCount.toLocaleString()}
-                    </span>
-                    <select
-                      value={filters.pageSize || 50}
-                      onChange={e => setFilters(f => ({ ...f, pageSize: Number(e.target.value), page: 1 }))}
-                      className="h-8 rounded border border-slate-200 bg-white px-2 text-sm text-slate-700"
-                    >
-                      <option value={25}>25 / page</option>
-                      <option value={50}>50 / page</option>
-                      <option value={100}>100 / page</option>
-                    </select>
-                  </div>
-                  <div className="flex gap-2">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => setFilters(f => ({ ...f, page: (f.page || 1) - 1 }))}
-                      disabled={pagination.page <= 1}
-                    >
-                      Previous
-                    </Button>
-                    <span className="flex items-center text-sm text-slate-500">
-                      {pagination.page} / {pagination.totalPages}
-                    </span>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => setFilters(f => ({ ...f, page: (f.page || 1) + 1 }))}
-                      disabled={pagination.page >= pagination.totalPages}
-                    >
-                      Next
-                    </Button>
-                  </div>
+        {error ? (
+          <p className="text-red-600">Error loading contacts: {error.message}</p>
+        ) : (
+          <>
+            <ContactGrid
+              data={data?.data ?? []}
+              columns={columns}
+              onRowClick={(c: ContactRow) => setSelectedId(c.id)}
+              selectedId={selectedId ?? undefined}
+              className="min-h-0 flex-1"
+              isLoading={isLoading}
+            />
+            {pagination && (
+              <div className="flex shrink-0 items-center justify-between rounded-lg border border-slate-200 p-3">
+                <div className="flex items-center gap-3">
+                  <span className="text-sm text-slate-500">
+                    {((pagination.page - 1) * (filters.pageSize || 50) + 1)}–{Math.min(pagination.page * (filters.pageSize || 50), pagination.totalCount)} of {pagination.totalCount.toLocaleString()}
+                  </span>
+                  <select
+                    value={filters.pageSize || 50}
+                    onChange={e => setFilters(f => ({ ...f, pageSize: Number(e.target.value), page: 1 }))}
+                    className="h-8 rounded border border-slate-200 bg-white px-2 text-sm text-slate-700"
+                  >
+                    <option value={25}>25 / page</option>
+                    <option value={50}>50 / page</option>
+                    <option value={100}>100 / page</option>
+                  </select>
                 </div>
-              )}
-            </>
-          )}
-        </div>
-
-        {/* Right: detail panel */}
-        {selectedContact && (
-          <ContactDetailPanel
-            contact={selectedContact}
-            onClose={() => setSelectedId(null)}
-            dropdowns={dropdowns}
-            role={user.role as 'admin' | 'loan_officer' | 'agent'}
-          />
+                <div className="flex gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setFilters(f => ({ ...f, page: (f.page || 1) - 1 }))}
+                    disabled={pagination.page <= 1}
+                  >
+                    Previous
+                  </Button>
+                  <span className="flex items-center text-sm text-slate-500">
+                    {pagination.page} / {pagination.totalPages}
+                  </span>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setFilters(f => ({ ...f, page: (f.page || 1) + 1 }))}
+                    disabled={pagination.page >= pagination.totalPages}
+                  >
+                    Next
+                  </Button>
+                </div>
+              </div>
+            )}
+          </>
         )}
       </div>
+
+      {/* Right: detail panel */}
+      {selectedContact && (
+        <ContactDetailPanel
+          contact={selectedContact}
+          onClose={() => setSelectedId(null)}
+          dropdowns={dropdowns}
+          role={displayRole}
+        />
+      )}
+    </div>
+  );
+}
+
+export default function DashboardPage() {
+  const { user, isLoading: authLoading } = useAuth();
+
+  if (authLoading) return null;
+  if (!user) return <Navigate to="/login" replace />;
+
+  return (
+    <AppLayout>
+      <DashboardContent displayRole={user.role as DisplayRole} />
     </AppLayout>
   );
 }
