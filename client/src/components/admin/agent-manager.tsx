@@ -1,8 +1,9 @@
 import { useState, useEffect } from 'react';
-import { MoreHorizontal, Pencil, KeyRound, Ban, CheckCircle, Trash2, Search, ChevronLeft, ChevronRight } from 'lucide-react';
+import { MoreHorizontal, Pencil, KeyRound, Ban, CheckCircle, Trash2, Search, ChevronLeft, ChevronRight, Mail } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Checkbox } from '@/components/ui/checkbox';
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import {
@@ -49,6 +50,7 @@ export function AgentManager() {
   const [showCreate, setShowCreate] = useState(false);
   const [createName, setCreateName] = useState('');
   const [createEmail, setCreateEmail] = useState('');
+  const [createSendWelcome, setCreateSendWelcome] = useState(true);
   const [createError, setCreateError] = useState('');
 
   const [editId, setEditId] = useState<string | null>(null);
@@ -72,7 +74,7 @@ export function AgentManager() {
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmedEmail)) { setCreateError('Please enter a valid email address'); return; }
 
     try {
-      const res = await createMutation.mutateAsync({ name: trimmedName, email: trimmedEmail });
+      const res = await createMutation.mutateAsync({ name: trimmedName, email: trimmedEmail, sendWelcome: createSendWelcome });
       setShowCreate(false);
       setCreateName('');
       setCreateEmail('');
@@ -123,7 +125,7 @@ export function AgentManager() {
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <h2 className="text-lg font-semibold">Real Estate Agents</h2>
-        <Button onClick={() => { setShowCreate(true); setCreateName(''); setCreateEmail(''); setCreateError(''); }}>Add Agent</Button>
+        <Button onClick={() => { setShowCreate(true); setCreateName(''); setCreateEmail(''); setCreateSendWelcome(true); setCreateError(''); }}>Add Agent</Button>
       </div>
 
       <p className="text-sm text-muted-foreground">
@@ -229,6 +231,17 @@ export function AgentManager() {
           <div className="space-y-4">
             <div className="space-y-2"><Label htmlFor="agent-name">Name</Label><Input id="agent-name" value={createName} onChange={e => setCreateName(e.target.value)} placeholder="Full name" /></div>
             <div className="space-y-2"><Label htmlFor="agent-email">Email</Label><Input id="agent-email" type="email" value={createEmail} onChange={e => setCreateEmail(e.target.value)} placeholder="email@example.com" /></div>
+            <div className="flex items-center gap-2">
+              <Checkbox
+                id="agent-send-welcome"
+                checked={createSendWelcome}
+                onCheckedChange={v => setCreateSendWelcome(v === true)}
+              />
+              <Label htmlFor="agent-send-welcome" className="flex items-center gap-1.5 cursor-pointer font-normal">
+                <Mail className="h-4 w-4 text-muted-foreground" />
+                Send welcome email with access code
+              </Label>
+            </div>
             {createError && <p className="text-sm text-destructive">{createError}</p>}
             <Button className="w-full" onClick={handleCreate} disabled={!createName || !createEmail || createMutation.isPending}>
               {createMutation.isPending ? 'Creating...' : 'Create'}

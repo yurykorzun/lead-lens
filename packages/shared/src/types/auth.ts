@@ -57,6 +57,7 @@ export type PaginatedAdminResponse = PaginatedResponse<AdminListItem>;
 export interface CreateLoanOfficerRequest {
   name: string;
   email: string;
+  sendWelcome?: boolean;
 }
 
 export interface UpdateLoanOfficerRequest {
@@ -74,6 +75,7 @@ export interface RegenerateCodeResponse {
 export interface CreateAgentRequest {
   name: string;
   email: string;
+  sendWelcome?: boolean;
 }
 
 export interface UpdateAgentRequest {
