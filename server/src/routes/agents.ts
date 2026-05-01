@@ -11,6 +11,7 @@ import {
   findUserByIdAndRole, checkEmailUniqueness, deleteUserWithAuditCleanup,
   formatUserItem, isUniqueViolation, sendError, sendSuccess,
 } from '../services/user-management.js';
+import { sendMail, welcomeEmailHtml } from '../services/mailer.js';
 
 const ROLE = 'agent' as const;
 const SF_FIELD = 'MtgPlanner_CRM__Referred_By_Text__c';
@@ -60,6 +61,12 @@ router.post('/', async (req: AuthenticatedRequest, res) => {
     const [user] = await db.insert(users).values({
       email, name, passwordHash, role: ROLE, status: 'active', sfField: SF_FIELD, sfValue: name,
     }).returning();
+
+    if (raw.sendWelcome) {
+      const loginUrl = process.env.FRONTEND_URL ?? 'https://lead-lens-portal.vercel.app';
+      sendMail(email, 'Your Lead Lens Account', welcomeEmailHtml(name, email, accessCode, loginUrl))
+        .catch(err => console.error('Welcome email failed (agent):', err));
+    }
 
     sendSuccess(res, { user: formatUserItem(user), accessCode });
   } catch (err) {
