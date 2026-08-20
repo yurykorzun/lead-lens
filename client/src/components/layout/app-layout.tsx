@@ -54,7 +54,7 @@ export function AppLayout({ children }: { children: ReactNode }) {
                 <Link
                   to="/view/officers"
                   className={`text-sm font-medium transition-colors ${
-                    location.pathname === '/view/officers' ? 'text-foreground' : 'text-muted-foreground hover:text-foreground'
+                    location.pathname.startsWith('/view/officers') ? 'text-foreground' : 'text-muted-foreground hover:text-foreground'
                   }`}
                 >
                   Officer View
@@ -62,7 +62,7 @@ export function AppLayout({ children }: { children: ReactNode }) {
                 <Link
                   to="/view/agents"
                   className={`text-sm font-medium transition-colors ${
-                    location.pathname === '/view/agents' ? 'text-foreground' : 'text-muted-foreground hover:text-foreground'
+                    location.pathname.startsWith('/view/agents') ? 'text-foreground' : 'text-muted-foreground hover:text-foreground'
                   }`}
                 >
                   Agent View

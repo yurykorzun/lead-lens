@@ -5,6 +5,7 @@ import { FIELD_MAP } from '@lead-lens/shared';
 import { executeSoql, buildContactQuery, verifyContactScope } from '../services/salesforce/query.js';
 import { bulkUpdate } from '../services/salesforce/update.js';
 import { writeAuditLog } from '../services/audit.js';
+import { findViewAsTarget } from '../services/view-as.js';
 
 const router = Router();
 
@@ -59,10 +60,25 @@ router.get('/', requireAuth, async (req: AuthenticatedRequest, res) => {
 
     const filters = req.query as unknown as ContactFilters;
 
+    // Admins can borrow another user's scope to see exactly what that person sees.
+    let scope = { sfField: req.sfField || undefined, sfValue: req.sfValue || undefined, role: req.userRole };
+    if (filters.viewAsUserId) {
+      if (req.userRole !== 'admin') {
+        res.status(403).json({ success: false, error: { code: 'FORBIDDEN', message: 'Only admins can view as another user' } });
+        return;
+      }
+      const target = await findViewAsTarget(filters.viewAsUserId);
+      if (!target) {
+        res.status(404).json({ success: false, error: { code: 'NOT_FOUND', message: 'No viewable user with that id' } });
+        return;
+      }
+      scope = { sfField: target.sfField, sfValue: target.sfValue, role: target.role };
+    }
+
     const { dataQuery, countQuery } = buildContactQuery({
-      sfField: req.sfField || undefined,
-      sfValue: req.sfValue || undefined,
-      role: req.userRole,
+      sfField: scope.sfField,
+      sfValue: scope.sfValue,
+      role: scope.role,
       search: filters.search,
       status: filters.status,
       temperature: filters.temperature,
@@ -70,7 +86,7 @@ router.get('/', requireAuth, async (req: AuthenticatedRequest, res) => {
       dateTo: filters.dateTo,
       page: filters.page ? Number(filters.page) : 1,
       pageSize: filters.pageSize ? Number(filters.pageSize) : 50,
-      orderBy: req.userRole === 'loan_officer' || req.userRole === 'agent' ? 'CreatedDate DESC' : 'LastModifiedDate DESC',
+      orderBy: scope.role === 'loan_officer' || scope.role === 'agent' ? 'CreatedDate DESC' : 'LastModifiedDate DESC',
     });
 
     const [dataResult, countResult] = await Promise.all([
@@ -106,7 +122,14 @@ const AGENT_EDITABLE_FIELDS = new Set<string>();
 
 router.patch('/', requireAuth, async (req: AuthenticatedRequest, res) => {
   try {
-    const { updates } = req.body as BulkUpdatePayload;
+    const { updates, viewAsUserId } = req.body as BulkUpdatePayload & { viewAsUserId?: string };
+
+    // View-as is a preview, never a write path — an admin editing here would
+    // save under their own permissions while looking at someone else's view.
+    if (viewAsUserId) {
+      res.status(403).json({ success: false, error: { code: 'READ_ONLY', message: 'View-as mode is read-only' } });
+      return;
+    }
 
     if (!updates || !Array.isArray(updates) || updates.length === 0) {
       res.status(400).json({ success: false, error: { code: 'VALIDATION', message: 'Updates array is required' } });

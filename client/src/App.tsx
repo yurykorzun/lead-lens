@@ -15,6 +15,7 @@ export default function App() {
         <Route path="/agents" element={<AgentsPage />} />
         <Route path="/admins" element={<AdminsPage />} />
         <Route path="/view/:role" element={<ViewAsPage />} />
+        <Route path="/view/:role/:userId" element={<ViewAsPage />} />
         <Route path="/" element={<DashboardPage />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>

@@ -26,6 +26,20 @@ api/[...path].ts   → Vercel serverless entry point
 | **Loan Officer** | Email + access code | 7 columns, limited edit | Stage, Status, Temperature, Last Touch, Last Touch SMS | `Loan_Partners__c OR Leon_Loan_Partner__c OR Marat__c = <name>` sorted by `CreatedDate DESC` |
 | **Agent** | Email + access code | 8 columns (incl. Lead Source, Referred By), limited edit | Status only | `MtgPlanner_CRM__Referred_By_Text__c = <name>` sorted by `CreatedDate DESC` |
 
+### View as another user
+
+Admins can preview the dashboard exactly as one loan officer or agent sees it —
+click a name in Manage LOs / Manage Agents, or use the Officer View / Agent View
+nav links for the generic role-shaped view.
+
+- Route: `/view/:role/:userId` (`role` is `officers` or `agents`); without a
+  `userId` it falls back to the role-only preview
+- `GET /api/contacts?viewAsUserId=<id>` swaps in that user's `sf_field`/`sf_value`
+  scope. Admin-only; unknown or non-impersonable ids 404 rather than silently
+  falling back to the admin's unscoped view
+- The preview is **read-only** — the detail panel hides Save, and `PATCH
+  /api/contacts` rejects any payload carrying `viewAsUserId`
+
 - No self-signup. Admins create loan officers and agents via admin panels
 - Access codes are generated server-side, shown once, stored as bcrypt hash
 - Current admins: Leon Belov, Marat Belov

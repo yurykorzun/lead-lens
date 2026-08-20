@@ -1,3 +1,4 @@
+import { Link } from 'react-router-dom';
 import { useState, useEffect } from 'react';
 import { MoreHorizontal, Pencil, KeyRound, Ban, CheckCircle, Trash2, Search, ChevronLeft, ChevronRight, Mail } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -172,7 +173,15 @@ export function AgentManager() {
             ) : (
               agents.map(a => (
                 <tr key={a.id} className="border-b transition-colors hover:bg-muted/50">
-                  <td className="px-3 py-2 font-medium">{a.name}</td>
+                  <td className="px-3 py-2 font-medium">
+                    <Link
+                      to={`/view/agents/${a.id}`}
+                      className="text-blue-600 underline-offset-2 hover:underline"
+                      title="See the contacts this agent sees"
+                    >
+                      {a.name}
+                    </Link>
+                  </td>
                   <td className="px-3 py-2">{a.email}</td>
                   <td className="px-3 py-2 tabular-nums">{a.activeLeads?.toLocaleString() ?? '—'}</td>
                   <td className="px-3 py-2">

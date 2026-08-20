@@ -36,6 +36,8 @@ export interface ContactRow {
 
 export interface ContactFilters {
   loanOfficerId?: string;
+  /** Admin-only: show the contacts this user would see, instead of the caller's own scope. */
+  viewAsUserId?: string;
   search?: string;
   status?: string;
   temperature?: string;

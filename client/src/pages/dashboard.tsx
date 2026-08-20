@@ -19,8 +19,14 @@ const COLUMNS_BY_ROLE = {
   agent: agentColumns,
 } as const;
 
-export function DashboardContent({ displayRole }: { displayRole: DisplayRole }) {
-  const [filters, setFilters] = useState<ContactFilters>({ page: 1, pageSize: 50 });
+interface DashboardContentProps {
+  displayRole: DisplayRole;
+  /** Admin-only: fetch the contacts this user sees instead of the caller's own. */
+  viewAsUserId?: string;
+}
+
+export function DashboardContent({ displayRole, viewAsUserId }: DashboardContentProps) {
+  const [filters, setFilters] = useState<ContactFilters>({ page: 1, pageSize: 50, viewAsUserId });
   const [debouncedFilters, setDebouncedFilters] = useState(filters);
   const debounceRef = useRef<ReturnType<typeof setTimeout>>(undefined);
 
@@ -118,6 +124,7 @@ export function DashboardContent({ displayRole }: { displayRole: DisplayRole }) 
           onClose={() => setSelectedId(null)}
           dropdowns={dropdowns}
           role={displayRole}
+          readOnly={Boolean(viewAsUserId)}
         />
       )}
     </div>

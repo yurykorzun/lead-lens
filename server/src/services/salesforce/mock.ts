@@ -230,17 +230,17 @@ export function mockExecuteSoql<T = Record<string, unknown>>(soql: string): SFQu
     // Filter by scope if present
     let count = FAKE_CONTACTS.length;
 
-    // Simple name-based scope filtering
-    const nameMatch = soql.match(/= '([^']+)'/);
-    if (nameMatch) {
-      const name = nameMatch[1];
-      if (upper.includes('LOAN_PARTNERS__C') || upper.includes('LEON_LOAN_PARTNER__C')) {
-        count = FAKE_CONTACTS.filter(c =>
-          c.Loan_Partners__c === name || c.Leon_Loan_Partner__c === name || c.Marat__c === name
-        ).length;
-      } else if (upper.includes('REFERRED_BY_TEXT__C')) {
-        count = FAKE_CONTACTS.filter(c => c.MtgPlanner_CRM__Referred_By_Text__c === name).length;
-      }
+    // Name-based scope filtering, read from the WHERE clause
+    const countWhere = soql.split(/\bWHERE\b/i)[1] ?? '';
+    const loScope = countWhere.match(/Loan_Partners__c = '([^']+)'/);
+    const agentScope = countWhere.match(/Referred_By_Text__c = '([^']+)'/);
+
+    if (loScope) {
+      count = FAKE_CONTACTS.filter(c =>
+        c.Loan_Partners__c === loScope[1] || c.Leon_Loan_Partner__c === loScope[1] || c.Marat__c === loScope[1]
+      ).length;
+    } else if (agentScope) {
+      count = FAKE_CONTACTS.filter(c => c.MtgPlanner_CRM__Referred_By_Text__c === agentScope[1]).length;
     }
 
     return { totalSize: count, done: true, records: [] } as SFQueryResponse<T>;
@@ -286,21 +286,21 @@ export function mockExecuteSoql<T = Record<string, unknown>>(soql: string): SFQu
     filtered = filtered.filter(c => c.Temparture__c === tempMatch[1]);
   }
 
-  // Scope filtering (LO or Agent)
-  if (upper.includes('LOAN_PARTNERS__C') || upper.includes('LEON_LOAN_PARTNER__C')) {
-    const scopeMatch = soql.match(/Loan_Partners__c = '([^']+)'/);
-    if (scopeMatch) {
-      const name = scopeMatch[1];
-      filtered = filtered.filter(c =>
-        c.Loan_Partners__c === name || c.Leon_Loan_Partner__c === name || c.Marat__c === name
-      );
-    }
-  } else if (upper.includes('REFERRED_BY_TEXT__C')) {
-    const scopeMatch = soql.match(/Referred_By_Text__c = '([^']+)'/);
-    if (scopeMatch) {
-      const name = scopeMatch[1];
-      filtered = filtered.filter(c => c.MtgPlanner_CRM__Referred_By_Text__c === name);
-    }
+  // Scope filtering (LO or Agent). Match against the WHERE clause only — the
+  // SELECT list names these same fields, so testing the whole query would make
+  // every request look scoped.
+  const where = soql.split(/\bWHERE\b/i)[1] ?? '';
+  const loScope = where.match(/Loan_Partners__c = '([^']+)'/);
+  const agentScope = where.match(/Referred_By_Text__c = '([^']+)'/);
+
+  if (loScope) {
+    const name = loScope[1];
+    filtered = filtered.filter(c =>
+      c.Loan_Partners__c === name || c.Leon_Loan_Partner__c === name || c.Marat__c === name
+    );
+  } else if (agentScope) {
+    const name = agentScope[1];
+    filtered = filtered.filter(c => c.MtgPlanner_CRM__Referred_By_Text__c === name);
   }
 
   // Pagination

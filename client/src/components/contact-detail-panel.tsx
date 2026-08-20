@@ -16,6 +16,8 @@ export interface ContactDetailPanelProps {
   onClose: () => void;
   dropdowns: Record<string, Array<{ value: string; label: string }>>;
   role: 'admin' | 'loan_officer' | 'agent';
+  /** View-as preview: show the fields this role sees, but allow no edits. */
+  readOnly?: boolean;
 }
 
 type FormState = Record<string, unknown>;
@@ -103,6 +105,7 @@ export function ContactDetailPanel({
   onClose,
   dropdowns,
   role,
+  readOnly = false,
 }: ContactDetailPanelProps) {
   const queryClient = useQueryClient();
   const [form, setForm] = useState<FormState>({});
@@ -129,6 +132,7 @@ export function ContactDetailPanel({
   };
 
   const isEditable = (fieldKey: string) => {
+    if (readOnly) return false;
     if (role === 'admin') return true;
     if (role === 'loan_officer') return LO_EDITABLE_FIELDS.has(fieldKey);
     if (role === 'agent') return AGENT_EDITABLE_FIELDS.has(fieldKey);
@@ -365,12 +369,14 @@ export function ContactDetailPanel({
           )}
           <div className="flex gap-2 border-t px-5 py-3">
             <Button variant="outline" className="flex-1" onClick={onClose} disabled={saving}>
-              Cancel
+              {readOnly ? 'Close' : 'Cancel'}
             </Button>
-            <Button className="flex-1" onClick={handleSave} disabled={saving || !hasChanges}>
-              <Save className="mr-1.5 h-4 w-4" />
-              {saving ? 'Saving...' : 'Save'}
-            </Button>
+            {!readOnly && (
+              <Button className="flex-1" onClick={handleSave} disabled={saving || !hasChanges}>
+                <Save className="mr-1.5 h-4 w-4" />
+                {saving ? 'Saving...' : 'Save'}
+              </Button>
+            )}
           </div>
         </TabsContent>
 

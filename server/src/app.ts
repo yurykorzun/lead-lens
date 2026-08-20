@@ -8,6 +8,7 @@ import activityRoutes from './routes/activity.js';
 import loanOfficerRoutes from './routes/loan-officers.js';
 import agentRoutes from './routes/agents.js';
 import adminRoutes from './routes/admins.js';
+import viewAsRoutes from './routes/view-as.js';
 import { errorHandler } from './middleware/error-handler.js';
 
 const app = express();
@@ -32,6 +33,7 @@ app.use('/api/contacts', activityRoutes);
 app.use('/api/loan-officers', loanOfficerRoutes);
 app.use('/api/agents', agentRoutes);
 app.use('/api/admins', adminRoutes);
+app.use('/api/view-as', viewAsRoutes);
 
 // Error handler (must be last)
 app.use(errorHandler);

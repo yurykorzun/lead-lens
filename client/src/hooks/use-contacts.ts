@@ -9,6 +9,7 @@ export function useContacts(filters: ContactFilters) {
     queryFn: () => {
       const params = new URLSearchParams();
       if (filters.loanOfficerId) params.set('loanOfficerId', filters.loanOfficerId);
+      if (filters.viewAsUserId) params.set('viewAsUserId', filters.viewAsUserId);
       if (filters.search) params.set('search', filters.search);
       if (filters.status) params.set('status', filters.status);
       if (filters.temperature) params.set('temperature', filters.temperature);

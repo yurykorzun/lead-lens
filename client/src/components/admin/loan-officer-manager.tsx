@@ -1,3 +1,4 @@
+import { Link } from 'react-router-dom';
 import { useState, useEffect } from 'react';
 import { MoreHorizontal, Pencil, KeyRound, Ban, CheckCircle, Trash2, Search, ChevronLeft, ChevronRight, Mail } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -177,7 +178,15 @@ export function LoanOfficerManager() {
             ) : (
               loanOfficers.map(lo => (
                 <tr key={lo.id} className="border-b transition-colors hover:bg-muted/50">
-                  <td className="px-3 py-2 font-medium">{lo.name}</td>
+                  <td className="px-3 py-2 font-medium">
+                    <Link
+                      to={`/view/officers/${lo.id}`}
+                      className="text-blue-600 underline-offset-2 hover:underline"
+                      title="See the contacts this loan officer sees"
+                    >
+                      {lo.name}
+                    </Link>
+                  </td>
                   <td className="px-3 py-2">{lo.email}</td>
                   <td className="px-3 py-2 tabular-nums">{lo.activeLeads?.toLocaleString() ?? '—'}</td>
                   <td className="px-3 py-2">
