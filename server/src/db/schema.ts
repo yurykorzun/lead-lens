@@ -21,6 +21,9 @@ export const users = pgTable('users', {
   status: varchar('status', { length: 20 }).notNull().default('active'),
   sfField: varchar('sf_field', { length: 255 }),
   sfValue: varchar('sf_value', { length: 255 }),
+  // Salesforce Ids for lgc-ci scoping: realtor Contact for agents, User for loan officers
+  sfContactId: varchar('sf_contact_id', { length: 18 }),
+  sfUserId: varchar('sf_user_id', { length: 18 }),
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow(),
   lastLoginAt: timestamp('last_login_at', { withTimezone: true }),
 }, (table) => [

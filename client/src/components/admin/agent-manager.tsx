@@ -51,11 +51,13 @@ export function AgentManager() {
   const [createName, setCreateName] = useState('');
   const [createEmail, setCreateEmail] = useState('');
   const [createSendWelcome, setCreateSendWelcome] = useState(true);
+  const [createSfId, setCreateSfId] = useState('');
   const [createError, setCreateError] = useState('');
 
   const [editId, setEditId] = useState<string | null>(null);
   const [editName, setEditName] = useState('');
   const [editEmail, setEditEmail] = useState('');
+  const [editSfId, setEditSfId] = useState('');
   const [editError, setEditError] = useState('');
 
   const [codeModal, setCodeModal] = useState<{ name: string; code: string } | null>(null);
@@ -74,10 +76,11 @@ export function AgentManager() {
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmedEmail)) { setCreateError('Please enter a valid email address'); return; }
 
     try {
-      const res = await createMutation.mutateAsync({ name: trimmedName, email: trimmedEmail, sendWelcome: createSendWelcome });
+      const res = await createMutation.mutateAsync({ name: trimmedName, email: trimmedEmail, sendWelcome: createSendWelcome, sfContactId: createSfId.trim() || undefined });
       setShowCreate(false);
       setCreateName('');
       setCreateEmail('');
+      setCreateSfId('');
       setCodeModal({ name: trimmedName, code: res.data.accessCode });
     } catch (err) {
       setCreateError(err instanceof Error ? err.message : 'Failed to create');
@@ -95,7 +98,7 @@ export function AgentManager() {
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmedEmail)) { setEditError('Please enter a valid email address'); return; }
 
     try {
-      await updateMutation.mutateAsync({ id: editId, data: { name: trimmedName, email: trimmedEmail } });
+      await updateMutation.mutateAsync({ id: editId, data: { name: trimmedName, email: trimmedEmail, sfContactId: editSfId.trim() || null } });
       setEditId(null);
     } catch (err) {
       setEditError(err instanceof Error ? err.message : 'Failed to update');
@@ -125,7 +128,7 @@ export function AgentManager() {
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <h2 className="text-lg font-semibold">Real Estate Agents</h2>
-        <Button onClick={() => { setShowCreate(true); setCreateName(''); setCreateEmail(''); setCreateSendWelcome(true); setCreateError(''); }}>Add Agent</Button>
+        <Button onClick={() => { setShowCreate(true); setCreateName(''); setCreateEmail(''); setCreateSfId(''); setCreateSendWelcome(true); setCreateError(''); }}>Add Agent</Button>
       </div>
 
       <p className="text-sm text-muted-foreground">
@@ -152,6 +155,7 @@ export function AgentManager() {
               <th className="px-3 py-2 text-left text-xs font-medium uppercase tracking-wider text-muted-foreground">Name</th>
               <th className="px-3 py-2 text-left text-xs font-medium uppercase tracking-wider text-muted-foreground">Email</th>
               <th className="px-3 py-2 text-left text-xs font-medium uppercase tracking-wider text-muted-foreground">Leads</th>
+              <th className="px-3 py-2 text-left text-xs font-medium uppercase tracking-wider text-muted-foreground">SF Id</th>
               <th className="px-3 py-2 text-left text-xs font-medium uppercase tracking-wider text-muted-foreground">Status</th>
               <th className="px-3 py-2 text-left text-xs font-medium uppercase tracking-wider text-muted-foreground">Created</th>
               <th className="px-3 py-2 text-left text-xs font-medium uppercase tracking-wider text-muted-foreground">Last Login</th>
@@ -161,11 +165,11 @@ export function AgentManager() {
           <tbody>
             {isPending ? (
               <tr>
-                <td colSpan={7} className="px-3 py-8 text-center text-muted-foreground">Loading agents...</td>
+                <td colSpan={8} className="px-3 py-8 text-center text-muted-foreground">Loading agents...</td>
               </tr>
             ) : agents.length === 0 ? (
               <tr>
-                <td colSpan={7} className="px-3 py-8 text-center text-muted-foreground">
+                <td colSpan={8} className="px-3 py-8 text-center text-muted-foreground">
                   {debouncedSearch ? 'No agents match your search.' : 'No agents yet. Add one to get started.'}
                 </td>
               </tr>
@@ -175,6 +179,7 @@ export function AgentManager() {
                   <td className="px-3 py-2 font-medium">{a.name}</td>
                   <td className="px-3 py-2">{a.email}</td>
                   <td className="px-3 py-2 tabular-nums">{a.activeLeads?.toLocaleString() ?? '—'}</td>
+                  <td className="px-3 py-2 font-mono text-xs">{a.sfContactId || <span className="text-muted-foreground">not set</span>}</td>
                   <td className="px-3 py-2">
                     <Badge variant="outline" className={a.status === 'active' ? 'bg-green-100 text-green-800 border-green-200' : 'bg-red-100 text-red-800 border-red-200'}>
                       {a.status}
@@ -188,7 +193,7 @@ export function AgentManager() {
                         <Button variant="ghost" size="icon" className="h-8 w-8"><MoreHorizontal className="h-4 w-4" /></Button>
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end">
-                        <DropdownMenuItem onClick={() => { setEditId(a.id); setEditName(a.name); setEditEmail(a.email); setEditError(''); }}>
+                        <DropdownMenuItem onClick={() => { setEditId(a.id); setEditName(a.name); setEditEmail(a.email); setEditSfId(a.sfContactId ?? ''); setEditError(''); }}>
                           <Pencil className="mr-2 h-4 w-4" /> Edit
                         </DropdownMenuItem>
                         <DropdownMenuItem onClick={() => handleRegenerate(a.id, a.name)}>
@@ -231,6 +236,10 @@ export function AgentManager() {
           <div className="space-y-4">
             <div className="space-y-2"><Label htmlFor="agent-name">Name</Label><Input id="agent-name" value={createName} onChange={e => setCreateName(e.target.value)} placeholder="Full name" /></div>
             <div className="space-y-2"><Label htmlFor="agent-email">Email</Label><Input id="agent-email" type="email" value={createEmail} onChange={e => setCreateEmail(e.target.value)} placeholder="email@example.com" /></div>
+            <div className="space-y-2">
+              <Label htmlFor="agent-sf-id">Salesforce Contact Id <span className="font-normal text-muted-foreground">(optional)</span></Label>
+              <Input id="agent-sf-id" value={createSfId} onChange={e => setCreateSfId(e.target.value)} placeholder="003… from the realtor record in lgc-ci" className="font-mono" />
+            </div>
             <div className="flex items-center gap-2">
               <Checkbox
                 id="agent-send-welcome"
@@ -256,6 +265,10 @@ export function AgentManager() {
           <div className="space-y-4">
             <div className="space-y-2"><Label htmlFor="edit-agent-name">Name</Label><Input id="edit-agent-name" value={editName} onChange={e => setEditName(e.target.value)} /></div>
             <div className="space-y-2"><Label htmlFor="edit-agent-email">Email</Label><Input id="edit-agent-email" type="email" value={editEmail} onChange={e => setEditEmail(e.target.value)} /></div>
+            <div className="space-y-2">
+              <Label htmlFor="edit-agent-sf-id">Salesforce Contact Id <span className="font-normal text-muted-foreground">(optional)</span></Label>
+              <Input id="edit-agent-sf-id" value={editSfId} onChange={e => setEditSfId(e.target.value)} placeholder="003… from the realtor record in lgc-ci" className="font-mono" />
+            </div>
             {editError && <p className="text-sm text-destructive">{editError}</p>}
             <Button className="w-full" onClick={handleEdit} disabled={!editName || !editEmail || updateMutation.isPending}>
               {updateMutation.isPending ? 'Saving...' : 'Save'}
