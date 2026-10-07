@@ -1,41 +1,26 @@
+// One row per person on the lgc-ci Originator Tracker mirror (LeadAccount__c):
+// an open borrower Lead, or a client (person account) and their loan.
+// There are no free-text fields on purpose - notes are internal and never leave the org.
 export interface ContactRow {
-  id: string;
+  id: string; // Lead Id, or the person account's Contact Id
+  kind: 'lead' | 'client';
   name: string;
   firstName?: string;
   lastName?: string;
   email?: string;
   phone?: string;
-  mobilePhone?: string;
-  status?: string;
+  status?: string; // Lead status, or CLIENT_STATUS for a client
+  stage?: string; // loan stage, clients only
   temperature?: string;
-  noOfCalls?: number;
-  message?: string;
-  hotLead?: boolean;
-  paal?: boolean;
-  inProcess?: boolean;
-  stage?: string;
-  thankYouToReferralSource?: boolean;
-  bdr?: string;
-  loanPartner?: string;
-  leonLoanPartner?: string;
-  maratLoanPartner?: string;
-  leonBdr?: string;
-  maratBdr?: string;
   leadSource?: string;
-  isClient?: boolean;
-  referredByText?: string;
-  lastTouch?: string;
-  lastTouchSms?: string;
-  description?: string;
-  ownerId?: string;
+  referredBy?: string;
   ownerName?: string;
-  recordType?: string;
-  createdDate?: string;
-  lastModifiedDate?: string;
+  createdDate?: string; // YYYY-MM-DD, the tracker's Created date
 }
 
+export const CLIENT_STATUS = 'Client';
+
 export interface ContactFilters {
-  loanOfficerId?: string;
   search?: string;
   status?: string;
   temperature?: string;
@@ -43,11 +28,4 @@ export interface ContactFilters {
   dateTo?: string;
   page?: number;
   pageSize?: number;
-}
-
-export interface BulkUpdatePayload {
-  updates: Array<{
-    id: string;
-    fields: Partial<Omit<ContactRow, 'id' | 'name' | 'firstName' | 'lastName' | 'email' | 'phone' | 'mobilePhone' | 'ownerId' | 'ownerName' | 'recordType' | 'createdDate' | 'lastModifiedDate'>>;
-  }>;
 }
