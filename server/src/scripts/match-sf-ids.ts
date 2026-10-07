@@ -130,11 +130,26 @@ async function loadTargets(): Promise<Target[]> {
     }));
 }
 
+// The Lead_Lens integration user cannot read Organization (read-only permission set,
+// on purpose), so fall back to the instance the token was issued for.
+const LGC_CI_HOST = 'flow-enterprise-8486.my.salesforce.com';
+
+async function isLgcCi(): Promise<boolean> {
+  try {
+    const [org] = await query<{ Id: string; Name: string }>('SELECT Id, Name FROM Organization');
+    console.log(`Salesforce org: ${org.Name} ${org.Id}`);
+    return org.Id.startsWith(LGC_CI_ORG_ID);
+  } catch {
+    const { instanceUrl } = await sfConnection();
+    const host = new URL(instanceUrl).host;
+    console.log(`Salesforce instance: ${host} (Organization not readable by this user)`);
+    return host === LGC_CI_HOST;
+  }
+}
+
 async function main() {
   if (apply && cliNames.length > 0) throw new Error('--apply works only on users loaded from the database');
-  const [org] = await query<{ Id: string; Name: string }>('SELECT Id, Name FROM Organization');
-  console.log(`Salesforce org: ${org.Name} ${org.Id}`);
-  if (!org.Id.startsWith(LGC_CI_ORG_ID) && !anyOrg) {
+  if (!(await isLgcCi()) && !anyOrg) {
     throw new Error(`This is not lgc-ci (${LGC_CI_ORG_ID}). Set SF_ACCESS_TOKEN/SF_INSTANCE_URL for lgc-ci, or pass --any-org.`);
   }
   const targets = await loadTargets();
