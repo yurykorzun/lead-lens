@@ -22,8 +22,8 @@ type FormState = Record<string, unknown>;
 
 // Fields LOs can see and edit
 const LO_EDITABLE_FIELDS = new Set(['stage', 'status', 'temperature', 'lastTouch', 'lastTouchSms']);
-// Fields agents can see in the panel
-const AGENT_VISIBLE_FIELDS = new Set(['status', 'temperature', 'stage', 'lastTouch', 'lastTouchSms', 'loanPartner', 'leonLoanPartner', 'maratLoanPartner']);
+// Fields agents can see in the panel. No free text - Last Touch and Description are internal notes.
+const AGENT_VISIBLE_FIELDS = new Set(['status', 'temperature', 'stage', 'loanPartner', 'leonLoanPartner', 'maratLoanPartner']);
 // Fields agents can edit (none — fully read-only)
 const AGENT_EDITABLE_FIELDS = new Set<string>();
 
@@ -226,15 +226,15 @@ export function ContactDetailPanel({
       <Tabs value={activeTab} onValueChange={setActiveTab} className="flex min-h-0 flex-1 flex-col">
         <TabsList className="mx-5 mb-0 shrink-0">
           <TabsTrigger value="details">Details</TabsTrigger>
-          <TabsTrigger value="activity">Activity</TabsTrigger>
-          <TabsTrigger value="history">History</TabsTrigger>
+          {role !== 'agent' && <TabsTrigger value="activity">Activity</TabsTrigger>}
+          {role !== 'agent' && <TabsTrigger value="history">History</TabsTrigger>}
         </TabsList>
 
         <TabsContent value="details" className="mt-0 flex min-h-0 flex-1 flex-col">
           <div className="flex-1 overflow-y-auto px-5 py-4">
             <div className="space-y-5">
-              {/* Description (read-only) */}
-              {contact.description && (
+              {/* Description (read-only, never for agents) */}
+              {role !== 'agent' && contact.description && (
                 <section>
                   <h3 className="mb-3 text-sm font-medium text-muted-foreground">Description</h3>
                   <p className="whitespace-pre-wrap rounded-lg border bg-muted/30 p-4 text-sm">
@@ -374,13 +374,17 @@ export function ContactDetailPanel({
           </div>
         </TabsContent>
 
-        <TabsContent value="activity" className="mt-0 min-h-0 flex-1 overflow-y-auto px-5 py-4">
-          <ActivityTab contactId={contact.id} />
-        </TabsContent>
+        {role !== 'agent' && (
+          <TabsContent value="activity" className="mt-0 min-h-0 flex-1 overflow-y-auto px-5 py-4">
+            <ActivityTab contactId={contact.id} />
+          </TabsContent>
+        )}
 
-        <TabsContent value="history" className="mt-0 min-h-0 flex-1 overflow-y-auto px-5 py-4">
-          <HistoryTab contactId={contact.id} />
-        </TabsContent>
+        {role !== 'agent' && (
+          <TabsContent value="history" className="mt-0 min-h-0 flex-1 overflow-y-auto px-5 py-4">
+            <HistoryTab contactId={contact.id} />
+          </TabsContent>
+        )}
       </Tabs>
     </div>
   );

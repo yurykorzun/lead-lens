@@ -10,7 +10,7 @@ import type { SFQueryResponse, SFSaveResult, SFDescribeResult } from '@lead-lens
 
 const FAKE_CONTACTS: Record<string, unknown>[] = [
   {
-    Id: '003MOCK000000001', Name: 'John Smith', FirstName: 'John', LastName: 'Smith',
+    Id: '003MOCK000000001AA', Name: 'John Smith', FirstName: 'John', LastName: 'Smith',
     Email: 'john.smith@example.com', Phone: '(555) 111-0001', MobilePhone: '(555) 222-0001',
     OwnerId: '005MOCK01', Owner: { Name: 'Leon Belov' }, CreatedDate: '2025-11-15T10:00:00.000Z',
     LastModifiedDate: '2026-02-10T14:30:00.000Z', LeadSource: 'Zillow',
@@ -27,7 +27,7 @@ const FAKE_CONTACTS: Record<string, unknown>[] = [
     RecordTypeId: '012MOCK01',
   },
   {
-    Id: '003MOCK000000002', Name: 'Jane Doe', FirstName: 'Jane', LastName: 'Doe',
+    Id: '003MOCK000000002AA', Name: 'Jane Doe', FirstName: 'Jane', LastName: 'Doe',
     Email: 'jane.doe@example.com', Phone: '(555) 111-0002', MobilePhone: null,
     OwnerId: '005MOCK01', Owner: { Name: 'Leon Belov' }, CreatedDate: '2025-12-01T08:00:00.000Z',
     LastModifiedDate: '2026-02-08T16:00:00.000Z', LeadSource: 'Referral',
@@ -43,7 +43,7 @@ const FAKE_CONTACTS: Record<string, unknown>[] = [
     RecordTypeId: '012MOCK01',
   },
   {
-    Id: '003MOCK000000003', Name: 'Robert Johnson', FirstName: 'Robert', LastName: 'Johnson',
+    Id: '003MOCK000000003AA', Name: 'Robert Johnson', FirstName: 'Robert', LastName: 'Johnson',
     Email: 'robert.j@example.com', Phone: '(555) 111-0003', MobilePhone: '(555) 222-0003',
     OwnerId: '005MOCK01', Owner: { Name: 'Leon Belov' }, CreatedDate: '2026-01-10T12:00:00.000Z',
     LastModifiedDate: '2026-02-15T09:00:00.000Z', LeadSource: 'Website',
@@ -59,7 +59,7 @@ const FAKE_CONTACTS: Record<string, unknown>[] = [
     RecordTypeId: '012MOCK01',
   },
   {
-    Id: '003MOCK000000004', Name: 'Maria Garcia', FirstName: 'Maria', LastName: 'Garcia',
+    Id: '003MOCK000000004AA', Name: 'Maria Garcia', FirstName: 'Maria', LastName: 'Garcia',
     Email: 'maria.g@example.com', Phone: '(555) 111-0004', MobilePhone: '(555) 222-0004',
     OwnerId: '005MOCK01', Owner: { Name: 'Leon Belov' }, CreatedDate: '2026-01-20T15:00:00.000Z',
     LastModifiedDate: '2026-02-14T11:00:00.000Z', LeadSource: 'Realtor.com',
@@ -76,7 +76,7 @@ const FAKE_CONTACTS: Record<string, unknown>[] = [
     RecordTypeId: '012MOCK01',
   },
   {
-    Id: '003MOCK000000005', Name: 'David Wilson', FirstName: 'David', LastName: 'Wilson',
+    Id: '003MOCK000000005AA', Name: 'David Wilson', FirstName: 'David', LastName: 'Wilson',
     Email: 'david.w@example.com', Phone: '(555) 111-0005', MobilePhone: null,
     OwnerId: '005MOCK02', Owner: { Name: 'Marat Tsirelson' }, CreatedDate: '2025-10-05T09:00:00.000Z',
     LastModifiedDate: '2026-01-20T10:00:00.000Z', LeadSource: 'Referral',
@@ -93,7 +93,7 @@ const FAKE_CONTACTS: Record<string, unknown>[] = [
     RecordTypeId: '012MOCK01',
   },
   {
-    Id: '003MOCK000000006', Name: 'Sarah Chen', FirstName: 'Sarah', LastName: 'Chen',
+    Id: '003MOCK000000006AA', Name: 'Sarah Chen', FirstName: 'Sarah', LastName: 'Chen',
     Email: 'sarah.c@example.com', Phone: '(555) 111-0006', MobilePhone: '(555) 222-0006',
     OwnerId: '005MOCK01', Owner: { Name: 'Leon Belov' }, CreatedDate: '2026-02-01T14:00:00.000Z',
     LastModifiedDate: '2026-02-17T08:00:00.000Z', LeadSource: 'Zillow',
@@ -110,7 +110,7 @@ const FAKE_CONTACTS: Record<string, unknown>[] = [
     RecordTypeId: '012MOCK01',
   },
   {
-    Id: '003MOCK000000007', Name: 'Michael Brown', FirstName: 'Michael', LastName: 'Brown',
+    Id: '003MOCK000000007AA', Name: 'Michael Brown', FirstName: 'Michael', LastName: 'Brown',
     Email: 'michael.b@example.com', Phone: '(555) 111-0007', MobilePhone: null,
     OwnerId: '005MOCK01', Owner: { Name: 'Leon Belov' }, CreatedDate: '2026-02-05T11:00:00.000Z',
     LastModifiedDate: '2026-02-16T13:00:00.000Z', LeadSource: 'Website',
@@ -126,7 +126,7 @@ const FAKE_CONTACTS: Record<string, unknown>[] = [
     RecordTypeId: '012MOCK01',
   },
   {
-    Id: '003MOCK000000008', Name: 'Emily Davis', FirstName: 'Emily', LastName: 'Davis',
+    Id: '003MOCK000000008AA', Name: 'Emily Davis', FirstName: 'Emily', LastName: 'Davis',
     Email: 'emily.d@example.com', Phone: '(555) 111-0008', MobilePhone: '(555) 222-0008',
     OwnerId: '005MOCK01', Owner: { Name: 'Leon Belov' }, CreatedDate: '2026-01-25T16:00:00.000Z',
     LastModifiedDate: '2026-02-12T10:00:00.000Z', LeadSource: 'Referral',

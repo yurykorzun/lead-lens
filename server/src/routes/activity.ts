@@ -1,7 +1,8 @@
-import { Router } from 'express';
+import { Router, type Response } from 'express';
 import { eq } from 'drizzle-orm';
-import { requireAuth } from '../middleware/auth.js';
-import { executeSoql } from '../services/salesforce/query.js';
+import { requireAuth, type AuthenticatedRequest } from '../middleware/auth.js';
+import { executeSoql, verifyContactScope } from '../services/salesforce/query.js';
+import { isSfId } from '../services/validate.js';
 import { getDb } from '../db/index.js';
 import { auditLog } from '../db/schema.js';
 
@@ -17,9 +18,35 @@ interface ActivityItem {
   changes?: Record<string, unknown>;
 }
 
-router.get('/:id/activity', requireAuth, async (req, res) => {
+// Task bodies and field history carry internal notes. Agents never get them,
+// a loan officer only for a record in their own scope. Returns the id, or null once it has answered.
+async function allowedRecordId(req: AuthenticatedRequest, res: Response): Promise<string | null> {
+  const forbidden = () => {
+    res.status(403).json({ success: false, error: { code: 'FORBIDDEN', message: 'Not available for this record' } });
+    return null;
+  };
+
+  if (req.userRole !== 'admin' && req.userRole !== 'loan_officer') return forbidden();
+
+  const id = req.params.id;
+  if (!isSfId(id)) {
+    res.status(400).json({ success: false, error: { code: 'VALIDATION', message: 'Invalid record id' } });
+    return null;
+  }
+
+  if (req.userRole === 'loan_officer') {
+    if (!req.sfField || !req.sfValue) return forbidden();
+    const inScope = await verifyContactScope([id], req.userRole, req.sfField, req.sfValue);
+    if (!inScope.has(id)) return forbidden();
+  }
+
+  return id;
+}
+
+router.get('/:id/activity', requireAuth, async (req: AuthenticatedRequest, res) => {
   try {
-    const contactId = req.params.id;
+    const contactId = await allowedRecordId(req, res);
+    if (!contactId) return;
 
     // Query SF Tasks
     const sfQuery = `SELECT Id, Subject, ActivityDate, Status, Description, CreatedDate FROM Task WHERE WhoId = '${contactId}' ORDER BY CreatedDate DESC LIMIT 50`;
@@ -29,7 +56,7 @@ router.get('/:id/activity', requireAuth, async (req, res) => {
       getDb()
         .select()
         .from(auditLog)
-        .where(eq(auditLog.sfRecordId, contactId as string)),
+        .where(eq(auditLog.sfRecordId, contactId)),
     ]);
 
     const activities: ActivityItem[] = [];
@@ -66,9 +93,10 @@ router.get('/:id/activity', requireAuth, async (req, res) => {
 });
 
 // GET /api/contacts/:id/history — SF ContactHistory (field change tracking)
-router.get('/:id/history', requireAuth, async (req, res) => {
+router.get('/:id/history', requireAuth, async (req: AuthenticatedRequest, res) => {
   try {
-    const contactId = req.params.id;
+    const contactId = await allowedRecordId(req, res);
+    if (!contactId) return;
     const soql = `SELECT Field, OldValue, NewValue, CreatedDate, CreatedBy.Name FROM ContactHistory WHERE ContactId = '${contactId}' ORDER BY CreatedDate DESC LIMIT 50`;
 
     const result = await executeSoql(soql).catch(() => ({ records: [] as Record<string, unknown>[] }));

@@ -166,7 +166,7 @@ test.describe('Contacts grid (agent)', () => {
     await expect(panel.getByText('Test LO').first()).toBeVisible();
   });
 
-  test('agent Last Touch and Last Touch SMS are read-only', async ({ page }) => {
+  test('agent sees no internal notes and no Activity or History tabs', async ({ page }) => {
     await loginAsAgent(page);
 
     const rows = page.locator('tbody tr');
@@ -175,15 +175,16 @@ test.describe('Contacts grid (agent)', () => {
     await rows.first().click();
     const panel = page.locator('div.border-l');
     await expect(panel).toBeVisible({ timeout: 5_000 });
+    await expect(panel.getByText('Status', { exact: true })).toBeVisible();
 
-    // Agent should see Last Touch labels
-    await expect(panel.getByText('Last Touch', { exact: true })).toBeVisible();
+    // Last Touch and Description are internal notes, never shown to an agent
+    await expect(panel.getByText('Last Touch', { exact: true })).toHaveCount(0);
+    await expect(panel.getByText('Last Touch (360 SMS)', { exact: true })).toHaveCount(0);
+    await expect(panel.getByRole('heading', { name: 'Description' })).toHaveCount(0);
+    await expect(panel.locator('textarea')).toHaveCount(0);
 
-    // Last Touch should NOT have editable textareas (agent can't edit them)
-    // Only the Status dropdown should be editable
-    const textareas = panel.locator('textarea');
-    const textareaCount = await textareas.count();
-    expect(textareaCount).toBe(0);
+    await expect(panel.getByRole('tab', { name: 'Activity' })).toHaveCount(0);
+    await expect(panel.getByRole('tab', { name: 'History' })).toHaveCount(0);
   });
 });
 

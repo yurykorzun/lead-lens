@@ -1,6 +1,7 @@
 import type { SFQueryResponse } from '@lead-lens/shared';
 import { getSalesforceToken } from './auth.js';
 import { mockExecuteSoql, mockVerifyContactScope, mockCountContactsForUsers } from './mock.js';
+import { isIsoDate, isSfId } from '../validate.js';
 
 const CONTACT_FIELDS = [
   'Id', 'Name', 'FirstName', 'LastName', 'Email', 'Phone', 'MobilePhone',
@@ -34,7 +35,8 @@ export async function executeSoql<T = Record<string, unknown>>(
 }
 
 function escapeSOQL(value: string): string {
-  return value.replace(/'/g, "\\'");
+  // Backslash first, or a trailing \ would swallow the escape added for the quote
+  return value.replace(/\\/g, '\\\\').replace(/'/g, "\\'");
 }
 
 interface ContactQueryParams {
@@ -78,7 +80,8 @@ export async function verifyContactScope(
   sfValue: string,
 ): Promise<Set<string>> {
   if (process.env.MOCK_SALESFORCE === 'true') return mockVerifyContactScope(ids);
-  if (role === 'admin') return new Set(ids);
+  if (role === 'admin') return new Set(ids.filter(isSfId));
+  ids = ids.filter(isSfId);
   if (ids.length === 0) return new Set();
 
   const scopeCondition = buildScopeCondition(role, sfField, sfValue);
@@ -121,6 +124,10 @@ export function buildContactQuery(params: ContactQueryParams): { dataQuery: stri
   const page = params.page || 1;
   const pageSize = Math.min(params.pageSize || 50, 200);
   const offset = (page - 1) * pageSize;
+
+  if ((dateFrom && !isIsoDate(dateFrom)) || (dateTo && !isIsoDate(dateTo))) {
+    throw new Error('Dates must be YYYY-MM-DD');
+  }
 
   const conditions: string[] = [];
   // Admins without scope see all contacts
