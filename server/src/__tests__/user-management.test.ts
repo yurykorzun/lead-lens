@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { parsePagination, isValidEmail, validateNameAndEmail, formatUserItem, getDrizzleCause, isUniqueViolation } from '../services/user-management.js';
+import { parsePagination, isValidEmail, validateNameAndEmail, formatUserItem, getDrizzleCause, isUniqueViolation, validateSfId } from '../services/user-management.js';
 
 describe('parsePagination', () => {
   it('returns defaults for empty query', () => {
@@ -125,5 +125,42 @@ describe('getDrizzleCause / isUniqueViolation', () => {
     const err = new Error('fail', { cause: { code: '42000' } });
     expect(isUniqueViolation(err)).toBe(false);
     expect(isUniqueViolation(new Error('no cause'))).toBe(false);
+  });
+});
+
+describe('validateSfId', () => {
+  it('passes undefined through so PATCH leaves the column alone', () => {
+    expect(validateSfId(undefined, 'contact')).toEqual({ id: undefined });
+  });
+
+  it('treats null and blank as clearing the Id', () => {
+    expect(validateSfId(null, 'contact')).toEqual({ id: null });
+    expect(validateSfId('   ', 'user')).toEqual({ id: null });
+  });
+
+  it('accepts 15- and 18-character Ids with the right prefix', () => {
+    expect(validateSfId('003a500001SpYbJ', 'contact')).toEqual({ id: '003a500001SpYbJ' });
+    expect(validateSfId(' 005a500001SpYbJEAV ', 'user')).toEqual({ id: '005a500001SpYbJEAV' });
+  });
+
+  it('rejects wrong lengths and non-alphanumerics', () => {
+    expect(typeof validateSfId('003abc', 'contact')).toBe('string');
+    expect(typeof validateSfId('003a500001SpYbJE', 'contact')).toBe('string'); // 16 chars
+    expect(typeof validateSfId("003a5000' OR 1=1", 'contact')).toBe('string');
+    expect(typeof validateSfId(12345, 'contact')).toBe('string');
+  });
+
+  it('rejects an Id of the wrong object', () => {
+    expect(validateSfId('005a500001SpYbJEAV', 'contact')).toBe('Salesforce Contact Id must start with 003');
+    expect(validateSfId('003a500001SpYbJEAV', 'user')).toBe('Salesforce User Id must start with 005');
+  });
+});
+
+describe('formatUserItem Salesforce Ids', () => {
+  it('includes sfContactId / sfUserId only when selected', () => {
+    const base = { id: '1', name: 'A', email: 'a@b.co', status: 'active', createdAt: null, lastLoginAt: null };
+    expect(formatUserItem(base)).not.toHaveProperty('sfContactId');
+    expect(formatUserItem({ ...base, sfContactId: null })).toHaveProperty('sfContactId', null);
+    expect(formatUserItem({ ...base, sfUserId: '005a500001SpYbJEAV' })).toHaveProperty('sfUserId', '005a500001SpYbJEAV');
   });
 });

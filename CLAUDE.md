@@ -63,6 +63,8 @@ npx tsx server/src/seed.ts               # seed/migrate admin users
 - Each user has `sf_field`/`sf_value` that determines their Salesforce data scope
 - Access codes for LOs/agents are stored as bcrypt hashes in `password_hash` column
 - Role CHECK: `('admin', 'loan_officer', 'agent')`, Status CHECK: `('active', 'disabled')`
+- `sf_contact_id` (agents, realtor Contact) and `sf_user_id` (loan officers, User) hold lgc-ci Ids for Id-based scoping. Admins set them in Manage Agents / Manage LOs; `npx tsx server/src/scripts/match-sf-ids.ts` proposes them by name (report only; `--apply` writes unique matches; refuses any org but lgc-ci)
+- Migrations live in `server/drizzle/`. The tables predate them (created with `drizzle-kit push`), so `0000_add_sf_ids` only adds columns and is safe to re-run
 
 ## Salesforce Integration
 

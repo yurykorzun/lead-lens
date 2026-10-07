@@ -46,6 +46,33 @@ export function validateNameAndEmail(name: unknown, email: unknown): { name: str
   return { name: trimmedName, email: trimmedEmail };
 }
 
+const SF_ID_REGEX = /^[a-zA-Z0-9]{15}([a-zA-Z0-9]{3})?$/;
+
+// Key prefixes: Contact ids start 003, User ids 005
+export const SF_ID_PREFIX = { contact: '003', user: '005' } as const;
+
+/**
+ * Validate an optional Salesforce Id from a request body.
+ * Returns undefined when the field was not sent, null to clear it,
+ * the trimmed Id when valid, or an error message.
+ */
+export function validateSfId(
+  value: unknown,
+  kind: keyof typeof SF_ID_PREFIX,
+): { id: string | null | undefined } | string {
+  if (value === undefined) return { id: undefined };
+  if (value === null) return { id: null };
+  if (typeof value !== 'string') return 'Salesforce Id must be a string';
+  const trimmed = value.trim();
+  if (!trimmed) return { id: null };
+  if (!SF_ID_REGEX.test(trimmed)) return 'Salesforce Id must be 15 or 18 letters and digits';
+  const prefix = SF_ID_PREFIX[kind];
+  if (!trimmed.startsWith(prefix)) {
+    return `Salesforce ${kind === 'contact' ? 'Contact' : 'User'} Id must start with ${prefix}`;
+  }
+  return { id: trimmed };
+}
+
 // ── DB helpers ─────────────────────────────────────────────────────────
 
 export function buildUserListConditions(role: UserRole, search: string) {
@@ -84,6 +111,8 @@ export function formatUserItem(user: {
   status: string;
   sfField?: string | null;
   sfValue?: string | null;
+  sfContactId?: string | null;
+  sfUserId?: string | null;
   createdAt: Date | null;
   lastLoginAt: Date | null;
 }) {
@@ -92,6 +121,8 @@ export function formatUserItem(user: {
     name: user.name ?? '',
     email: user.email,
     status: user.status,
+    ...(user.sfContactId !== undefined && { sfContactId: user.sfContactId }),
+    ...(user.sfUserId !== undefined && { sfUserId: user.sfUserId }),
     createdAt: user.createdAt?.toISOString() ?? '',
     lastLoginAt: user.lastLoginAt?.toISOString(),
   };
