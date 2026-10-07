@@ -39,6 +39,13 @@ async function getAccessToken(): Promise<string> {
 }
 
 export async function sendMail(to: string, subject: string, html: string): Promise<void> {
+  // Staging and e2e set this. The .env there holds the real Graph credentials, and the
+  // admin e2e tests create users with "Send welcome email" ticked - on 2026-10-07 every
+  // run mailed a fake @test.com address and CC'd Eugene.
+  if (process.env.EMAIL_DISABLED === 'true') {
+    console.log(`Email disabled, not sent: "${subject}" to ${to}`);
+    return;
+  }
   const token = await getAccessToken();
 
   const res = await fetch(
