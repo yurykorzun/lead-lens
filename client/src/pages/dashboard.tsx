@@ -116,7 +116,6 @@ export function DashboardContent({ displayRole }: { displayRole: DisplayRole }) 
         <ContactDetailPanel
           contact={selectedContact}
           onClose={() => setSelectedId(null)}
-          dropdowns={dropdowns}
           role={displayRole}
         />
       )}

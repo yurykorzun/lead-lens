@@ -11,8 +11,8 @@ interface FilterBarProps {
 }
 
 export function FilterBar({ filters, onChange, dropdowns }: FilterBarProps) {
-  const statusOptions = dropdowns['Status__c'] || [];
-  const tempOptions = dropdowns['Temparture__c'] || [];
+  const statusOptions = dropdowns['Status'] || [];
+  const tempOptions = dropdowns['Temperature__c'] || [];
 
   const activeFilterCount = [filters.status, filters.temperature, filters.dateFrom, filters.dateTo].filter(Boolean).length;
 

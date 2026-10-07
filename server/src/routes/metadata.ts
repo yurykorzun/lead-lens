@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import { eq } from 'drizzle-orm';
+import { CLIENT_STATUS } from '@lead-lens/shared';
 import { requireAuth } from '../middleware/auth.js';
 import { describeObject, extractPicklistValues } from '../services/salesforce/metadata.js';
 import { getDb } from '../db/index.js';
@@ -7,69 +8,48 @@ import { sfMetadataCache } from '../db/schema.js';
 
 const router = Router();
 
-const PICKLIST_FIELDS = [
-  'Status__c',
-  'Temparture__c',
-  'No_of_Calls__c',
-  'MtgPlanner_CRM__Stage__c',
-  'BDR__c',
-  'Leon_BDR__c',
-  'Marat_BDR__c',
-  'Loan_Partners__c',
-  'Leon_Loan_Partner__c',
-  'Marat__c',
-  'LeadSource',
-];
+// Dropdown key -> where its values live in lgc-ci
+const PICKLISTS: Record<string, string[]> = {
+  Lead: ['Status', 'Temperature__c', 'LeadSource'],
+  Opportunity: ['StageName'],
+};
 
 const CACHE_TTL_MS = 30 * 60 * 1000; // 30 minutes
 
+type Options = Array<{ value: string; label: string }>;
+
+async function picklistsFor(objectName: string, fields: string[]): Promise<Record<string, Options>> {
+  const db = getDb();
+  const cached = await db.select().from(sfMetadataCache).where(eq(sfMetadataCache.objectName, objectName));
+  const isFresh = cached.length === fields.length && cached.every(r =>
+    r.cachedAt && Date.now() - new Date(r.cachedAt).getTime() < CACHE_TTL_MS);
+  if (isFresh) {
+    return Object.fromEntries(cached.map(r => [r.fieldName, r.metadata as Options]));
+  }
+
+  const describe = await describeObject(objectName);
+  const values = Object.fromEntries(fields.map(f => [f, extractPicklistValues(describe, f)]));
+
+  for (const [fieldName, metadata] of Object.entries(values)) {
+    await db
+      .insert(sfMetadataCache)
+      .values({ objectName, fieldName, metadata, cachedAt: new Date() })
+      .onConflictDoUpdate({
+        target: [sfMetadataCache.objectName, sfMetadataCache.fieldName],
+        set: { metadata, cachedAt: new Date() },
+      });
+  }
+  return values;
+}
+
 router.get('/dropdowns', requireAuth, async (_req, res) => {
   try {
-    const db = getDb();
-
-    // Check cache
-    const cached = await db
-      .select()
-      .from(sfMetadataCache)
-      .where(eq(sfMetadataCache.objectName, 'Contact'));
-
-    const now = Date.now();
-    const isFresh = cached.length > 0 && cached[0].cachedAt &&
-      now - new Date(cached[0].cachedAt).getTime() < CACHE_TTL_MS;
-
-    if (isFresh && cached.length === PICKLIST_FIELDS.length) {
-      // Return from cache
-      const dropdowns: Record<string, Array<{ value: string; label: string }>> = {};
-      for (const row of cached) {
-        dropdowns[row.fieldName] = row.metadata as Array<{ value: string; label: string }>;
-      }
-      res.json({ success: true, data: dropdowns });
-      return;
+    const dropdowns: Record<string, Options> = {};
+    for (const [objectName, fields] of Object.entries(PICKLISTS)) {
+      Object.assign(dropdowns, await picklistsFor(objectName, fields));
     }
-
-    // Fetch fresh from SF
-    const describe = await describeObject('Contact');
-
-    const dropdowns: Record<string, Array<{ value: string; label: string }>> = {};
-    for (const fieldName of PICKLIST_FIELDS) {
-      dropdowns[fieldName] = extractPicklistValues(describe, fieldName);
-    }
-
-    // Upsert cache
-    for (const [fieldName, values] of Object.entries(dropdowns)) {
-      await db
-        .insert(sfMetadataCache)
-        .values({
-          objectName: 'Contact',
-          fieldName,
-          metadata: values,
-          cachedAt: new Date(),
-        })
-        .onConflictDoUpdate({
-          target: [sfMetadataCache.objectName, sfMetadataCache.fieldName],
-          set: { metadata: values, cachedAt: new Date() },
-        });
-    }
+    // A client row's status is not a Lead value, so the filter needs it added
+    dropdowns.Status = [...(dropdowns.Status ?? []), { value: CLIENT_STATUS, label: CLIENT_STATUS }];
 
     res.json({ success: true, data: dropdowns });
   } catch (err) {

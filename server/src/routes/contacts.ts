@@ -1,84 +1,37 @@
 import { Router } from 'express';
 import { requireAuth, type AuthenticatedRequest } from '../middleware/auth.js';
-import type { ContactFilters, BulkUpdatePayload, ContactRow } from '@lead-lens/shared';
-import { FIELD_MAP } from '@lead-lens/shared';
-import { executeSoql, buildContactQuery, verifyContactScope } from '../services/salesforce/query.js';
-import { bulkUpdate } from '../services/salesforce/update.js';
-import { writeAuditLog } from '../services/audit.js';
+import type { ContactFilters } from '@lead-lens/shared';
+import { executeSoql, buildContactQuery, mapRow, type Scope } from '../services/salesforce/query.js';
 import { isIsoDate, isSfId } from '../services/validate.js';
 
+// Read-only. There is no write route: on lgc-ci a Status change fires referral texts to
+// realtors, so nothing in Lead Lens may change a record.
 const router = Router();
 
-// Map a SF record to a ContactRow
-function mapSfToContact(record: Record<string, unknown>): ContactRow {
-  const owner = record.Owner as Record<string, unknown> | undefined;
-
-  return {
-    id: record.Id as string,
-    name: record.Name as string,
-    firstName: record.FirstName as string | undefined,
-    lastName: record.LastName as string | undefined,
-    email: record.Email as string | undefined,
-    phone: record.Phone as string | undefined,
-    mobilePhone: record.MobilePhone as string | undefined,
-    status: record.Status__c as string | undefined,
-    temperature: record.Temparture__c as string | undefined,
-    noOfCalls: record.No_of_Calls__c as number | undefined,
-    message: record.Message_QuickUpdate__c as string | undefined,
-    hotLead: record.Hot_Lead__c as boolean | undefined,
-    paal: record.PAAL__c as boolean | undefined,
-    inProcess: record.In_Process__c as boolean | undefined,
-    stage: record.MtgPlanner_CRM__Stage__c as string | undefined,
-    thankYouToReferralSource: record.MtgPlanner_CRM__Thank_you_to_Referral_Source__c as boolean | undefined,
-    bdr: record.BDR__c as string | undefined,
-    loanPartner: record.Loan_Partners__c as string | undefined,
-    leonLoanPartner: record.Leon_Loan_Partner__c as string | undefined,
-    maratLoanPartner: record.Marat__c as string | undefined,
-    leonBdr: record.Leon_BDR__c as string | undefined,
-    maratBdr: record.Marat_BDR__c as string | undefined,
-    leadSource: record.LeadSource as string | undefined,
-    isClient: record.Is_Client__c as boolean | undefined,
-    referredByText: record.MtgPlanner_CRM__Referred_By_Text__c as string | undefined,
-    lastTouch: record.MtgPlanner_CRM__Last_Touch__c as string | undefined,
-    lastTouchSms: record.Last_Touch_via_360_SMS__c as string | undefined,
-    description: record.Description as string | undefined,
-    ownerId: record.OwnerId as string | undefined,
-    ownerName: owner?.Name as string | undefined,
-    recordType: record.RecordTypeId as string | undefined,
-    createdDate: record.CreatedDate as string | undefined,
-    lastModifiedDate: record.LastModifiedDate as string | undefined,
-  };
-}
-
-// Free-text fields carry the team's internal notes, so they never leave the server for an agent
-const AGENT_HIDDEN_FIELDS = ['message', 'description', 'lastTouch', 'lastTouchSms'] as const;
-
-export function rowForRole(row: ContactRow, role: string | undefined): ContactRow {
-  if (role !== 'agent') return row;
-  const copy = { ...row };
-  for (const key of AGENT_HIDDEN_FIELDS) delete copy[key];
-  return copy;
+// null when the user has no Salesforce Id yet - they see nothing rather than everything
+export function scopeFor(req: AuthenticatedRequest): Scope | null {
+  if (req.userRole === 'admin') return { role: 'admin' };
+  if (!isSfId(req.sfId)) return null;
+  if (req.userRole === 'agent') return { role: 'agent', contactId: req.sfId };
+  if (req.userRole === 'loan_officer') return { role: 'loan_officer', userId: req.sfId };
+  return null;
 }
 
 router.get('/', requireAuth, async (req: AuthenticatedRequest, res) => {
   try {
-    // Non-admin users must have scope configured
-    if (req.userRole !== 'admin' && (!req.sfField || !req.sfValue)) {
-      res.status(403).json({ success: false, error: { code: 'NO_SCOPE', message: 'User has no Salesforce scope configured' } });
+    const scope = scopeFor(req);
+    if (!scope) {
+      res.status(403).json({ success: false, error: { code: 'NO_SCOPE', message: 'Your account is not linked to Salesforce yet. Contact your admin.' } });
       return;
     }
 
     const filters = req.query as unknown as ContactFilters;
-
     if ((filters.dateFrom && !isIsoDate(filters.dateFrom)) || (filters.dateTo && !isIsoDate(filters.dateTo))) {
       res.status(400).json({ success: false, error: { code: 'VALIDATION', message: 'Dates must be YYYY-MM-DD' } });
       return;
     }
 
-    const { dataQuery, countQuery } = buildContactQuery({
-      sfField: req.sfField || undefined,
-      sfValue: req.sfValue || undefined,
-      role: req.userRole,
+    const { dataQuery, countQuery, page, pageSize, maxPage } = buildContactQuery(scope, {
       search: filters.search,
       status: filters.status,
       temperature: filters.temperature,
@@ -86,7 +39,6 @@ router.get('/', requireAuth, async (req: AuthenticatedRequest, res) => {
       dateTo: filters.dateTo,
       page: filters.page ? Number(filters.page) : 1,
       pageSize: filters.pageSize ? Number(filters.pageSize) : 50,
-      orderBy: req.userRole === 'loan_officer' || req.userRole === 'agent' ? 'CreatedDate DESC' : 'LastModifiedDate DESC',
     });
 
     const [dataResult, countResult] = await Promise.all([
@@ -94,114 +46,21 @@ router.get('/', requireAuth, async (req: AuthenticatedRequest, res) => {
       executeSoql(countQuery),
     ]);
 
-    const contacts = dataResult.records.map(r => rowForRole(mapSfToContact(r), req.userRole));
     const totalCount = countResult.totalSize;
-    const page = filters.page ? Number(filters.page) : 1;
-    const pageSize = filters.pageSize ? Math.min(Number(filters.pageSize), 200) : 50;
-
     res.json({
       success: true,
-      data: contacts,
+      data: dataResult.records.map(mapRow),
       pagination: {
         page,
         pageSize,
         totalCount,
-        totalPages: Math.ceil(totalCount / pageSize),
+        // SOQL OFFSET stops at 2000, so pages past that are unreachable - narrow with filters instead
+        totalPages: Math.min(Math.ceil(totalCount / pageSize), maxPage),
       },
     });
   } catch (err) {
     console.error('Contacts GET error:', err);
     res.status(500).json({ success: false, error: { code: 'SERVER_ERROR', message: 'Failed to fetch contacts' } });
-  }
-});
-
-// Editable fields per restricted role
-const LO_EDITABLE_FIELDS = new Set(['stage', 'status', 'temperature', 'lastTouch', 'lastTouchSms']);
-const AGENT_EDITABLE_FIELDS = new Set<string>();
-
-router.patch('/', requireAuth, async (req: AuthenticatedRequest, res) => {
-  try {
-    const { updates } = req.body as BulkUpdatePayload;
-
-    if (!updates || !Array.isArray(updates) || updates.length === 0) {
-      res.status(400).json({ success: false, error: { code: 'VALIDATION', message: 'Updates array is required' } });
-      return;
-    }
-
-    if (updates.some(u => !isSfId(u?.id))) {
-      res.status(400).json({ success: false, error: { code: 'VALIDATION', message: 'Invalid record id' } });
-      return;
-    }
-
-    if (updates.length > 200) {
-      res.status(400).json({ success: false, error: { code: 'VALIDATION', message: 'Max 200 records per request' } });
-      return;
-    }
-
-    // Verify all contact IDs are within the user's scope
-    if (req.userRole !== 'admin' && req.sfField && req.sfValue) {
-      const contactIds = updates.map(u => u.id);
-      const inScope = await verifyContactScope(contactIds, req.userRole, req.sfField, req.sfValue);
-      const outOfScope = contactIds.filter(id => !inScope.has(id));
-      if (outOfScope.length > 0) {
-        res.status(403).json({ success: false, error: { code: 'FORBIDDEN', message: 'Some contacts are outside your scope' } });
-        return;
-      }
-    }
-
-    // Map camelCase fields to SF API names, validating against allowlist
-    const sfRecords = updates.map(({ id, fields }) => {
-      const sfFields: { Id: string } & Record<string, unknown> = { Id: id };
-
-      for (const [key, value] of Object.entries(fields)) {
-        // Validate field is in FIELD_MAP
-        const sfName = (FIELD_MAP as Record<string, string>)[key];
-        if (!sfName) {
-          throw new Error(`Unknown field: ${key}`);
-        }
-
-        // Check role-based permissions
-        if (req.userRole === 'loan_officer' && !LO_EDITABLE_FIELDS.has(key)) {
-          throw new Error(`Field not editable: ${key}`);
-        }
-        if (req.userRole === 'agent' && !AGENT_EDITABLE_FIELDS.has(key)) {
-          throw new Error(`Field not editable: ${key}`);
-        }
-
-        sfFields[sfName] = value;
-      }
-
-      return sfFields;
-    });
-
-    const results = await bulkUpdate('Contact', sfRecords);
-
-    // Write audit logs for successful updates
-    for (let i = 0; i < results.length; i++) {
-      if (results[i].success) {
-        await writeAuditLog({
-          userId: req.userId!,
-          sfRecordId: updates[i].id,
-          action: 'update',
-          afterJson: updates[i].fields,
-          ip: req.ip || '',
-          userAgent: req.headers['user-agent'] || '',
-        });
-      }
-    }
-
-    res.json({
-      success: true,
-      data: results.map((r, i) => ({
-        id: updates[i].id,
-        success: r.success,
-        error: r.errors?.length ? r.errors[0].message : undefined,
-      })),
-    });
-  } catch (err) {
-    const message = err instanceof Error ? err.message : 'Failed to update contacts';
-    console.error('Contacts PATCH error:', err);
-    res.status(400).json({ success: false, error: { code: 'UPDATE_FAILED', message } });
   }
 });
 
