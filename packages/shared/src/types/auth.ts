@@ -34,6 +34,10 @@ export interface UserListItem {
   createdAt: string;
   lastLoginAt?: string;
   activeLeads?: number;
+  /** Agents: their realtor Contact Id in lgc-ci */
+  sfContactId?: string | null;
+  /** Loan officers: their User Id in lgc-ci */
+  sfUserId?: string | null;
 }
 
 export interface AdminListItem extends UserListItem {
@@ -58,12 +62,14 @@ export interface CreateLoanOfficerRequest {
   name: string;
   email: string;
   sendWelcome?: boolean;
+  sfUserId?: string | null;
 }
 
 export interface UpdateLoanOfficerRequest {
   name?: string;
   email?: string;
   status?: 'active' | 'disabled';
+  sfUserId?: string | null;
 }
 
 export interface RegenerateCodeResponse {
@@ -76,12 +82,14 @@ export interface CreateAgentRequest {
   name: string;
   email: string;
   sendWelcome?: boolean;
+  sfContactId?: string | null;
 }
 
 export interface UpdateAgentRequest {
   name?: string;
   email?: string;
   status?: 'active' | 'disabled';
+  sfContactId?: string | null;
 }
 
 // ── Admin requests ──────────────────────────────────────────────────

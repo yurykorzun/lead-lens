@@ -9,7 +9,7 @@ import { countContactsForUsers } from '../services/salesforce/query.js';
 import {
   parsePagination, validateNameAndEmail, buildUserListConditions,
   findUserByIdAndRole, checkEmailUniqueness, deleteUserWithAuditCleanup,
-  formatUserItem, isUniqueViolation, sendError, sendSuccess,
+  formatUserItem, isUniqueViolation, sendError, sendSuccess, validateSfId,
 } from '../services/user-management.js';
 import { sendMail, welcomeEmailHtml } from '../services/mailer.js';
 
@@ -26,7 +26,7 @@ router.get('/', async (req: AuthenticatedRequest, res) => {
     const conditions = buildUserListConditions(ROLE, search);
 
     const [los, [{ total }]] = await Promise.all([
-      db.select({ id: users.id, name: users.name, email: users.email, status: users.status, createdAt: users.createdAt, lastLoginAt: users.lastLoginAt })
+      db.select({ id: users.id, name: users.name, email: users.email, status: users.status, sfUserId: users.sfUserId, createdAt: users.createdAt, lastLoginAt: users.lastLoginAt })
         .from(users).where(conditions).orderBy(users.name).limit(pageSize).offset(offset),
       db.select({ total: count() }).from(users).where(conditions),
     ]);
@@ -51,6 +51,8 @@ router.post('/', async (req: AuthenticatedRequest, res) => {
     if (typeof validated === 'string') { sendError(res, 400, 'VALIDATION', validated); return; }
 
     const { name, email } = validated;
+    const sfId = validateSfId(raw.sfUserId, 'user');
+    if (typeof sfId === 'string') { sendError(res, 400, 'VALIDATION', sfId); return; }
     const existing = await checkEmailUniqueness(email, ROLE);
     if (existing) { sendError(res, 409, 'EXISTS', 'A loan officer with this email already exists'); return; }
 
@@ -59,7 +61,7 @@ router.post('/', async (req: AuthenticatedRequest, res) => {
     const db = getDb();
 
     const [user] = await db.insert(users).values({
-      email, name, passwordHash, role: ROLE, status: 'active', sfField: SF_FIELD, sfValue: name,
+      email, name, passwordHash, role: ROLE, status: 'active', sfField: SF_FIELD, sfValue: name, sfUserId: sfId.id ?? null,
     }).returning();
 
     if (raw.sendWelcome) {
@@ -79,7 +81,10 @@ router.post('/', async (req: AuthenticatedRequest, res) => {
 router.patch('/:id', async (req: AuthenticatedRequest, res) => {
   try {
     const id = req.params.id as string;
-    const { name, email, status } = req.body as UpdateLoanOfficerRequest;
+    const { name, email, status, sfUserId } = req.body as UpdateLoanOfficerRequest;
+
+    const sfId = validateSfId(sfUserId, 'user');
+    if (typeof sfId === 'string') { sendError(res, 400, 'VALIDATION', sfId); return; }
 
     const existing = await findUserByIdAndRole(id, ROLE);
     if (!existing) { sendError(res, 404, 'NOT_FOUND', 'Loan officer not found'); return; }
@@ -93,6 +98,7 @@ router.patch('/:id', async (req: AuthenticatedRequest, res) => {
     if (name !== undefined) { updates.name = name; updates.sfValue = name; }
     if (email !== undefined) updates.email = email.toLowerCase();
     if (status !== undefined) updates.status = status;
+    if (sfId.id !== undefined) updates.sfUserId = sfId.id;
 
     if (Object.keys(updates).length === 0) { sendError(res, 400, 'VALIDATION', 'No fields to update'); return; }
 

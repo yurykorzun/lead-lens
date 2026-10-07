@@ -52,11 +52,13 @@ export function LoanOfficerManager() {
   const [createName, setCreateName] = useState('');
   const [createEmail, setCreateEmail] = useState('');
   const [createSendWelcome, setCreateSendWelcome] = useState(true);
+  const [createSfId, setCreateSfId] = useState('');
   const [createError, setCreateError] = useState('');
 
   const [editId, setEditId] = useState<string | null>(null);
   const [editName, setEditName] = useState('');
   const [editEmail, setEditEmail] = useState('');
+  const [editSfId, setEditSfId] = useState('');
   const [editError, setEditError] = useState('');
 
   const [codeModal, setCodeModal] = useState<{ name: string; code: string } | null>(null);
@@ -75,10 +77,11 @@ export function LoanOfficerManager() {
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmedEmail)) { setCreateError('Please enter a valid email address'); return; }
 
     try {
-      const res = await createMutation.mutateAsync({ name: trimmedName, email: trimmedEmail, sendWelcome: createSendWelcome });
+      const res = await createMutation.mutateAsync({ name: trimmedName, email: trimmedEmail, sendWelcome: createSendWelcome, sfUserId: createSfId.trim() || undefined });
       setShowCreate(false);
       setCreateName('');
       setCreateEmail('');
+      setCreateSfId('');
       setCodeModal({ name: trimmedName, code: res.data.accessCode });
     } catch (err) {
       setCreateError(err instanceof Error ? err.message : 'Failed to create');
@@ -96,7 +99,7 @@ export function LoanOfficerManager() {
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmedEmail)) { setEditError('Please enter a valid email address'); return; }
 
     try {
-      await updateMutation.mutateAsync({ id: editId, data: { name: trimmedName, email: trimmedEmail } });
+      await updateMutation.mutateAsync({ id: editId, data: { name: trimmedName, email: trimmedEmail, sfUserId: editSfId.trim() || null } });
       setEditId(null);
     } catch (err) {
       setEditError(err instanceof Error ? err.message : 'Failed to update');
@@ -126,7 +129,7 @@ export function LoanOfficerManager() {
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <h2 className="text-lg font-semibold">Loan Officers</h2>
-        <Button onClick={() => { setShowCreate(true); setCreateName(''); setCreateEmail(''); setCreateSendWelcome(true); setCreateError(''); }}>Add Loan Officer</Button>
+        <Button onClick={() => { setShowCreate(true); setCreateName(''); setCreateEmail(''); setCreateSfId(''); setCreateSendWelcome(true); setCreateError(''); }}>Add Loan Officer</Button>
       </div>
 
       <p className="text-sm text-muted-foreground">
@@ -155,6 +158,7 @@ export function LoanOfficerManager() {
               <th className="px-3 py-2 text-left text-xs font-medium uppercase tracking-wider text-muted-foreground">Name</th>
               <th className="px-3 py-2 text-left text-xs font-medium uppercase tracking-wider text-muted-foreground">Email</th>
               <th className="px-3 py-2 text-left text-xs font-medium uppercase tracking-wider text-muted-foreground">Leads</th>
+              <th className="px-3 py-2 text-left text-xs font-medium uppercase tracking-wider text-muted-foreground">SF Id</th>
               <th className="px-3 py-2 text-left text-xs font-medium uppercase tracking-wider text-muted-foreground">Status</th>
               <th className="px-3 py-2 text-left text-xs font-medium uppercase tracking-wider text-muted-foreground">Created</th>
               <th className="px-3 py-2 text-left text-xs font-medium uppercase tracking-wider text-muted-foreground">Last Login</th>
@@ -164,13 +168,13 @@ export function LoanOfficerManager() {
           <tbody>
             {isPending ? (
               <tr>
-                <td colSpan={7} className="px-3 py-8 text-center text-muted-foreground">
+                <td colSpan={8} className="px-3 py-8 text-center text-muted-foreground">
                   Loading loan officers...
                 </td>
               </tr>
             ) : loanOfficers.length === 0 ? (
               <tr>
-                <td colSpan={7} className="px-3 py-8 text-center text-muted-foreground">
+                <td colSpan={8} className="px-3 py-8 text-center text-muted-foreground">
                   {debouncedSearch ? 'No loan officers match your search.' : 'No loan officers yet. Add one to get started.'}
                 </td>
               </tr>
@@ -180,6 +184,7 @@ export function LoanOfficerManager() {
                   <td className="px-3 py-2 font-medium">{lo.name}</td>
                   <td className="px-3 py-2">{lo.email}</td>
                   <td className="px-3 py-2 tabular-nums">{lo.activeLeads?.toLocaleString() ?? '—'}</td>
+                  <td className="px-3 py-2 font-mono text-xs">{lo.sfUserId || <span className="text-muted-foreground">not set</span>}</td>
                   <td className="px-3 py-2">
                     <Badge
                       variant="outline"
@@ -211,6 +216,7 @@ export function LoanOfficerManager() {
                             setEditId(lo.id);
                             setEditName(lo.name);
                             setEditEmail(lo.email);
+                            setEditSfId(lo.sfUserId ?? '');
                             setEditError('');
                           }}
                         >
@@ -304,6 +310,10 @@ export function LoanOfficerManager() {
                 placeholder="email@example.com"
               />
             </div>
+            <div className="space-y-2">
+              <Label htmlFor="lo-sf-id">Salesforce User Id <span className="font-normal text-muted-foreground">(optional)</span></Label>
+              <Input id="lo-sf-id" value={createSfId} onChange={e => setCreateSfId(e.target.value)} placeholder="005… from the user record in lgc-ci" className="font-mono" />
+            </div>
             <div className="flex items-center gap-2">
               <Checkbox
                 id="lo-send-welcome"
@@ -350,6 +360,10 @@ export function LoanOfficerManager() {
                 value={editEmail}
                 onChange={e => setEditEmail(e.target.value)}
               />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="edit-lo-sf-id">Salesforce User Id <span className="font-normal text-muted-foreground">(optional)</span></Label>
+              <Input id="edit-lo-sf-id" value={editSfId} onChange={e => setEditSfId(e.target.value)} placeholder="005… from the user record in lgc-ci" className="font-mono" />
             </div>
             {editError && <p className="text-sm text-destructive">{editError}</p>}
             <Button
