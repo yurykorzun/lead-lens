@@ -7,6 +7,7 @@ export interface AuthenticatedRequest extends Request {
   userName?: string;
   sfField?: string;
   sfValue?: string;
+  sfId?: string;
 }
 
 export function requireAuth(req: AuthenticatedRequest, res: Response, next: NextFunction) {
@@ -24,6 +25,7 @@ export function requireAuth(req: AuthenticatedRequest, res: Response, next: Next
     req.userName = payload.name;
     req.sfField = payload.sfField;
     req.sfValue = payload.sfValue;
+    req.sfId = payload.sfId;
     next();
   } catch {
     res.status(401).json({ success: false, error: { code: 'UNAUTHORIZED', message: 'Invalid token' } });

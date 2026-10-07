@@ -62,6 +62,7 @@ router.post('/login', async (req, res) => {
       user.name ?? undefined,
       user.sfField ?? undefined,
       user.sfValue ?? undefined,
+      (user.role === 'agent' ? user.sfContactId : user.role === 'loan_officer' ? user.sfUserId : null) ?? undefined,
     );
 
     res.json({

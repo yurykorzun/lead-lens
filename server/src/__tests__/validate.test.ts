@@ -30,11 +30,11 @@ describe('isIsoDate', () => {
 
 describe('buildContactQuery input handling', () => {
   it('refuses a bad date even if a caller skips the route check', () => {
-    expect(() => buildContactQuery({ dateFrom: '2026-01-01T00:00:00Z OR Id != null' })).toThrow();
+    expect(() => buildContactQuery({ role: 'admin' }, { dateFrom: '2026-01-01T00:00:00Z OR Id != null' })).toThrow();
   });
 
   it('escapes a trailing backslash so it cannot eat the quote escape', () => {
-    const { dataQuery } = buildContactQuery({ search: "a\\' OR Name != null" });
+    const { dataQuery } = buildContactQuery({ role: 'admin' }, { search: "a\\' OR Name != null" });
     expect(dataQuery).toContain("LIKE '%a\\\\\\' OR Name != null%'");
   });
 });

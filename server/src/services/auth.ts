@@ -28,13 +28,15 @@ export interface TokenPayload {
   name?: string;
   sfField?: string;
   sfValue?: string;
+  sfId?: string; // agent: realtor Contact Id, loan officer: User Id - the only thing rows are scoped by
 }
 
-export function createSessionToken(userId: string, role: string, name?: string, sfField?: string, sfValue?: string): string {
+export function createSessionToken(userId: string, role: string, name?: string, sfField?: string, sfValue?: string, sfId?: string): string {
   const payload: TokenPayload = { sub: userId, role };
   if (name) payload.name = name;
   if (sfField) payload.sfField = sfField;
   if (sfValue) payload.sfValue = sfValue;
+  if (sfId) payload.sfId = sfId;
   return jwt.sign(
     payload,
     process.env.APP_JWT_SECRET!,

@@ -25,6 +25,7 @@ import { drizzle } from 'drizzle-orm/neon-http';
 import { eq, and } from 'drizzle-orm';
 import { users } from './db/schema.js';
 import { hashPassword } from './services/auth.js';
+import { MOCK_AGENT_CONTACT_ID, MOCK_LO_USER_ID } from './services/salesforce/mock.js';
 
 const sql = neon(process.env.DATABASE_URL);
 const db = drizzle(sql);
@@ -36,6 +37,8 @@ interface SeedUser {
   role: 'admin' | 'loan_officer' | 'agent';
   sfField: string | null;
   sfValue: string | null;
+  sfContactId: string | null;
+  sfUserId: string | null;
 }
 
 const SEED_USERS: SeedUser[] = [
@@ -46,6 +49,8 @@ const SEED_USERS: SeedUser[] = [
     role: 'admin',
     sfField: 'Owner.Name',
     sfValue: 'Leon Belov',
+    sfContactId: null,
+    sfUserId: null,
   },
   {
     name: 'Test LO',
@@ -54,6 +59,8 @@ const SEED_USERS: SeedUser[] = [
     role: 'loan_officer',
     sfField: 'Loan_Partners__c',
     sfValue: 'Test LO',
+    sfContactId: null,
+    sfUserId: MOCK_LO_USER_ID,
   },
   {
     name: 'Test Agent',
@@ -62,6 +69,8 @@ const SEED_USERS: SeedUser[] = [
     role: 'agent',
     sfField: 'MtgPlanner_CRM__Referred_By_Text__c',
     sfValue: 'Test Agent',
+    sfContactId: MOCK_AGENT_CONTACT_ID,
+    sfUserId: null,
   },
 ];
 
@@ -81,7 +90,7 @@ async function seed() {
       // Update password and ensure active
       await db
         .update(users)
-        .set({ passwordHash: hash, name: seedUser.name, status: 'active', sfField: seedUser.sfField, sfValue: seedUser.sfValue })
+        .set({ passwordHash: hash, name: seedUser.name, status: 'active', sfField: seedUser.sfField, sfValue: seedUser.sfValue, sfContactId: seedUser.sfContactId, sfUserId: seedUser.sfUserId })
         .where(eq(users.id, existing.id));
       console.log(`  Updated: ${seedUser.role} — ${seedUser.email}`);
     } else {
@@ -93,6 +102,8 @@ async function seed() {
         status: 'active',
         sfField: seedUser.sfField,
         sfValue: seedUser.sfValue,
+        sfContactId: seedUser.sfContactId,
+        sfUserId: seedUser.sfUserId,
       });
       console.log(`  Created: ${seedUser.role} — ${seedUser.email}`);
     }

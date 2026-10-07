@@ -5,7 +5,7 @@ import { getDb } from '../db/index.js';
 import { users } from '../db/schema.js';
 import { generateAccessCode, hashPassword } from '../services/auth.js';
 import { requireAuth, requireAdmin, type AuthenticatedRequest } from '../middleware/auth.js';
-import { countContactsForUsers } from '../services/salesforce/query.js';
+import { countRowsForUsers } from '../services/salesforce/query.js';
 import {
   parsePagination, validateNameAndEmail, buildUserListConditions,
   findUserByIdAndRole, checkEmailUniqueness, deleteUserWithAuditCleanup,
@@ -31,11 +31,11 @@ router.get('/', async (req: AuthenticatedRequest, res) => {
       db.select({ total: count() }).from(users).where(conditions),
     ]);
 
-    const agentNames = agents.map(a => a.name ?? '').filter(Boolean);
-    const leadCounts = await countContactsForUsers(agentNames, ROLE, SF_FIELD);
+    const sfIds = agents.map(a => a.sfContactId ?? '').filter(Boolean);
+    const leadCounts = await countRowsForUsers(ROLE, sfIds);
 
     sendSuccess(res, {
-      items: agents.map(a => ({ ...formatUserItem(a), activeLeads: leadCounts.get(a.name ?? '') ?? 0 })),
+      items: agents.map(a => ({ ...formatUserItem(a), activeLeads: leadCounts.get(a.sfContactId ?? '') })),
       total, page, pageSize,
     });
   } catch (err) {
