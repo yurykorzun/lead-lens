@@ -5,6 +5,7 @@ import { FIELD_MAP } from '@lead-lens/shared';
 import { executeSoql, buildContactQuery, verifyContactScope } from '../services/salesforce/query.js';
 import { bulkUpdate } from '../services/salesforce/update.js';
 import { writeAuditLog } from '../services/audit.js';
+import { isIsoDate, isSfId } from '../services/validate.js';
 
 const router = Router();
 
@@ -49,6 +50,16 @@ function mapSfToContact(record: Record<string, unknown>): ContactRow {
   };
 }
 
+// Free-text fields carry the team's internal notes, so they never leave the server for an agent
+const AGENT_HIDDEN_FIELDS = ['message', 'description', 'lastTouch', 'lastTouchSms'] as const;
+
+export function rowForRole(row: ContactRow, role: string | undefined): ContactRow {
+  if (role !== 'agent') return row;
+  const copy = { ...row };
+  for (const key of AGENT_HIDDEN_FIELDS) delete copy[key];
+  return copy;
+}
+
 router.get('/', requireAuth, async (req: AuthenticatedRequest, res) => {
   try {
     // Non-admin users must have scope configured
@@ -58,6 +69,11 @@ router.get('/', requireAuth, async (req: AuthenticatedRequest, res) => {
     }
 
     const filters = req.query as unknown as ContactFilters;
+
+    if ((filters.dateFrom && !isIsoDate(filters.dateFrom)) || (filters.dateTo && !isIsoDate(filters.dateTo))) {
+      res.status(400).json({ success: false, error: { code: 'VALIDATION', message: 'Dates must be YYYY-MM-DD' } });
+      return;
+    }
 
     const { dataQuery, countQuery } = buildContactQuery({
       sfField: req.sfField || undefined,
@@ -78,7 +94,7 @@ router.get('/', requireAuth, async (req: AuthenticatedRequest, res) => {
       executeSoql(countQuery),
     ]);
 
-    const contacts = dataResult.records.map(mapSfToContact);
+    const contacts = dataResult.records.map(r => rowForRole(mapSfToContact(r), req.userRole));
     const totalCount = countResult.totalSize;
     const page = filters.page ? Number(filters.page) : 1;
     const pageSize = filters.pageSize ? Math.min(Number(filters.pageSize), 200) : 50;
@@ -95,8 +111,7 @@ router.get('/', requireAuth, async (req: AuthenticatedRequest, res) => {
     });
   } catch (err) {
     console.error('Contacts GET error:', err);
-    const errMsg = err instanceof Error ? err.message : 'Failed to fetch contacts';
-    res.status(500).json({ success: false, error: { code: 'SERVER_ERROR', message: errMsg } });
+    res.status(500).json({ success: false, error: { code: 'SERVER_ERROR', message: 'Failed to fetch contacts' } });
   }
 });
 
@@ -110,6 +125,11 @@ router.patch('/', requireAuth, async (req: AuthenticatedRequest, res) => {
 
     if (!updates || !Array.isArray(updates) || updates.length === 0) {
       res.status(400).json({ success: false, error: { code: 'VALIDATION', message: 'Updates array is required' } });
+      return;
+    }
+
+    if (updates.some(u => !isSfId(u?.id))) {
+      res.status(400).json({ success: false, error: { code: 'VALIDATION', message: 'Invalid record id' } });
       return;
     }
 

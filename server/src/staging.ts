@@ -6,6 +6,8 @@ dotenv.config({ path: resolve(import.meta.dirname, '../../.env') });
 // Override env for staging
 process.env.DATABASE_URL = process.env.DATABASE_URL_STAGING;
 process.env.MOCK_SALESFORCE = 'true';
+// Never send real mail from staging - see sendMail
+process.env.EMAIL_DISABLED = 'true';
 process.env.FRONTEND_URL = 'http://localhost:5174';
 
 if (!process.env.DATABASE_URL) {
