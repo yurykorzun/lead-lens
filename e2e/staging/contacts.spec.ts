@@ -1,18 +1,50 @@
 import { test, expect, type Page } from '@playwright/test';
 import { loginAsAdmin, loginAsLO, loginAsAgent } from './fixtures';
 
-// Lead Lens is read-only on lgc-ci: no selects, no textareas, no Save, no Activity or History
+// Lead Lens is read-only on lgc-ci: no selects, no Save, no Activity or History, and no
+// Salesforce notes. The only box is the Lead Lens note, which is stored in Lead Lens.
 async function expectReadOnlyPanel(page: Page) {
   const panel = page.locator('div.border-l');
   await expect(panel).toBeVisible({ timeout: 5_000 });
   await expect(panel.getByText('Status', { exact: true })).toBeVisible();
   await expect(panel.locator('select')).toHaveCount(0);
-  await expect(panel.locator('textarea')).toHaveCount(0);
+  await expect(panel.locator('textarea')).toHaveCount(1);
+  await expect(panel.getByLabel('New note')).toBeVisible();
   await expect(panel.getByRole('button', { name: /Save/ })).toHaveCount(0);
   await expect(panel.getByRole('tab')).toHaveCount(0);
-  await expect(panel.getByText(/Last Touch|Description|Notes/)).toHaveCount(0);
+  await expect(panel.getByText(/Last Touch|Description/)).toHaveCount(0);
   return panel;
 }
+
+test.describe('Notes (Lead Lens only)', () => {
+  test('the realtor adds a note and the loan officer reads it', async ({ page, browser }) => {
+    const text = `Spoke with John, docs by Friday ${Date.now().toString(36)}`;
+
+    await loginAsAgent(page);
+    await expect(page.locator('tbody tr').first()).toBeVisible({ timeout: 15_000 });
+    await page.getByText('John Smith').click();
+    let panel = page.locator('div.border-l');
+    await expect(panel.getByText('No notes yet.')).toBeVisible({ timeout: 5_000 });
+    await expect(panel.getByRole('button', { name: 'Add note' })).toBeDisabled();
+    await panel.getByLabel('New note').fill(text);
+    await panel.getByRole('button', { name: 'Add note' }).click();
+    const mine = panel.getByTestId('note').filter({ hasText: text });
+    await expect(mine).toContainText('You');
+    await expect(panel.getByLabel('New note')).toHaveValue('');
+
+    // A separate browser for the loan officer, the way they would use it
+    const context = await browser.newContext({ baseURL: 'http://localhost:5174' });
+    const lo = await context.newPage();
+    await loginAsLO(lo);
+    await expect(lo.locator('tbody tr').first()).toBeVisible({ timeout: 15_000 });
+    await lo.getByText('John Smith').click();
+    panel = lo.locator('div.border-l');
+    const seen = panel.getByTestId('note').filter({ hasText: text });
+    await expect(seen).toContainText('Test Agent');
+    await expect(seen).toContainText('Realtor');
+    await context.close();
+  });
+});
 
 test.describe('Contacts grid (admin)', () => {
   test('loads borrower rows', async ({ page }) => {

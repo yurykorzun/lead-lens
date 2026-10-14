@@ -20,6 +20,19 @@ export interface ContactRow {
 
 export const CLIENT_STATUS = 'Client';
 
+/** A note on a borrower, kept in Lead Lens only - never written to Salesforce */
+export interface ContactNote {
+  id: string;
+  body: string;
+  authorName: string;
+  authorRole: 'admin' | 'loan_officer' | 'agent';
+  createdAt: string;
+  /** Written by the user reading it */
+  mine: boolean;
+}
+
+export const NOTE_MAX_LENGTH = 2000;
+
 export interface ContactFilters {
   search?: string;
   status?: string;

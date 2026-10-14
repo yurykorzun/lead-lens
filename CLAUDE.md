@@ -109,6 +109,8 @@ All routes prefixed with `/api/`. Auth via `Authorization: Bearer <jwt>` header.
 | GET | /auth/verify | Validate token, return user |
 | POST | /auth/logout | Stateless (client discards token) |
 | GET | /contacts | Paginated borrower rows (SOQL on LeadAccount__c, scoped by Id) |
+| GET | /contacts/:id/notes | Notes on one borrower, newest first (Lead Lens DB only; anyone whose dashboard shows the borrower) |
+| POST | /contacts/:id/notes | Add a note, max 2000 characters (Lead Lens DB only, never Salesforce) |
 | GET | /metadata/dropdowns | Picklist values (cached 30min) |
 | GET | /loan-officers | List all LOs (admin only, paginated+search) |
 | POST | /loan-officers | Create LO (admin only, returns access code) |
@@ -216,6 +218,7 @@ FRONTEND_URL            # CORS origin, e.g., http://localhost:5173
 
 ### Salesforce
 - Read-only. Do not add a write route or a PATCH - a new Referred By or a Task with a realtor-update box ticked texts the realtor.
+- Notes (`notes` table) are the one write, and they stay in the Lead Lens database. Every notes call re-checks the borrower against the caller's Salesforce scope (`isRowInScope`), so a realtor loses access when a referral moves. They hold borrower details, so treat the Neon database as borrower data.
 - Read `First_name__c` with a lowercase n. SOQL ignores case, but the JSON keys use the org's casing.
 - Never select notes (`Rep_Notes__c`, `Message_to_Realtor__c`, `Description`) or Tasks. See Rules above.
 - Scope by Id only. Every Id goes through `isSfId` before it reaches SOQL - the REST query endpoint has no binds.
@@ -231,7 +234,7 @@ FRONTEND_URL            # CORS origin, e.g., http://localhost:5173
 - Tailwind CSS v4 with `@tailwindcss/vite` plugin (CSS-based config, no tailwind.config).
 - `@/` path alias resolves to `client/src/`.
 - shadcn/ui components in `client/src/components/ui/`.
-- Contact detail panel is read-only: status, loan stage, temperature, source, referred by. No tabs.
+- Contact detail panel is read-only for Salesforce fields: status, loan stage, temperature, source, referred by. No tabs. Below them, Lead Lens notes (`contact-notes.tsx`).
 - Vite proxy: `/api` → `http://localhost:3001` (configured in `client/vite.config.ts`). Configurable via `VITE_API_TARGET` env var.
 - Column definitions are split: `adminColumns`, `loanOfficerColumns`, and `agentColumns`.
 

@@ -8,6 +8,13 @@
       "when": 1791388000149,
       "tag": "0000_add_sf_ids",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1792022400000,
+      "tag": "0001_add_notes",
+      "breakpoints": true
     }
   ]
 }
