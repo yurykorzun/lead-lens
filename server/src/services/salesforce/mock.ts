@@ -16,7 +16,7 @@ interface FakeRow {
   Id: string;
   Lead__c: string | null;
   Contact__c: string | null;
-  First_Name__c: string;
+  First_name__c: string;
   Last_Name__c: string;
   Phone__c: string | null;
   Status__c: string | null;
@@ -35,7 +35,7 @@ interface FakeRow {
 function lead(n: number, first: string, last: string, extra: Partial<FakeRow>): FakeRow {
   return {
     Id: `a0XMOCKROW00000${n}AA`, Lead__c: `00QMOCKLEAD0000${n}AA`, Contact__c: null,
-    First_Name__c: first, Last_Name__c: last, Phone__c: `(555) 111-000${n}`,
+    First_name__c: first, Last_Name__c: last, Phone__c: `(555) 111-000${n}`,
     Status__c: 'Open', Temperature__c: null, Lead_Source__c: 'Realtor Referral',
     Created_Date__c: `2026-0${(n % 9) + 1}-1${n}`,
     Referred_By_First_Name__c: 'Test', Referred_By_Last_Name__c: 'Agent',
@@ -70,7 +70,7 @@ function toRecord(r: FakeRow) {
   return {
     attributes: { type: 'LeadAccount__c', url: `/services/data/v62.0/sobjects/LeadAccount__c/${r.Id}` },
     Id: r.Id, Lead__c: r.Lead__c, Contact__c: r.Contact__c,
-    First_Name__c: r.First_Name__c, Last_Name__c: r.Last_Name__c, Phone__c: r.Phone__c,
+    First_name__c: r.First_name__c, Last_Name__c: r.Last_Name__c, Phone__c: r.Phone__c,
     Status__c: r.Status__c, Temperature__c: r.Temperature__c, Lead_Source__c: r.Lead_Source__c,
     Created_Date__c: r.Created_Date__c,
     Referred_By_First_Name__c: r.Referred_By_First_Name__c, Referred_By_Last_Name__c: r.Referred_By_Last_Name__c,
@@ -107,10 +107,10 @@ export function mockExecuteSoql<T = Record<string, unknown>>(soql: string): SFQu
   if (status) rows = rows.filter(r => r.Lead__c && r.Status__c === status[1]);
   const temp = soql.match(/Temperature__c = '([^']+)'/);
   if (temp) rows = rows.filter(r => r.Temperature__c === temp[1]);
-  const like = soql.match(/First_Name__c LIKE '%([^%]+)%'/);
+  const like = soql.match(/First_name__c LIKE '%([^%]+)%'/);
   if (like) {
     const s = like[1].toLowerCase();
-    rows = rows.filter(r => `${r.First_Name__c} ${r.Last_Name__c}`.toLowerCase().includes(s));
+    rows = rows.filter(r => `${r.First_name__c} ${r.Last_Name__c}`.toLowerCase().includes(s));
   }
   const from = soql.match(/Created_Date__c >= (\d{4}-\d{2}-\d{2})/);
   if (from) rows = rows.filter(r => r.Created_Date__c >= from[1]);

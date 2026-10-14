@@ -85,7 +85,7 @@ describe('filters and paging', () => {
 describe('mapRow', () => {
   it('maps a lead row', () => {
     const row = mapRow({
-      Lead__c: '00QVr000001aaaaAAA', Contact__c: null, First_Name__c: 'John', Last_Name__c: 'Smith',
+      Lead__c: '00QVr000001aaaaAAA', Contact__c: null, First_name__c: 'John', Last_Name__c: 'Smith',
       Phone__c: '555', Status__c: 'Nurture', Temperature__c: '60 days or less', Lead_Source__c: 'FB',
       Created_Date__c: '2026-03-04', Referred_By_First_Name__c: 'Dmitry', Referred_By_Last_Name__c: 'Teper',
       Lead__r: { Email: 'j@x.com', Owner: { Name: 'Cami Sims' } }, Contact__r: null, Opportunity__r: null,
@@ -99,7 +99,7 @@ describe('mapRow', () => {
 
   it('maps a client row: status Client, stage from its loan, else the newest loan stage', () => {
     const base = {
-      Lead__c: null, Contact__c: '003Vr000001bbbbAAA', First_Name__c: 'Maria', Last_Name__c: 'Garcia',
+      Lead__c: null, Contact__c: '003Vr000001bbbbAAA', First_name__c: 'Maria', Last_Name__c: 'Garcia',
       Status__c: 'Underwriting', Contact__r: { Email: 'm@x.com', Owner: { Name: 'Leon Belov' } },
     };
     expect(mapRow({ ...base, Opportunity__r: { StageName: 'Processing' } })).toMatchObject({

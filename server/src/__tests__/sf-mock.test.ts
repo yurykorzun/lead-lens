@@ -14,7 +14,7 @@ describe('mockExecuteSoql', () => {
   it('returns LeadAccount__c shaped rows', () => {
     const result = mockExecuteSoql(buildContactQuery(admin, {}).dataQuery);
     expect(result.totalSize).toBe(8);
-    expect(result.records[0]).toHaveProperty('First_Name__c');
+    expect(result.records[0]).toHaveProperty('First_name__c');
     expect(result.records[0].attributes.type).toBe('LeadAccount__c');
   });
 

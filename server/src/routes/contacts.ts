@@ -4,8 +4,9 @@ import type { ContactFilters } from '@lead-lens/shared';
 import { executeSoql, buildContactQuery, mapRow, type Scope } from '../services/salesforce/query.js';
 import { isIsoDate, isSfId } from '../services/validate.js';
 
-// Read-only. There is no write route: on lgc-ci a Status change fires referral texts to
-// realtors, so nothing in Lead Lens may change a record.
+// Read-only. There is no write route: on lgc-ci a new Referred By on a lead, or a Task
+// completed with an "update realtor" box ticked, texts the realtor, so nothing in Lead Lens
+// may change a record.
 const router = Router();
 
 // null when the user has no Salesforce Id yet - they see nothing rather than everything
