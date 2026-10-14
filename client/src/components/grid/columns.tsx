@@ -77,7 +77,13 @@ const nameColumn = columnHelper.accessor('name', {
   header: 'Name',
   cell: info => {
     const name = info.getValue();
-    return <span className="font-medium">{name ? toTitleCase(name) : ''}</span>;
+    const email = info.row.original.email;
+    return (
+      <div>
+        <span className="font-medium">{name ? toTitleCase(name) : ''}</span>
+        {email && <p className="text-xs text-slate-500">{email}</p>}
+      </div>
+    );
   },
 });
 const phoneColumn = columnHelper.accessor('phone', { header: 'Phone', cell: info => info.getValue() });
@@ -90,20 +96,7 @@ const createdColumn = columnHelper.accessor('createdDate', { header: 'Created', 
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export const adminColumns: ColumnDef<ContactRow, any>[] = [
-  columnHelper.accessor('name', {
-    id: 'name',
-    header: 'Name',
-    cell: info => {
-      const name = info.getValue();
-      const email = info.row.original.email;
-      return (
-        <div>
-          <span className="font-medium">{name ? toTitleCase(name) : ''}</span>
-          {email && <p className="text-xs text-slate-500">{email}</p>}
-        </div>
-      );
-    },
-  }),
+  nameColumn,
   phoneColumn,
   statusColumn,
   tempColumn,

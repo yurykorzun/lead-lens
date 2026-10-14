@@ -73,7 +73,7 @@ npx tsx server/src/seed.ts               # seed/migrate admin users
 - **Org**: lgc-ci, the LGC production org (`flow-enterprise-8486.lightning.force.com`). Lead Lens moved off the old Jungo org in Oct 2026.
 - **OAuth**: Client Credentials flow (SF_CONSUMER_KEY + SF_CONSUMER_SECRET) on the `Lead_Lens` External Client App.
 - **Run As user**: `lead-lens@lendinggroupco.com.integration`, holding only the `Lead_Lens_Read` permission set - read only, no FLS on any notes field, no Task access. The metadata lives in the lendinggroupco repo.
-- **API**: SOQL reads only. There is no write path on purpose: a Lead Status change in lgc-ci fires referral texts and emails to realtors.
+- **API**: SOQL reads only. There is no write path on purpose: in lgc-ci a lead getting a new Referred By (`Referral_Notify_At__c`), or a Task completed with `Update_Referred_By_via_SMS__c` / `_via_Email__c` ticked, sends texts and emails to realtors. A Lead Status change alone sends nothing (checked 2026-10-14).
 
 ### Where the rows come from
 
@@ -215,7 +215,8 @@ FRONTEND_URL            # CORS origin, e.g., http://localhost:5173
 - Pin TypeScript to exact version (no caret) to avoid Vercel resolving a different version.
 
 ### Salesforce
-- Read-only. Do not add a write route or a PATCH - a Status change in lgc-ci texts the realtor.
+- Read-only. Do not add a write route or a PATCH - a new Referred By or a Task with a realtor-update box ticked texts the realtor.
+- Read `First_name__c` with a lowercase n. SOQL ignores case, but the JSON keys use the org's casing.
 - Never select notes (`Rep_Notes__c`, `Message_to_Realtor__c`, `Description`) or Tasks. See Rules above.
 - Scope by Id only. Every Id goes through `isSfId` before it reaches SOQL - the REST query endpoint has no binds.
 

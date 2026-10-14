@@ -9,8 +9,12 @@ import { isIsoDate, isSfId } from '../validate.js';
 // NO LONG TEXT FIELDS (Rep_Notes__c, Message_to_Realtor__c, Description). They are
 // internal notes and never leave the org - and on this object they also make Salesforce
 // return short pages (lendinggroupco-1qs1).
+//
+// CASE MATTERS IN THE JSON. The field is First_name__c (lowercase n) in lgc-ci. SOQL takes
+// any casing, but the REST response keys use the org's own, so reading First_Name__c gave
+// every row a blank first name and Lead Lens showed last names only (2026-10-14).
 const ROW_FIELDS = [
-  'Id', 'Lead__c', 'Contact__c', 'First_Name__c', 'Last_Name__c', 'Phone__c',
+  'Id', 'Lead__c', 'Contact__c', 'First_name__c', 'Last_Name__c', 'Phone__c',
   'Status__c', 'Temperature__c', 'Lead_Source__c', 'Created_Date__c',
   'Referred_By_First_Name__c', 'Referred_By_Last_Name__c',
   'Lead__r.Email', 'Lead__r.Owner.Name', 'Contact__r.Email', 'Contact__r.Owner.Name',
@@ -111,7 +115,7 @@ function whereClause(scope: Scope, params: RowQueryParams): string {
   }
   if (search) {
     const s = escapeSOQL(search);
-    conditions.push(`(First_Name__c LIKE '%${s}%' OR Last_Name__c LIKE '%${s}%')`);
+    conditions.push(`(First_name__c LIKE '%${s}%' OR Last_Name__c LIKE '%${s}%')`);
   }
   // Created_Date__c is a Date, the same one the tracker filters and shows
   if (dateFrom) conditions.push(`Created_Date__c >= ${dateFrom}`);
@@ -140,7 +144,7 @@ export function mapRow(record: Record<string, unknown>): ContactRow {
   const isLead = Boolean(record.Lead__c);
   const person = (isLead ? record.Lead__r : record.Contact__r) as Rel;
   const opp = record.Opportunity__r as { StageName?: string } | null | undefined;
-  const first = (record.First_Name__c as string | null) ?? '';
+  const first = (record.First_name__c as string | null) ?? '';
   const last = (record.Last_Name__c as string | null) ?? '';
   const refFirst = (record.Referred_By_First_Name__c as string | null) ?? '';
   const refLast = (record.Referred_By_Last_Name__c as string | null) ?? '';
