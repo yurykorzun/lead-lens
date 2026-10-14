@@ -116,8 +116,10 @@ All routes prefixed with `/api/`. Auth via `Authorization: Bearer <jwt>` header.
 | POST | /loan-officers/:id/regenerate-code | Generate new access code (admin only) |
 | DELETE | /loan-officers/:id | Soft delete / disable LO (admin only) |
 | GET | /agents | List all agents (admin only, paginated+search) |
-| POST | /agents | Create agent (admin only, returns access code) |
-| PATCH | /agents/:id | Update agent name/email/status (admin only) |
+| GET | /agents/realtors?q= | Search Salesforce Contacts by name or email to link an agent (admin only) |
+| GET | /agents/realtors/:contactId | The Contact behind an Id, with its borrower count (admin only) |
+| POST | /agents | Create agent (admin only, returns access code). `sfContactId` required and must exist |
+| PATCH | /agents/:id | Update agent name/email/status/link (admin only). The link can move, never clear |
 | POST | /agents/:id/regenerate-code | Generate new access code (admin only) |
 | DELETE | /agents/:id | Soft delete / disable agent (admin only) |
 
@@ -223,6 +225,7 @@ FRONTEND_URL            # CORS origin, e.g., http://localhost:5173
 - No self-signup. Admins create LOs via `/api/loan-officers` and agents via `/api/agents`.
 - Both passwords and access codes are stored as bcrypt hashes in `password_hash`.
 - An LO is scoped by `sf_user_id`, an agent by `sf_contact_id`. Without one they get 403 NO_SCOPE.
+- An agent cannot be created or saved without `sf_contact_id`, and the server checks the Contact exists. Admins pick it by name or email in Manage Agents rather than typing an Id: three agents were created unlinked on 2026-10-14 and saw an empty dashboard. A realtor's email in Salesforce often differs from the one they sign in with, so search by name too.
 - `requireAdmin` middleware gates all `/api/loan-officers` and `/api/agents` routes.
 - Nobody edits Salesforce data from Lead Lens.
 

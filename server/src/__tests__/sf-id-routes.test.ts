@@ -66,7 +66,9 @@ describe('Salesforce Id validation on admin user routes', () => {
     expect(res.status).toBe(400);
   });
 
-  it('a valid Id passes validation and reaches the database', async () => {
+  it('a well-formed Id passes the format check', async () => {
+    // It then has to exist in Salesforce, which agent-link.test.ts covers; with no org here
+    // that lookup fails and the route answers 500, not 400.
     const quiet = vi.spyOn(console, 'error').mockImplementation(() => {});
     const res = await call('PATCH', '/api/agents/some-id', { sfContactId: '003a500001SpYbJEAV' });
     expect(res.status).toBe(500);

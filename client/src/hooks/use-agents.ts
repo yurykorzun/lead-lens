@@ -1,4 +1,6 @@
-import type { UserListItem, CreateAgentRequest, UpdateAgentRequest } from '@lead-lens/shared';
+import { useQuery } from '@tanstack/react-query';
+import type { UserListItem, CreateAgentRequest, UpdateAgentRequest, RealtorMatch } from '@lead-lens/shared';
+import { api } from '@/lib/api';
 import { useList, useCreate, useUpdate, useDelete, useRegenerate, type UseListParams } from './use-crud';
 
 const ENDPOINT = '/agents';
@@ -24,4 +26,31 @@ export function useRegenerateAgentCode() {
 
 export function useDeleteAgent() {
   return useDelete(ENDPOINT, KEY);
+}
+
+interface RealtorSearchResponse {
+  success: boolean;
+  data: { items: RealtorMatch[] };
+}
+
+/** Salesforce Contacts an agent can be linked to, by name or email (2+ characters) */
+export function useRealtorSearch(term: string) {
+  const q = term.trim();
+  return useQuery({
+    queryKey: ['realtors', q],
+    queryFn: () => api.get<RealtorSearchResponse>(`${ENDPOINT}/realtors?q=${encodeURIComponent(q)}`),
+    enabled: q.length >= 2,
+    staleTime: 60_000,
+  });
+}
+
+/** The Contact an agent is linked to now */
+export function useRealtor(contactId: string | null | undefined) {
+  return useQuery({
+    queryKey: ['realtor', contactId],
+    queryFn: () => api.get<{ success: boolean; data: RealtorMatch }>(`${ENDPOINT}/realtors/${encodeURIComponent(contactId ?? '')}`),
+    enabled: Boolean(contactId),
+    staleTime: 60_000,
+    retry: false,
+  });
 }

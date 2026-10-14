@@ -93,7 +93,24 @@ const PICKLIST_VALUES: Record<string, Record<string, string[]>> = {
 
 // ── Mock implementations ───────────────────────────────────────────────
 
+// The Contacts an agent login can be linked to (Manage Agents search)
+const FAKE_CONTACTS = [
+  { Id: MOCK_AGENT_CONTACT_ID, Name: 'Test Agent', Email: 'agent@test.com', Account: { Name: 'Test Realty', RecordType: { DeveloperName: 'Partner' } } },
+  { Id: OTHER_AGENT_ID, Name: 'Other Agent', Email: 'other.agent@test.com', Account: { Name: 'Other Agent', RecordType: { DeveloperName: 'Individual_Partner' } } },
+  { Id: '003MOCKAGENT0003AA', Name: 'Test Agent', Email: null, Account: { Name: 'Old Brokerage', RecordType: { DeveloperName: 'Partner' } } },
+];
+
+function mockContactQuery(soql: string) {
+  const id = soql.match(/WHERE Id = '([^']+)'/);
+  const like = soql.match(/Name LIKE '%(.+?)%' OR/);
+  const term = like?.[1].replace(/\\(.)/g, '$1').toLowerCase();
+  const records = FAKE_CONTACTS.filter(c =>
+    id ? c.Id === id[1] : !term || c.Name.toLowerCase().includes(term) || (c.Email ?? '').toLowerCase().includes(term));
+  return { totalSize: records.length, done: true, records };
+}
+
 export function mockExecuteSoql<T = Record<string, unknown>>(soql: string): SFQueryResponse<T> {
+  if (/FROM Contact\b/.test(soql)) return mockContactQuery(soql) as unknown as SFQueryResponse<T>;
   let rows = [...FAKE_ROWS];
 
   // Scope - the builder always puts the Lead__r side first

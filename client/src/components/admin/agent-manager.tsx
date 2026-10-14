@@ -14,6 +14,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { AccessCodeModal } from './access-code-modal';
+import { RealtorPicker } from './realtor-picker';
 import {
   useAgents,
   useCreateAgent,
@@ -23,6 +24,8 @@ import {
 } from '@/hooks/use-agents';
 
 const PAGE_SIZE = 25;
+
+const NOT_LINKED = "Pick the agent's record in Salesforce - without it they see no borrowers";
 
 export function AgentManager() {
   const [page, setPage] = useState(1);
@@ -74,9 +77,10 @@ export function AgentManager() {
     if (!trimmedName) { setCreateError('Name is required'); return; }
     if (!trimmedEmail) { setCreateError('Email is required'); return; }
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmedEmail)) { setCreateError('Please enter a valid email address'); return; }
+    if (!createSfId) { setCreateError(NOT_LINKED); return; }
 
     try {
-      const res = await createMutation.mutateAsync({ name: trimmedName, email: trimmedEmail, sendWelcome: createSendWelcome, sfContactId: createSfId.trim() || undefined });
+      const res = await createMutation.mutateAsync({ name: trimmedName, email: trimmedEmail, sendWelcome: createSendWelcome, sfContactId: createSfId });
       setShowCreate(false);
       setCreateName('');
       setCreateEmail('');
@@ -96,9 +100,10 @@ export function AgentManager() {
     if (!trimmedName) { setEditError('Name is required'); return; }
     if (!trimmedEmail) { setEditError('Email is required'); return; }
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmedEmail)) { setEditError('Please enter a valid email address'); return; }
+    if (!editSfId) { setEditError(NOT_LINKED); return; }
 
     try {
-      await updateMutation.mutateAsync({ id: editId, data: { name: trimmedName, email: trimmedEmail, sfContactId: editSfId.trim() || null } });
+      await updateMutation.mutateAsync({ id: editId, data: { name: trimmedName, email: trimmedEmail, sfContactId: editSfId } });
       setEditId(null);
     } catch (err) {
       setEditError(err instanceof Error ? err.message : 'Failed to update');
@@ -132,10 +137,9 @@ export function AgentManager() {
       </div>
 
       <p className="text-sm text-muted-foreground">
-        Contacts are matched by the agent's <strong>name</strong> across two Salesforce fields:{' '}
-        <span className="font-mono text-xs">Referred_By_Text</span> and{' '}
-        <span className="font-mono text-xs">Referred_By (lookup name)</span>.
-        The name entered here must match exactly how it appears in Salesforce.
+        Each agent is linked to their own record in Salesforce and sees the borrowers that name
+        that record as Referred By. They do not need a Salesforce login, and the email they sign
+        in with can differ from the one in Salesforce.
       </p>
 
       <div className="relative max-w-sm">
@@ -179,7 +183,7 @@ export function AgentManager() {
                   <td className="px-3 py-2 font-medium">{a.name}</td>
                   <td className="px-3 py-2">{a.email}</td>
                   <td className="px-3 py-2 tabular-nums">{a.activeLeads?.toLocaleString() ?? '—'}</td>
-                  <td className="px-3 py-2 font-mono text-xs">{a.sfContactId || <span className="text-muted-foreground">not set</span>}</td>
+                  <td className="px-3 py-2 font-mono text-xs">{a.sfContactId || <span className="font-sans text-destructive">not linked - sees nothing</span>}</td>
                   <td className="px-3 py-2">
                     <Badge variant="outline" className={a.status === 'active' ? 'bg-green-100 text-green-800 border-green-200' : 'bg-red-100 text-red-800 border-red-200'}>
                       {a.status}
@@ -237,8 +241,17 @@ export function AgentManager() {
             <div className="space-y-2"><Label htmlFor="agent-name">Name</Label><Input id="agent-name" value={createName} onChange={e => setCreateName(e.target.value)} placeholder="Full name" /></div>
             <div className="space-y-2"><Label htmlFor="agent-email">Email</Label><Input id="agent-email" type="email" value={createEmail} onChange={e => setCreateEmail(e.target.value)} placeholder="email@example.com" /></div>
             <div className="space-y-2">
-              <Label htmlFor="agent-sf-id">Salesforce Contact Id <span className="font-normal text-muted-foreground">(optional)</span></Label>
-              <Input id="agent-sf-id" value={createSfId} onChange={e => setCreateSfId(e.target.value)} placeholder="003… from the realtor record in lgc-ci" className="font-mono" />
+              <Label htmlFor="agent-sf-id">Salesforce record</Label>
+              <RealtorPicker
+                key={showCreate ? 'open' : 'closed'}
+                id="agent-sf-id"
+                value={createSfId}
+                onChange={m => {
+                  setCreateSfId(m?.id ?? '');
+                  if (m && !createName.trim()) setCreateName(m.name);
+                  if (m?.email && !createEmail.trim()) setCreateEmail(m.email);
+                }}
+              />
             </div>
             <div className="flex items-center gap-2">
               <Checkbox
@@ -252,7 +265,7 @@ export function AgentManager() {
               </Label>
             </div>
             {createError && <p className="text-sm text-destructive">{createError}</p>}
-            <Button className="w-full" onClick={handleCreate} disabled={!createName || !createEmail || createMutation.isPending}>
+            <Button className="w-full" onClick={handleCreate} disabled={!createName || !createEmail || !createSfId || createMutation.isPending}>
               {createMutation.isPending ? 'Creating...' : 'Create'}
             </Button>
           </div>
@@ -266,11 +279,17 @@ export function AgentManager() {
             <div className="space-y-2"><Label htmlFor="edit-agent-name">Name</Label><Input id="edit-agent-name" value={editName} onChange={e => setEditName(e.target.value)} /></div>
             <div className="space-y-2"><Label htmlFor="edit-agent-email">Email</Label><Input id="edit-agent-email" type="email" value={editEmail} onChange={e => setEditEmail(e.target.value)} /></div>
             <div className="space-y-2">
-              <Label htmlFor="edit-agent-sf-id">Salesforce Contact Id <span className="font-normal text-muted-foreground">(optional)</span></Label>
-              <Input id="edit-agent-sf-id" value={editSfId} onChange={e => setEditSfId(e.target.value)} placeholder="003… from the realtor record in lgc-ci" className="font-mono" />
+              <Label htmlFor="edit-agent-sf-id">Salesforce record</Label>
+              <RealtorPicker
+                key={editId ?? 'none'}
+                id="edit-agent-sf-id"
+                value={editSfId}
+                initialTerm={editSfId ? '' : editName}
+                onChange={m => setEditSfId(m?.id ?? '')}
+              />
             </div>
             {editError && <p className="text-sm text-destructive">{editError}</p>}
-            <Button className="w-full" onClick={handleEdit} disabled={!editName || !editEmail || updateMutation.isPending}>
+            <Button className="w-full" onClick={handleEdit} disabled={!editName || !editEmail || !editSfId || updateMutation.isPending}>
               {updateMutation.isPending ? 'Saving...' : 'Save'}
             </Button>
           </div>
