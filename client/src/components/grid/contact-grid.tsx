@@ -1,3 +1,4 @@
+import { useCallback, useLayoutEffect, useRef, useState } from 'react';
 import { useReactTable, getCoreRowModel, flexRender, type ColumnDef } from '@tanstack/react-table';
 import { Phone, Mail } from 'lucide-react';
 import type { ContactRow } from '@lead-lens/shared';
@@ -89,8 +90,30 @@ export function ContactGrid({ data, columns, onRowClick, selectedId, className, 
     </>
   );
 
+  // A shadow on the right edge while columns are hidden off to the side; without it the
+  // table looked complete at tablet width and Lead Source, Owner and Created went unseen.
+  // Holds the vertical scrollbar's width (the shadow sits beside it), or null for no shadow.
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const [moreRight, setMoreRight] = useState<number | null>(null);
+  const measureOverflow = useCallback(() => {
+    const el = scrollRef.current;
+    const hidden = el ? el.scrollLeft + el.clientWidth < el.scrollWidth - 1 : false;
+    setMoreRight(hidden && el ? el.offsetWidth - el.clientWidth : null);
+  }, []);
+  useLayoutEffect(() => {
+    measureOverflow();
+    const el = scrollRef.current;
+    if (!el) return;
+    // The table too: a late web font or longer names widen it without resizing the box
+    const observer = new ResizeObserver(measureOverflow);
+    observer.observe(el);
+    if (el.firstElementChild) observer.observe(el.firstElementChild);
+    return () => observer.disconnect();
+  }, [measureOverflow, rows.length, columns, isPhone]);
+
   return (
-    <div className={cn('overflow-auto rounded-md border', className)}>
+    <div className={cn('relative isolate flex flex-col overflow-hidden rounded-md border', className)}>
+    <div ref={scrollRef} onScroll={measureOverflow} className="min-h-0 overflow-auto">
       {/* Phones: one card per borrower, so status and stage are visible without scrolling sideways */}
       {isPhone ? (
       <ul aria-label="Contacts" className="divide-y">
@@ -131,7 +154,7 @@ export function ContactGrid({ data, columns, onRowClick, selectedId, className, 
         )}
       </ul>
       ) : (
-      <table className="w-full text-sm">
+      <table className="w-full text-sm tabular-nums">
         <thead className="sticky top-0 z-30">
           {table.getHeaderGroups().map(headerGroup => (
             <tr key={headerGroup.id} className="border-b bg-muted">
@@ -211,6 +234,11 @@ export function ContactGrid({ data, columns, onRowClick, selectedId, className, 
           )}
         </tbody>
       </table>
+      )}
+    </div>
+      {/* A shadow, not a fade to the page color, so it reads the same on striped and selected rows */}
+      {moreRight !== null && (
+        <div aria-hidden="true" style={{ right: moreRight }} className="pointer-events-none absolute inset-y-0 z-40 w-6 bg-gradient-to-l from-black/10 to-transparent dark:from-white/10" />
       )}
     </div>
   );
