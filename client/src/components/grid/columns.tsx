@@ -1,6 +1,7 @@
 import { createColumnHelper, type ColumnDef } from '@tanstack/react-table';
 import type { ContactRow } from '@lead-lens/shared';
 import { Empty, StatusBadge, StageBadge, Temperature } from './cells';
+import { formatPhone } from '@lead-lens/shared';
 import { toTitleCase, formatDay } from './format';
 
 const columnHelper = createColumnHelper<ContactRow>();
@@ -21,7 +22,7 @@ const nameColumn = columnHelper.accessor('name', {
     );
   },
 });
-const phoneColumn = columnHelper.accessor('phone', { header: 'Phone', cell: textCell });
+const phoneColumn = columnHelper.accessor('phone', { header: 'Phone', cell: info => formatPhone(info.getValue()) || <Empty /> });
 const statusColumn = columnHelper.accessor('status', { header: 'Status', cell: info => <StatusBadge value={info.getValue()} /> });
 const tempColumn = columnHelper.accessor('temperature', { header: 'Temp', cell: info => <Temperature value={info.getValue()} /> });
 const stageColumn = columnHelper.accessor('stage', { header: 'Loan Stage', cell: info => <StageBadge value={info.getValue()} /> });

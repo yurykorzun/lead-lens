@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { useMediaQuery } from '@/hooks/use-media-query';
 import { StatusBadge, StageBadge, Temperature } from './cells';
+import { formatPhone, phoneHref } from '@lead-lens/shared';
 import { toTitleCase, formatDay } from './format';
 
 interface ContactGridProps {
@@ -41,14 +42,16 @@ function SkeletonRows({ columns }: { columns: number }) {
 
 // Always visible, not only on hover: a phone has no hover and a keyboard user never sees it
 function InlineActions({ contact }: { contact: ContactRow }) {
-  const phone = contact.phone;
-  const email = contact.email;
+  // Trimmed, so a phone of only spaces gets no call button; formatted once for the labels
+  const phone = formatPhone(contact.phone);
+  const tel = phoneHref(contact.phone);
+  const email = contact.email?.trim();
   const link = 'inline-flex h-8 w-8 items-center justify-center rounded-md text-muted-foreground hover:bg-accent hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring';
 
   return (
     <div className="flex items-center justify-end gap-0.5">
-      {phone && (
-        <a href={`tel:${phone}`} onClick={e => e.stopPropagation()} className={link} aria-label={`Call ${contact.name || phone}`} title={`Call ${phone}`}>
+      {phone && tel && (
+        <a href={tel} onClick={e => e.stopPropagation()} className={link} aria-label={`Call ${contact.name || phone}`} title={`Call ${phone}`}>
           <Phone className="h-4 w-4" />
         </a>
       )}

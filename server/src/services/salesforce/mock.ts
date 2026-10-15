@@ -55,14 +55,14 @@ const FAKE_ROWS: FakeRow[] = [
   lead(1, 'John', 'Smith', { Status__c: 'Meeting Set', Temperature__c: '60 days or less' }),
   lead(2, 'Jane', 'Doe', { Status__c: 'Contacting', Temperature__c: 'Need more follow ups' }),
   client(3, 'Maria', 'Garcia', 'Processing', { Temperature__c: '60 days or less' }),
-  client(4, 'David', 'Lee', 'Pre-Approved / Nurture', {}),
-  lead(5, 'Olga', 'Petrova', { Status__c: 'Nurture', Temperature__c: '60 days or longer', Lead_Source__c: 'FB - Rus' }),
+  client(4, 'David', 'Lee', 'Documents Gathering', { Phone__c: '15551110004' }),
+  lead(5, 'Olga', 'Petrova', { Status__c: 'Nurture', Temperature__c: '60 days or longer', Lead_Source__c: 'FB - Rus', Phone__c: '+7 916 123-45-67' }),
   lead(6, 'Sam', 'Other', {
     referredById: OTHER_AGENT_ID, Referred_By_First_Name__c: 'Other', Referred_By_Last_Name__c: 'Agent',
     ownerId: OTHER_USER_ID, ownerName: 'Other LO',
   }),
   client(7, 'Alex', 'Kim', 'Closed Won', { ownerId: OTHER_USER_ID, ownerName: 'Other LO' }),
-  lead(8, 'Nina', 'Volkova', { Status__c: 'Pre-qualified', referredById: null, Referred_By_First_Name__c: null, Referred_By_Last_Name__c: null }),
+  lead(8, 'Nina', 'Volkova', { Status__c: 'Qualified', referredById: null, Referred_By_First_Name__c: null, Referred_By_Last_Name__c: null }),
 ];
 
 function toRecord(r: FakeRow) {
@@ -82,12 +82,13 @@ function toRecord(r: FakeRow) {
 
 const PICKLIST_VALUES: Record<string, Record<string, string[]>> = {
   Lead: {
-    Status: ['Open', 'Contacting', 'Meeting Set', 'Pre-qualified', 'Nurture', 'Unqualified', 'Closed', 'Qualified', 'Pre-Approved'],
+    // lgc-ci values (GROUP BY, 2026-10-15)
+    Status: ['Open', 'Open - Not Contacted', 'Contacting', 'Meeting Set', 'Qualified', 'Pre-Approved', 'Preapproved - 6 Months & Older', 'Nurture', 'Unqualified', 'Closed', 'Duplicate', 'Not a lead'],
     Temperature__c: ['Dead deal', '60 days or less', 'Need more follow ups', '60 days or longer', 'Management - Please Review'],
     LeadSource: ['Realtor Referral', 'Past Client', 'FB', 'FB - Rus', 'IG', 'Social Media'],
   },
   Opportunity: {
-    StageName: ['Application', 'Pre-approval', 'Pre-Approved / Nurture', 'Processing', 'Underwriting', 'Clear to Close', 'Funded', 'Closed Won', 'Closed Lost'],
+    StageName: ['Application', 'Pre-approval', 'Documents Gathering', 'Pre-Approved / Nurture', 'Under Contract', 'Processing', 'Underwriting', 'Conditional Loan Approval', 'Clear to Close', 'Close', 'Funded', 'Sold / Funds Received', 'Closed Won', 'Closed Lost', 'Dead Deal'],
   },
 };
 

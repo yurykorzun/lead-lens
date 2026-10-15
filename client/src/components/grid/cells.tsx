@@ -13,30 +13,45 @@ const TONES = {
   rose: 'bg-rose-50 text-rose-700 border-rose-200 dark:bg-rose-950/60 dark:text-rose-300 dark:border-rose-900',
 } as const;
 
-// lgc-ci Lead statuses, plus Client
+// Every lgc-ci Lead Status (GROUP BY Status, 2026-10-15; the tracker mirror's Status__c holds
+// the same values), plus Client. One tone per step: gray not yet worked or filed away, blue
+// being contacted, amber engaged, violet pre-approved, teal parked, green client, rose
+// unqualified. A value missing here shows gray - re-run the query when one is added.
 const STATUS_COLORS: Record<string, string> = {
   'Open': TONES.neutral,
+  'Open - Not Contacted': TONES.neutral,
   'Contacting': TONES.blue,
-  'Meeting Set': TONES.green,
-  'Pre-qualified': TONES.amber,
+  'Meeting Set': TONES.amber,
+  'Qualified': TONES.amber,
   'Pre-Approved': TONES.violet,
+  'Preapproved - 6 Months & Older': TONES.violet,
   'Nurture': TONES.teal,
+  'Unqualified': TONES.rose,
+  'Closed': TONES.neutral,
+  'Duplicate': TONES.neutral,
+  'Not a lead': TONES.neutral,
   [CLIENT_STATUS]: TONES.green,
 };
 
-// lgc-ci loan stages
+// Every lgc-ci loan stage (GROUP BY StageName, 2026-10-15; client rows with no loan show the
+// mirror's Status__c, which holds the same names): blue applied, amber getting approved, violet
+// in the deal up to Clear to Close, green finished (closed, funded or sold), rose lost
 const STAGE_COLORS: Record<string, string> = {
   'Application': TONES.blue,
   'Pre-approval': TONES.amber,
+  'Documents Gathering': TONES.amber,
   'Pre-Approved / Nurture': TONES.teal,
   'Under Contract': TONES.violet,
   'Processing': TONES.violet,
   'Underwriting': TONES.violet,
   'Conditional Loan Approval': TONES.violet,
-  'Clear to Close': TONES.green,
+  'Clear to Close': TONES.violet,
+  'Close': TONES.green,
   'Funded': TONES.green,
+  'Sold / Funds Received': TONES.green,
   'Closed Won': TONES.green,
   'Closed Lost': TONES.rose,
+  'Dead Deal': TONES.rose,
 };
 
 // Temperature: dot color + short label - lgc-ci values. The label carries the meaning,
@@ -49,9 +64,15 @@ const TEMP_MAP: Record<string, { dot: string; label: string }> = {
   'Management - Please Review': { dot: 'bg-rose-500', label: 'Review' },
 };
 
-// A muted dash, so an empty cell reads as "nothing here" and not as still loading
+// A muted dash, so an empty cell reads as "nothing here" and not as still loading.
+// Screen readers get the word: an aria-label on a plain span is not read out.
 export function Empty() {
-  return <span aria-label="None" className="text-muted-foreground/60">-</span>;
+  return (
+    <>
+      <span aria-hidden="true" className="text-muted-foreground/60">-</span>
+      <span className="sr-only">None</span>
+    </>
+  );
 }
 
 function ToneBadge({ value, colors }: { value?: string; colors: Record<string, string> }) {
