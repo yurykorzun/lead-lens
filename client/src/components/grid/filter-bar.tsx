@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import type { ContactFilters } from '@lead-lens/shared';
 import { cn } from '@/lib/utils';
+import { useMediaQuery } from '@/hooks/use-media-query';
 
 interface FilterBarProps {
   filters: ContactFilters;
@@ -26,6 +27,9 @@ export function FilterBar({ filters, onChange, dropdowns }: FilterBarProps) {
   // rows pushed the list below the fold. The dot on the button says when a date is set.
   const [showDates, setShowDates] = useState(false);
   const datesId = useId();
+  // At 320px each select is ~100px wide and cut "All statuses" to "All stat"; phones
+  // get the short form, where the field name alone says "no filter"
+  const narrow = useMediaQuery('(max-width: 399px)');
 
   const clearFilters = () => {
     onChange({ page: 1, pageSize: filters.pageSize });
@@ -50,7 +54,7 @@ export function FilterBar({ filters, onChange, dropdowns }: FilterBarProps) {
         onChange={e => onChange({ ...filters, status: e.target.value || undefined, page: 1 })}
         className={SELECT_CLASS}
       >
-        <option value="">All statuses</option>
+        <option value="">{narrow ? 'Status' : 'All statuses'}</option>
         {statusOptions.map(o => (
           <option key={o.value} value={o.value}>{o.label}</option>
         ))}
@@ -61,7 +65,7 @@ export function FilterBar({ filters, onChange, dropdowns }: FilterBarProps) {
         onChange={e => onChange({ ...filters, temperature: e.target.value || undefined, page: 1 })}
         className={SELECT_CLASS}
       >
-        <option value="">All temperatures</option>
+        <option value="">{narrow ? 'Temp' : 'All temperatures'}</option>
         {tempOptions.map(o => (
           <option key={o.value} value={o.value}>{o.label}</option>
         ))}
