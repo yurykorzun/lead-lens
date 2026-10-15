@@ -82,14 +82,29 @@ export interface CreateAgentRequest {
   name: string;
   email: string;
   sendWelcome?: boolean;
-  sfContactId?: string | null;
+  /** Required: the Contact the agent's borrowers point at */
+  sfContactId: string;
+}
+
+/** A Salesforce Contact an agent login can be linked to */
+export interface RealtorMatch {
+  id: string;
+  name: string;
+  email?: string;
+  /** Brokerage, for a realtor under a company account */
+  company?: string;
+  /** Realtor, Borrower, Business contact or Contact */
+  kind: string;
+  /** Borrower rows the agent would see; missing when the count failed */
+  borrowers?: number;
 }
 
 export interface UpdateAgentRequest {
   name?: string;
   email?: string;
   status?: 'active' | 'disabled';
-  sfContactId?: string | null;
+  /** Can be changed, never cleared */
+  sfContactId?: string;
 }
 
 // ── Admin requests ──────────────────────────────────────────────────

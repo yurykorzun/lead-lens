@@ -1,5 +1,6 @@
 import { test, expect } from '@playwright/test';
 import { loginAsAdmin } from './fixtures';
+import { MOCK_AGENT_CONTACT_ID } from '../../server/src/services/salesforce/mock.js';
 
 // Unique suffix to avoid collisions between test runs
 const SUFFIX = Date.now().toString(36);
@@ -80,49 +81,70 @@ test.describe('Agent management', () => {
     await page.getByRole('button', { name: /Add Agent/ }).click();
     await page.getByLabel('Name', { exact: true }).fill(agentName);
     await page.getByLabel('Email', { exact: true }).fill(agentEmail);
+
+    // No Salesforce record yet: an agent created now would see nothing, so Create waits
+    await expect(page.getByRole('button', { name: 'Create' })).toBeDisabled();
+
+    // The namesake with the referrals comes first, the empty duplicate shows 0
+    await page.getByLabel('Salesforce record').fill('test agent');
+    const options = page.getByRole('option');
+    await expect(options).toHaveCount(2, { timeout: 5_000 });
+    await expect(options.first()).toContainText('Test Realty');
+    await expect(options.last()).toContainText('0 borrowers');
+    await options.first().click();
+    await expect(page.getByTestId('realtor-selected')).toContainText(MOCK_AGENT_CONTACT_ID);
+    // Picking a record keeps what was typed
+    await expect(page.getByLabel('Name', { exact: true })).toHaveValue(agentName);
+
     await page.getByRole('button', { name: 'Create' }).click();
 
     // Access code modal
     await expect(page.getByText(/access code/i)).toBeVisible({ timeout: 5_000 });
     await page.getByRole('button', { name: 'Done' }).click();
 
-    await expect(page.getByText(agentName)).toBeVisible({ timeout: 5_000 });
+    const row = page.locator('tr', { hasText: agentName });
+    await expect(row.getByText(MOCK_AGENT_CONTACT_ID)).toBeVisible({ timeout: 5_000 });
 
     // ── Delete ──
     page.on('dialog', dialog => dialog.accept());
-    const row = page.locator('tr', { hasText: agentName });
     await row.getByRole('button').click();
     await page.getByRole('menuitem', { name: 'Delete' }).click();
     await expect(page.getByText(agentName)).not.toBeVisible({ timeout: 5_000 });
   });
 
-  test('set an agent Salesforce Contact Id, rejecting a bad one', async ({ page }) => {
+  test('move an agent to another Salesforce record, never to none', async ({ page }) => {
     await loginAsAdmin(page);
     await page.getByRole('link', { name: 'Manage Agents' }).click();
     await expect(page.locator('thead')).toBeVisible({ timeout: 10_000 });
 
-    const agentName = `E2E SfId Agent ${SUFFIX}`;
+    // Picking a record on an empty form fills the name and email from it
     await page.getByRole('button', { name: /Add Agent/ }).click();
+    await page.getByLabel('Salesforce record').fill('other.agent@');
+    await page.getByRole('option', { name: /Other Agent/ }).click();
+    await expect(page.getByLabel('Name', { exact: true })).toHaveValue('Other Agent');
+    await expect(page.getByLabel('Email', { exact: true })).toHaveValue('other.agent@test.com');
+    const agentName = `E2E Move Agent ${SUFFIX}`;
     await page.getByLabel('Name', { exact: true }).fill(agentName);
-    await page.getByLabel('Email', { exact: true }).fill(`e2e-sfid-${SUFFIX}@test.com`);
+    await page.getByLabel('Email', { exact: true }).fill(`e2e-move-${SUFFIX}@test.com`);
     await page.getByRole('button', { name: 'Create' }).click();
     await expect(page.getByText(/access code/i)).toBeVisible({ timeout: 5_000 });
     await page.getByRole('button', { name: 'Done' }).click();
 
     const row = page.locator('tr', { hasText: agentName });
-    await expect(row.getByText('not set')).toBeVisible({ timeout: 5_000 });
+    await expect(row.getByText('003MOCKAGENT0002AA')).toBeVisible({ timeout: 5_000 });
 
-    // ── Bad Id is refused ──
+    // ── Edit shows the linked record, and Save waits while it is cleared ──
     await row.getByRole('button').click();
     await page.getByRole('menuitem', { name: 'Edit' }).click();
-    await page.getByLabel(/Salesforce Contact Id/).fill("003abc' OR Id != null");
-    await page.getByRole('button', { name: 'Save' }).click();
-    await expect(page.getByText(/15 or 18 letters and digits/)).toBeVisible({ timeout: 5_000 });
+    await expect(page.getByTestId('realtor-selected')).toContainText('Other Agent');
+    await page.getByRole('button', { name: /Change/ }).click();
+    await expect(page.getByRole('button', { name: 'Save' })).toBeDisabled();
 
-    // ── Good Id is saved and shown ──
-    await page.getByLabel(/Salesforce Contact Id/).fill('003Vr000012cf87IAA');
+    // ── Moved to another record ──
+    await page.getByLabel('Salesforce record').fill('test agent');
+    await page.getByRole('option').first().click();
     await page.getByRole('button', { name: 'Save' }).click();
-    await expect(row.getByText('003Vr000012cf87IAA')).toBeVisible({ timeout: 5_000 });
+    await expect(row.getByText(MOCK_AGENT_CONTACT_ID)).toBeVisible({ timeout: 5_000 });
 
     page.on('dialog', dialog => dialog.accept());
     await row.getByRole('button').click();
