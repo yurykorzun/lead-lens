@@ -4,7 +4,7 @@ import { loginAsAdmin, loginAsLO, loginAsAgent } from './fixtures';
 // Lead Lens is read-only on lgc-ci: no selects, no Save, no Activity or History, and no
 // Salesforce notes. The only box is the Lead Lens note, which is stored in Lead Lens.
 async function expectReadOnlyPanel(page: Page) {
-  const panel = page.locator('div.border-l');
+  const panel = page.getByTestId('contact-panel');
   await expect(panel).toBeVisible({ timeout: 5_000 });
   await expect(panel.getByText('Status', { exact: true })).toBeVisible();
   await expect(panel.locator('select')).toHaveCount(0);
@@ -23,7 +23,7 @@ test.describe('Notes (Lead Lens only)', () => {
     await loginAsAgent(page);
     await expect(page.locator('tbody tr').first()).toBeVisible({ timeout: 15_000 });
     await page.getByText('John Smith').click();
-    let panel = page.locator('div.border-l');
+    let panel = page.getByTestId('contact-panel');
     await expect(panel.getByText('No notes yet.')).toBeVisible({ timeout: 5_000 });
     await expect(panel.getByRole('button', { name: 'Add note' })).toBeDisabled();
     await panel.getByLabel('New note').fill(text);
@@ -38,7 +38,7 @@ test.describe('Notes (Lead Lens only)', () => {
     await loginAsLO(lo);
     await expect(lo.locator('tbody tr').first()).toBeVisible({ timeout: 15_000 });
     await lo.getByText('John Smith').click();
-    panel = lo.locator('div.border-l');
+    panel = lo.getByTestId('contact-panel');
     const seen = panel.getByTestId('note').filter({ hasText: text });
     await expect(seen).toContainText('Test Agent');
     await expect(seen).toContainText('Realtor');
@@ -136,7 +136,7 @@ test.describe('Admin view-as pages', () => {
     await loginAsAdmin(page);
     await page.getByRole('link', { name: 'Officer View' }).click();
     await expect(page).toHaveURL(/\/view\/officers/);
-    await expect(page.getByText(/loan officer would see/i)).toBeVisible();
+    await expect(page.getByText(/columns a loan officer sees/i)).toBeVisible();
     await expect(page.locator('tbody tr').first()).toBeVisible({ timeout: 15_000 });
 
     const headerTexts = await page.locator('thead th').allInnerTexts();
@@ -148,7 +148,7 @@ test.describe('Admin view-as pages', () => {
     await loginAsAdmin(page);
     await page.getByRole('link', { name: 'Agent View' }).click();
     await expect(page).toHaveURL(/\/view\/agents/);
-    await expect(page.getByText(/real estate agent would see/i)).toBeVisible();
+    await expect(page.getByText(/columns a real estate agent sees/i)).toBeVisible();
     await expect(page.locator('tbody tr').first()).toBeVisible({ timeout: 15_000 });
     await expect(page.locator('thead th', { hasText: 'Referred By' })).toBeVisible();
 

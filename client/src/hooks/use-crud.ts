@@ -8,17 +8,17 @@ export interface UseListParams {
   search?: string;
 }
 
-interface ListResponse<T> {
+export interface ListResponse<T> {
   success: boolean;
   data: PaginatedResponse<T>;
 }
 
-interface CreateResponse<T> {
+export interface CreateResponse<T> {
   success: boolean;
   data: T;
 }
 
-interface UpdateResponse<T> {
+export interface UpdateResponse<T> {
   success: boolean;
   data: T;
 }

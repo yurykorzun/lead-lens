@@ -168,7 +168,7 @@ test.describe('Admin management', () => {
     await page.getByRole('button', { name: /Add Admin/ }).click();
     await page.getByLabel('Name', { exact: true }).fill(adminName);
     await page.getByLabel('Email', { exact: true }).fill(adminEmail);
-    await page.getByLabel('Password').fill('testpass123');
+    await page.getByLabel('Password', { exact: true }).fill('testpass123');
     await page.getByRole('button', { name: 'Create' }).click();
 
     await expect(page.getByText(adminName)).toBeVisible({ timeout: 5_000 });

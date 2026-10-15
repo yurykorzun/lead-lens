@@ -5,10 +5,11 @@ import { useContacts } from '@/hooks/use-contacts';
 import { useMetadata } from '@/hooks/use-metadata';
 import { AppLayout } from '@/components/layout/app-layout';
 import { ContactGrid } from '@/components/grid/contact-grid';
-import { FilterBar } from '@/components/grid/filter-bar';
+import { FilterBar, SELECT_CLASS } from '@/components/grid/filter-bar';
 import { ContactDetailPanel } from '@/components/contact-detail-panel';
 import { adminColumns, loanOfficerColumns, agentColumns } from '@/components/grid/columns';
 import { Button } from '@/components/ui/button';
+import { useMediaQuery } from '@/hooks/use-media-query';
 import type { ContactRow, ContactFilters } from '@lead-lens/shared';
 
 type DisplayRole = 'admin' | 'loan_officer' | 'agent';
@@ -21,24 +22,29 @@ const COLUMNS_BY_ROLE = {
 
 export function DashboardContent({ displayRole }: { displayRole: DisplayRole }) {
   const [filters, setFilters] = useState<ContactFilters>({ page: 1, pageSize: 50 });
-  const [debouncedFilters, setDebouncedFilters] = useState(filters);
-  const debounceRef = useRef<ReturnType<typeof setTimeout>>(undefined);
+  // What is actually queried. Typing in search waits 300ms and then goes out together
+  // with the page reset it caused; every other change, and clearing the search, is
+  // applied at once, so no request ever pairs a new page with a stale search.
+  const [queryFilters, setQueryFilters] = useState<ContactFilters>(filters);
+  const searchTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
+  useEffect(() => () => clearTimeout(searchTimer.current), []);
 
-  // Debounce search, apply other filters immediately
-  useEffect(() => {
-    clearTimeout(debounceRef.current);
-    if (filters.search !== debouncedFilters.search) {
-      debounceRef.current = setTimeout(() => setDebouncedFilters(filters), 300);
+  const updateFilters = (next: ContactFilters) => {
+    setFilters(next);
+    clearTimeout(searchTimer.current);
+    if ((next.search ?? '') !== (filters.search ?? '') && next.search) {
+      searchTimer.current = setTimeout(() => setQueryFilters(next), 300);
     } else {
-      setDebouncedFilters(filters);
+      setQueryFilters(next);
     }
-    return () => clearTimeout(debounceRef.current);
-  }, [filters]); // eslint-disable-line react-hooks/exhaustive-deps
+  };
 
-  const { data, isLoading, error } = useContacts(debouncedFilters);
+  const { data, isLoading, error, refetch, isFetching, isPlaceholderData } = useContacts(queryFilters);
   const { data: metadataRes } = useMetadata();
 
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  // Below 1024px the panel covers the screen, so what's under it must not take focus
+  const panelCovers = useMediaQuery('(max-width: 1023px)');
 
   const dropdowns = metadataRes?.data ?? {};
   const columns = COLUMNS_BY_ROLE[displayRole];
@@ -47,17 +53,29 @@ export function DashboardContent({ displayRole }: { displayRole: DisplayRole }) 
   const selectedContact = selectedId
     ? data?.data?.find(c => c.id === selectedId) ?? null
     : null;
+  // When the open contact leaves the results (a search or filter), close it for good, so
+  // it doesn't pop back open and take focus when the filter is cleared
+  if (selectedId && data && !isPlaceholderData && !selectedContact) setSelectedId(null);
 
   const pagination = data?.pagination;
+  const pageSize = filters.pageSize || 50;
+  const hasFilters = Boolean(filters.search || filters.status || filters.temperature || filters.dateFrom || filters.dateTo);
+  const clearFilters = () => updateFilters({ page: 1, pageSize });
 
   return (
     <div className="flex h-full gap-4">
       {/* Left: table area */}
       <div className="flex min-w-0 flex-1 flex-col gap-4">
-        <FilterBar filters={filters} onChange={setFilters} dropdowns={dropdowns} />
+        <FilterBar filters={filters} onChange={updateFilters} dropdowns={dropdowns} />
 
         {error ? (
-          <p className="text-red-600">Error loading contacts: {error.message}</p>
+          <div role="alert" className="rounded-lg border border-destructive/40 p-4 text-sm">
+            <p className="font-medium text-destructive">Could not load contacts.</p>
+            <p className="mt-1 text-muted-foreground">{error.message}</p>
+            <Button variant="outline" size="sm" className="mt-3" onClick={() => refetch()} disabled={isFetching}>
+              {isFetching ? 'Retrying…' : 'Retry'}
+            </Button>
+          </div>
         ) : (
           <>
             <ContactGrid
@@ -67,17 +85,21 @@ export function DashboardContent({ displayRole }: { displayRole: DisplayRole }) 
               selectedId={selectedId ?? undefined}
               className="min-h-0 flex-1"
               isLoading={isLoading}
+              onClearFilters={hasFilters ? clearFilters : undefined}
             />
             {pagination && (
-              <div className="flex shrink-0 items-center justify-between rounded-lg border border-slate-200 p-3">
+              <nav aria-label="Pagination" className="flex shrink-0 flex-wrap items-center justify-between gap-3 rounded-lg border bg-card p-3">
                 <div className="flex items-center gap-3">
-                  <span className="text-sm text-slate-500">
-                    {((pagination.page - 1) * (filters.pageSize || 50) + 1)}–{Math.min(pagination.page * (filters.pageSize || 50), pagination.totalCount)} of {pagination.totalCount.toLocaleString()}
+                  <span className="text-sm tabular-nums text-muted-foreground" aria-live="polite">
+                    {pagination.totalCount === 0
+                      ? '0 contacts'
+                      : `${((pagination.page - 1) * pageSize + 1).toLocaleString()}–${Math.min(pagination.page * pageSize, pagination.totalCount).toLocaleString()} of ${pagination.totalCount.toLocaleString()}`}
                   </span>
                   <select
-                    value={filters.pageSize || 50}
-                    onChange={e => setFilters(f => ({ ...f, pageSize: Number(e.target.value), page: 1 }))}
-                    className="h-8 rounded border border-slate-200 bg-white px-2 text-sm text-slate-700"
+                    aria-label="Rows per page"
+                    value={pageSize}
+                    onChange={e => updateFilters({ ...filters, pageSize: Number(e.target.value), page: 1 })}
+                    className={SELECT_CLASS}
                   >
                     <option value={25}>25 / page</option>
                     <option value={50}>50 / page</option>
@@ -88,24 +110,24 @@ export function DashboardContent({ displayRole }: { displayRole: DisplayRole }) 
                   <Button
                     variant="outline"
                     size="sm"
-                    onClick={() => setFilters(f => ({ ...f, page: (f.page || 1) - 1 }))}
+                    onClick={() => updateFilters({ ...filters, page: (filters.page || 1) - 1 })}
                     disabled={pagination.page <= 1}
                   >
                     Previous
                   </Button>
-                  <span className="flex items-center text-sm text-slate-500">
-                    {pagination.page} / {pagination.totalPages}
+                  <span className="flex items-center text-sm tabular-nums text-muted-foreground">
+                    {pagination.page} / {Math.max(pagination.totalPages, 1)}
                   </span>
                   <Button
                     variant="outline"
                     size="sm"
-                    onClick={() => setFilters(f => ({ ...f, page: (f.page || 1) + 1 }))}
+                    onClick={() => updateFilters({ ...filters, page: (filters.page || 1) + 1 })}
                     disabled={pagination.page >= pagination.totalPages}
                   >
                     Next
                   </Button>
                 </div>
-              </div>
+              </nav>
             )}
           </>
         )}
@@ -114,9 +136,11 @@ export function DashboardContent({ displayRole }: { displayRole: DisplayRole }) 
       {/* Right: detail panel */}
       {selectedContact && (
         <ContactDetailPanel
+          key={selectedContact.id}
           contact={selectedContact}
           onClose={() => setSelectedId(null)}
           role={displayRole}
+          covers={panelCovers}
         />
       )}
     </div>

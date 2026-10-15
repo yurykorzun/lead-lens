@@ -145,7 +145,8 @@ export function AgentManager() {
       <div className="relative max-w-sm">
         <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
         <Input
-          placeholder="Search by name or email..."
+          aria-label="Search by name or email"
+          placeholder="Search by name or email…"
           value={search}
           onChange={e => setSearch(e.target.value)}
           className="pl-9"
@@ -156,14 +157,14 @@ export function AgentManager() {
         <table className="w-full text-sm">
           <thead>
             <tr className="border-b bg-muted/60">
-              <th className="px-3 py-2 text-left text-xs font-medium uppercase tracking-wider text-muted-foreground">Name</th>
-              <th className="px-3 py-2 text-left text-xs font-medium uppercase tracking-wider text-muted-foreground">Email</th>
-              <th className="px-3 py-2 text-left text-xs font-medium uppercase tracking-wider text-muted-foreground">Leads</th>
-              <th className="px-3 py-2 text-left text-xs font-medium uppercase tracking-wider text-muted-foreground">SF Id</th>
-              <th className="px-3 py-2 text-left text-xs font-medium uppercase tracking-wider text-muted-foreground">Status</th>
-              <th className="px-3 py-2 text-left text-xs font-medium uppercase tracking-wider text-muted-foreground">Created</th>
-              <th className="px-3 py-2 text-left text-xs font-medium uppercase tracking-wider text-muted-foreground">Last Login</th>
-              <th className="px-3 py-2 text-left text-xs font-medium uppercase tracking-wider text-muted-foreground">Actions</th>
+              <th scope="col" className="whitespace-nowrap px-3 py-2 text-left text-xs font-medium uppercase tracking-wider text-muted-foreground">Name</th>
+              <th scope="col" className="whitespace-nowrap px-3 py-2 text-left text-xs font-medium uppercase tracking-wider text-muted-foreground">Email</th>
+              <th scope="col" className="whitespace-nowrap px-3 py-2 text-left text-xs font-medium uppercase tracking-wider text-muted-foreground">Borrowers</th>
+              <th scope="col" className="whitespace-nowrap px-3 py-2 text-left text-xs font-medium uppercase tracking-wider text-muted-foreground">SF Id</th>
+              <th scope="col" className="whitespace-nowrap px-3 py-2 text-left text-xs font-medium uppercase tracking-wider text-muted-foreground">Status</th>
+              <th scope="col" className="whitespace-nowrap px-3 py-2 text-left text-xs font-medium uppercase tracking-wider text-muted-foreground">Created</th>
+              <th scope="col" className="whitespace-nowrap px-3 py-2 text-left text-xs font-medium uppercase tracking-wider text-muted-foreground">Last Login</th>
+              <th scope="col" className="whitespace-nowrap px-3 py-2 text-left text-xs font-medium uppercase tracking-wider text-muted-foreground">Actions</th>
             </tr>
           </thead>
           <tbody>
@@ -180,21 +181,21 @@ export function AgentManager() {
             ) : (
               agents.map(a => (
                 <tr key={a.id} className="border-b transition-colors hover:bg-muted/50">
-                  <td className="px-3 py-2 font-medium">{a.name}</td>
-                  <td className="px-3 py-2">{a.email}</td>
-                  <td className="px-3 py-2 tabular-nums">{a.activeLeads?.toLocaleString() ?? '—'}</td>
-                  <td className="px-3 py-2 font-mono text-xs">{a.sfContactId || <span className="font-sans text-destructive">not linked - sees nothing</span>}</td>
-                  <td className="px-3 py-2">
-                    <Badge variant="outline" className={a.status === 'active' ? 'bg-green-100 text-green-800 border-green-200' : 'bg-red-100 text-red-800 border-red-200'}>
-                      {a.status}
+                  <td className="whitespace-nowrap px-3 py-2 font-medium">{a.name}</td>
+                  <td className="whitespace-nowrap px-3 py-2">{a.email}</td>
+                  <td className="whitespace-nowrap px-3 py-2 tabular-nums">{a.activeLeads?.toLocaleString() ?? '—'}</td>
+                  <td className="whitespace-nowrap px-3 py-2 font-mono text-xs">{a.sfContactId || <span className="font-sans text-destructive">not linked - sees nothing</span>}</td>
+                  <td className="whitespace-nowrap px-3 py-2">
+                    <Badge variant="outline" className={a.status === 'active' ? 'bg-green-100 text-green-800 border-green-200 dark:bg-green-950/60 dark:text-green-300 dark:border-green-900' : 'bg-red-100 text-red-800 border-red-200 dark:bg-red-950/60 dark:text-red-300 dark:border-red-900'}>
+                      {a.status === 'active' ? 'Active' : 'Disabled'}
                     </Badge>
                   </td>
-                  <td className="px-3 py-2">{a.createdAt ? new Date(a.createdAt).toLocaleDateString() : ''}</td>
-                  <td className="px-3 py-2">{a.lastLoginAt ? new Date(a.lastLoginAt).toLocaleDateString() : 'Never'}</td>
-                  <td className="px-3 py-2">
+                  <td className="whitespace-nowrap px-3 py-2">{a.createdAt ? new Date(a.createdAt).toLocaleDateString() : ''}</td>
+                  <td className="whitespace-nowrap px-3 py-2">{a.lastLoginAt ? new Date(a.lastLoginAt).toLocaleDateString() : 'Never'}</td>
+                  <td className="whitespace-nowrap px-3 py-2">
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" size="icon" className="h-8 w-8"><MoreHorizontal className="h-4 w-4" /></Button>
+                        <Button variant="ghost" size="icon" className="h-8 w-8" aria-label={`Actions for ${a.name || a.email}`}><MoreHorizontal className="h-4 w-4" /></Button>
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end">
                         <DropdownMenuItem onClick={() => { setEditId(a.id); setEditName(a.name); setEditEmail(a.email); setEditSfId(a.sfContactId ?? ''); setEditError(''); }}>
@@ -266,8 +267,9 @@ export function AgentManager() {
             </div>
             {createError && <p className="text-sm text-destructive">{createError}</p>}
             <Button className="w-full" onClick={handleCreate} disabled={!createName || !createEmail || !createSfId || createMutation.isPending}>
-              {createMutation.isPending ? 'Creating...' : 'Create'}
+              {createMutation.isPending ? 'Creating…' : 'Create'}
             </Button>
+            {!createSfId && <p className="text-center text-xs text-muted-foreground">Pick the agent's Salesforce record above to create the login.</p>}
           </div>
         </DialogContent>
       </Dialog>

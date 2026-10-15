@@ -29,11 +29,12 @@ export function LoginForm() {
 
   return (
     <div className="space-y-4">
-      <div className="flex rounded-lg border p-1">
+      <div role="group" aria-label="Sign in as" className="flex rounded-lg border p-1">
         <button
           type="button"
           onClick={() => { setMode('admin'); setCredential(''); setError(''); }}
-          className={`flex-1 rounded-md px-3 py-1.5 text-sm font-medium transition-colors ${
+          aria-pressed={mode === 'admin'}
+          className={`flex-1 rounded-md px-3 py-2 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
             mode === 'admin' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-foreground'
           }`}
         >
@@ -42,7 +43,8 @@ export function LoginForm() {
         <button
           type="button"
           onClick={() => { setMode('loan_officer'); setCredential(''); setError(''); }}
-          className={`flex-1 rounded-md px-3 py-1.5 text-sm font-medium transition-colors ${
+          aria-pressed={mode === 'loan_officer'}
+          className={`flex-1 rounded-md px-3 py-2 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
             mode === 'loan_officer' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-foreground'
           }`}
         >
@@ -51,7 +53,8 @@ export function LoginForm() {
         <button
           type="button"
           onClick={() => { setMode('agent'); setCredential(''); setError(''); }}
-          className={`flex-1 rounded-md px-3 py-1.5 text-sm font-medium transition-colors ${
+          aria-pressed={mode === 'agent'}
+          className={`flex-1 rounded-md px-3 py-2 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
             mode === 'agent' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-foreground'
           }`}
         >
@@ -62,7 +65,7 @@ export function LoginForm() {
       <form onSubmit={handleSubmit} className="space-y-4">
         <div className="space-y-2">
           <Label htmlFor="email">Email</Label>
-          <Input id="email" type="email" value={email} onChange={e => setEmail(e.target.value)} required />
+          <Input id="email" type="email" autoComplete="username" placeholder="name@company.com" value={email} onChange={e => setEmail(e.target.value)} required />
         </div>
         <div className="space-y-2">
           <Label htmlFor="credential">
@@ -71,13 +74,14 @@ export function LoginForm() {
           <Input
             id="credential"
             type={mode === 'admin' ? 'password' : 'text'}
+            autoComplete={mode === 'admin' ? 'current-password' : 'off'}
             value={credential}
             onChange={e => setCredential(e.target.value)}
-            placeholder={mode !== 'admin' ? 'Enter your access code' : ''}
+            placeholder={mode !== 'admin' ? 'From your welcome email' : ''}
             required
           />
         </div>
-        {error && <p className="text-sm text-destructive">{error}</p>}
+        {error && <p role="alert" className="text-sm text-destructive">{error}</p>}
         <Button type="submit" className="w-full" disabled={loading}>
           {loading ? 'Signing in...' : 'Sign in'}
         </Button>

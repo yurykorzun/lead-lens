@@ -1,6 +1,6 @@
 import { createContext, useContext, useState, useEffect, type ReactNode } from 'react';
 import type { User, Session } from '@lead-lens/shared';
-import { api } from '@/lib/api';
+import { api, ApiRequestError } from '@/lib/api';
 import { queryClient } from './query-provider';
 
 export interface AuthContextValue {
@@ -21,15 +21,33 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (!token) return;
     api.setToken(token);
-    api
-      .get<{ success: boolean; data: { user: User } }>('/auth/verify')
-      .then(res => setUser(res.data.user))
-      .catch(() => {
-        setToken(null);
-        localStorage.removeItem('token');
-        api.setToken(null);
-      })
-      .finally(() => setIsLoading(false));
+    let cancelled = false;
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const RETRY_DELAYS = [1000, 3000];
+
+    const check = (attempt: number) => {
+      api
+        .get<{ success: boolean; data: { user: User } }>('/auth/verify')
+        .then(res => { if (!cancelled) { setUser(res.data.user); setIsLoading(false); } })
+        .catch(err => {
+          if (cancelled) return;
+          // Only a rejected session signs you out. A dropped connection or a reload in the
+          // middle of this check used to delete the saved login too.
+          if (err instanceof ApiRequestError && (err.status === 401 || err.status === 403)) {
+            setToken(null);
+            localStorage.removeItem('token');
+            api.setToken(null);
+            setIsLoading(false);
+          } else if (attempt < RETRY_DELAYS.length) {
+            // A network blip: try again before sending anyone to the sign-in page
+            timer = setTimeout(() => check(attempt + 1), RETRY_DELAYS[attempt]);
+          } else {
+            setIsLoading(false);
+          }
+        });
+    };
+    check(0);
+    return () => { cancelled = true; clearTimeout(timer); };
   }, [token]);
 
   const login = async (email: string, credential: string, isAccessCode = false) => {
