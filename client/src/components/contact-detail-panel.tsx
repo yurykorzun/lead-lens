@@ -3,7 +3,8 @@ import { createPortal } from 'react-dom';
 import { X, Phone, Mail, User, Calendar, ExternalLink } from 'lucide-react';
 import type { ContactRow } from '@lead-lens/shared';
 import { Button } from '@/components/ui/button';
-import { formatDay } from '@/components/grid/format';
+import { formatDay, formatPhone } from '@/components/grid/format';
+import { Empty } from '@/components/grid/cells';
 import { ContactNotes } from '@/components/contact-notes';
 
 export interface ContactDetailPanelProps {
@@ -131,7 +132,7 @@ export function ContactDetailPanel({ contact, onClose, role, covers = false }: C
             )}
             {contact.phone && (
               <a href={`tel:${contact.phone}`} className={metaLink}>
-                <Phone aria-hidden="true" className="h-3.5 w-3.5 shrink-0" /> {contact.phone}
+                <Phone aria-hidden="true" className="h-3.5 w-3.5 shrink-0" /> {formatPhone(contact.phone)}
               </a>
             )}
             {contact.ownerName && (
@@ -160,7 +161,7 @@ export function ContactDetailPanel({ contact, onClose, role, covers = false }: C
             {fields.map(f => (
               <div key={f.label} className="contents">
                 <dt className="text-xs font-medium leading-5 text-muted-foreground">{f.label}</dt>
-                <dd className="text-sm leading-5">{f.value || '—'}</dd>
+                <dd className="text-sm leading-5">{f.value || <Empty />}</dd>
               </div>
             ))}
           </dl>

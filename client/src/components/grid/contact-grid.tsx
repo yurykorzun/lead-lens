@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { useMediaQuery } from '@/hooks/use-media-query';
 import { StatusBadge, StageBadge, Temperature } from './cells';
-import { toTitleCase, formatDay } from './format';
+import { toTitleCase, formatDay, formatPhone } from './format';
 
 interface ContactGridProps {
   data: ContactRow[];
@@ -48,7 +48,7 @@ function InlineActions({ contact }: { contact: ContactRow }) {
   return (
     <div className="flex items-center justify-end gap-0.5">
       {phone && (
-        <a href={`tel:${phone}`} onClick={e => e.stopPropagation()} className={link} aria-label={`Call ${contact.name || phone}`} title={`Call ${phone}`}>
+        <a href={`tel:${phone}`} onClick={e => e.stopPropagation()} className={link} aria-label={`Call ${contact.name || formatPhone(phone)}`} title={`Call ${formatPhone(phone)}`}>
           <Phone className="h-4 w-4" />
         </a>
       )}

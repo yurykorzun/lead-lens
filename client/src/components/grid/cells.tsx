@@ -13,30 +13,43 @@ const TONES = {
   rose: 'bg-rose-50 text-rose-700 border-rose-200 dark:bg-rose-950/60 dark:text-rose-300 dark:border-rose-900',
 } as const;
 
-// lgc-ci Lead statuses, plus Client
+// Every lgc-ci Lead Status (GROUP BY Status, 2026-10-15), plus Client. Not-yet-worked and
+// filed-away values stay neutral, so color marks progress. A value missing here shows
+// neutral too - re-run the query when one is added.
 const STATUS_COLORS: Record<string, string> = {
   'Open': TONES.neutral,
+  'Open - Not Contacted': TONES.neutral,
   'Contacting': TONES.blue,
-  'Meeting Set': TONES.green,
-  'Pre-qualified': TONES.amber,
+  'Meeting Set': TONES.blue,
+  'Qualified': TONES.amber,
   'Pre-Approved': TONES.violet,
+  'Preapproved - 6 Months & Older': TONES.violet,
   'Nurture': TONES.teal,
+  'Unqualified': TONES.rose,
+  'Closed': TONES.neutral,
+  'Duplicate': TONES.neutral,
+  'Not a lead': TONES.neutral,
   [CLIENT_STATUS]: TONES.green,
 };
 
-// lgc-ci loan stages
+// Every lgc-ci loan stage (GROUP BY StageName, 2026-10-15), by step: getting approved
+// (amber), in the deal (violet), done (green), lost (rose)
 const STAGE_COLORS: Record<string, string> = {
   'Application': TONES.blue,
   'Pre-approval': TONES.amber,
+  'Documents Gathering': TONES.amber,
   'Pre-Approved / Nurture': TONES.teal,
   'Under Contract': TONES.violet,
   'Processing': TONES.violet,
   'Underwriting': TONES.violet,
   'Conditional Loan Approval': TONES.violet,
   'Clear to Close': TONES.green,
+  'Close': TONES.green,
   'Funded': TONES.green,
+  'Sold / Funds Received': TONES.green,
   'Closed Won': TONES.green,
   'Closed Lost': TONES.rose,
+  'Dead Deal': TONES.rose,
 };
 
 // Temperature: dot color + short label - lgc-ci values. The label carries the meaning,
