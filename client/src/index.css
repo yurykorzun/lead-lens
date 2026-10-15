@@ -1,6 +1,6 @@
 @import "tailwindcss";
 
-/* Dark mode follows the .dark class on <html>, set before first paint in index.html
+/* Dark mode follows the .dark class on <html>, set before first paint by the script in index.html
    from the saved choice or the system setting (see providers/theme-provider.tsx). */
 @custom-variant dark (&:where(.dark, .dark *));
 

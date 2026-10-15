@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Navigate } from 'react-router-dom';
 import { useAuth } from '@/hooks/use-auth';
 import { useContacts } from '@/hooks/use-contacts';
@@ -22,16 +22,24 @@ const COLUMNS_BY_ROLE = {
 
 export function DashboardContent({ displayRole }: { displayRole: DisplayRole }) {
   const [filters, setFilters] = useState<ContactFilters>({ page: 1, pageSize: 50 });
-  const [debouncedSearch, setDebouncedSearch] = useState(filters.search);
+  // What is actually queried. Typing in search waits 300ms and then goes out together
+  // with the page reset it caused; every other change, and clearing the search, is
+  // applied at once, so no request ever pairs a new page with a stale search.
+  const [queryFilters, setQueryFilters] = useState<ContactFilters>(filters);
+  const searchTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
+  useEffect(() => () => clearTimeout(searchTimer.current), []);
 
-  // Debounce typing in the search box; every other filter applies immediately
-  useEffect(() => {
-    const timer = setTimeout(() => setDebouncedSearch(filters.search), 300);
-    return () => clearTimeout(timer);
-  }, [filters.search]);
-  const queryFilters = useMemo(() => ({ ...filters, search: debouncedSearch }), [filters, debouncedSearch]);
+  const updateFilters = (next: ContactFilters) => {
+    setFilters(next);
+    clearTimeout(searchTimer.current);
+    if ((next.search ?? '') !== (filters.search ?? '') && next.search) {
+      searchTimer.current = setTimeout(() => setQueryFilters(next), 300);
+    } else {
+      setQueryFilters(next);
+    }
+  };
 
-  const { data, isLoading, error, refetch, isFetching } = useContacts(queryFilters);
+  const { data, isLoading, error, refetch, isFetching, isPlaceholderData } = useContacts(queryFilters);
   const { data: metadataRes } = useMetadata();
 
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -45,17 +53,20 @@ export function DashboardContent({ displayRole }: { displayRole: DisplayRole }) 
   const selectedContact = selectedId
     ? data?.data?.find(c => c.id === selectedId) ?? null
     : null;
+  // When the open contact leaves the results (a search or filter), close it for good, so
+  // it doesn't pop back open and take focus when the filter is cleared
+  if (selectedId && data && !isPlaceholderData && !selectedContact) setSelectedId(null);
 
   const pagination = data?.pagination;
   const pageSize = filters.pageSize || 50;
   const hasFilters = Boolean(filters.search || filters.status || filters.temperature || filters.dateFrom || filters.dateTo);
-  const clearFilters = () => setFilters({ page: 1, pageSize });
+  const clearFilters = () => updateFilters({ page: 1, pageSize });
 
   return (
     <div className="flex h-full gap-4">
       {/* Left: table area */}
-      <div className="flex min-w-0 flex-1 flex-col gap-4" inert={Boolean(selectedContact && panelCovers)}>
-        <FilterBar filters={filters} onChange={setFilters} dropdowns={dropdowns} />
+      <div className="flex min-w-0 flex-1 flex-col gap-4">
+        <FilterBar filters={filters} onChange={updateFilters} dropdowns={dropdowns} />
 
         {error ? (
           <div role="alert" className="rounded-lg border border-destructive/40 p-4 text-sm">
@@ -87,7 +98,7 @@ export function DashboardContent({ displayRole }: { displayRole: DisplayRole }) 
                   <select
                     aria-label="Rows per page"
                     value={pageSize}
-                    onChange={e => setFilters(f => ({ ...f, pageSize: Number(e.target.value), page: 1 }))}
+                    onChange={e => updateFilters({ ...filters, pageSize: Number(e.target.value), page: 1 })}
                     className={SELECT_CLASS}
                   >
                     <option value={25}>25 / page</option>
@@ -99,7 +110,7 @@ export function DashboardContent({ displayRole }: { displayRole: DisplayRole }) 
                   <Button
                     variant="outline"
                     size="sm"
-                    onClick={() => setFilters(f => ({ ...f, page: (f.page || 1) - 1 }))}
+                    onClick={() => updateFilters({ ...filters, page: (filters.page || 1) - 1 })}
                     disabled={pagination.page <= 1}
                   >
                     Previous
@@ -110,7 +121,7 @@ export function DashboardContent({ displayRole }: { displayRole: DisplayRole }) 
                   <Button
                     variant="outline"
                     size="sm"
-                    onClick={() => setFilters(f => ({ ...f, page: (f.page || 1) + 1 }))}
+                    onClick={() => updateFilters({ ...filters, page: (filters.page || 1) + 1 })}
                     disabled={pagination.page >= pagination.totalPages}
                   >
                     Next
@@ -125,9 +136,11 @@ export function DashboardContent({ displayRole }: { displayRole: DisplayRole }) 
       {/* Right: detail panel */}
       {selectedContact && (
         <ContactDetailPanel
+          key={selectedContact.id}
           contact={selectedContact}
           onClose={() => setSelectedId(null)}
           role={displayRole}
+          covers={panelCovers}
         />
       )}
     </div>
