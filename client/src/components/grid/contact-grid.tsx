@@ -1,3 +1,4 @@
+import { useCallback, useLayoutEffect, useRef, useState } from 'react';
 import { useReactTable, getCoreRowModel, flexRender, type ColumnDef } from '@tanstack/react-table';
 import { Phone, Mail } from 'lucide-react';
 import type { ContactRow } from '@lead-lens/shared';
@@ -89,8 +90,26 @@ export function ContactGrid({ data, columns, onRowClick, selectedId, className, 
     </>
   );
 
+  // A fade on the right edge while columns are hidden off to the side; without it the
+  // table looked complete at tablet width and Lead Source, Owner and Created went unseen
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const [moreRight, setMoreRight] = useState(false);
+  const measureOverflow = useCallback(() => {
+    const el = scrollRef.current;
+    setMoreRight(el ? el.scrollLeft + el.clientWidth < el.scrollWidth - 1 : false);
+  }, []);
+  useLayoutEffect(() => {
+    measureOverflow();
+    const el = scrollRef.current;
+    if (!el) return;
+    const observer = new ResizeObserver(measureOverflow);
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [measureOverflow, data, columns, isPhone]);
+
   return (
-    <div className={cn('overflow-auto rounded-md border', className)}>
+    <div className={cn('relative flex flex-col overflow-hidden rounded-md border', className)}>
+    <div ref={scrollRef} onScroll={measureOverflow} className="min-h-0 overflow-auto">
       {/* Phones: one card per borrower, so status and stage are visible without scrolling sideways */}
       {isPhone ? (
       <ul aria-label="Contacts" className="divide-y">
@@ -131,7 +150,7 @@ export function ContactGrid({ data, columns, onRowClick, selectedId, className, 
         )}
       </ul>
       ) : (
-      <table className="w-full text-sm">
+      <table className="w-full text-sm tabular-nums">
         <thead className="sticky top-0 z-30">
           {table.getHeaderGroups().map(headerGroup => (
             <tr key={headerGroup.id} className="border-b bg-muted">
@@ -211,6 +230,10 @@ export function ContactGrid({ data, columns, onRowClick, selectedId, className, 
           )}
         </tbody>
       </table>
+      )}
+    </div>
+      {moreRight && (
+        <div aria-hidden="true" className="pointer-events-none absolute inset-y-0 right-0 z-50 w-12 bg-gradient-to-l from-background to-transparent" />
       )}
     </div>
   );

@@ -66,6 +66,7 @@ export function DashboardContent({ displayRole }: { displayRole: DisplayRole }) 
     <div className="flex h-full gap-4">
       {/* Left: table area */}
       <div className="flex min-w-0 flex-1 flex-col gap-4">
+        <h2 className="sr-only">Contacts</h2>
         <FilterBar filters={filters} onChange={updateFilters} dropdowns={dropdowns} />
 
         {error ? (
@@ -83,7 +84,9 @@ export function DashboardContent({ displayRole }: { displayRole: DisplayRole }) 
               columns={columns}
               onRowClick={(c: ContactRow) => setSelectedId(c.id)}
               selectedId={selectedId ?? undefined}
-              className="min-h-0 flex-1"
+              // Sized to its rows, so a short list doesn't leave an empty box with the
+              // pager pushed to the bottom; a long one still scrolls inside it
+              className="min-h-0"
               isLoading={isLoading}
               onClearFilters={hasFilters ? clearFilters : undefined}
             />
@@ -106,7 +109,8 @@ export function DashboardContent({ displayRole }: { displayRole: DisplayRole }) 
                     <option value={100}>100 / page</option>
                   </select>
                 </div>
-                <div className="flex gap-2">
+                {/* One page has nowhere to go, so no pager */}
+                {pagination.totalPages > 1 && <div className="flex gap-2">
                   <Button
                     variant="outline"
                     size="sm"
@@ -126,7 +130,7 @@ export function DashboardContent({ displayRole }: { displayRole: DisplayRole }) 
                   >
                     Next
                   </Button>
-                </div>
+                </div>}
               </nav>
             )}
           </>
