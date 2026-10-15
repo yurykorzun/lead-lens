@@ -7,7 +7,7 @@ import { resolve } from 'path';
 import { neon } from '@neondatabase/serverless';
 import { drizzle } from 'drizzle-orm/neon-http';
 import { eq, and, notInArray } from 'drizzle-orm';
-import { users, auditLog, sfMetadataCache } from '../../server/src/db/schema.js';
+import { users, auditLog, sfMetadataCache, notes } from '../../server/src/db/schema.js';
 import { hashPassword } from '../../server/src/services/auth.js';
 import { MOCK_AGENT_CONTACT_ID, MOCK_LO_USER_ID } from '../../server/src/services/salesforce/mock.js';
 
@@ -24,7 +24,8 @@ function getStagingDb() {
 export async function resetStagingDb() {
   const db = getStagingDb();
 
-  // Clear audit_log and metadata cache
+  // Clear notes, audit_log and metadata cache
+  await db.delete(notes);
   await db.delete(auditLog);
   await db.delete(sfMetadataCache);
 

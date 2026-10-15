@@ -45,6 +45,22 @@ export const auditLog = pgTable('audit_log', {
   userAgent: text('user_agent'),
 });
 
+// Notes on a borrower, kept in Lead Lens only. Nothing here is written to Salesforce: a
+// write there can text the realtor, and the team's own notes in lgc-ci stay internal.
+export const notes = pgTable('notes', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  // The borrower row's Lead or Contact Id (ContactRow.id)
+  sfRecordId: varchar('sf_record_id', { length: 18 }).notNull(),
+  authorId: uuid('author_id').references(() => users.id, { onDelete: 'set null' }),
+  // Kept with the note so it still reads right after the author's login is deleted
+  authorName: varchar('author_name', { length: 255 }).notNull(),
+  authorRole: varchar('author_role', { length: 20 }).notNull(),
+  body: text('body').notNull(),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+}, (table) => [
+  index('notes_record_idx').on(table.sfRecordId, table.createdAt),
+]);
+
 export const sfMetadataCache = pgTable('sf_metadata_cache', {
   objectName: varchar('object_name', { length: 100 }).notNull(),
   fieldName: varchar('field_name', { length: 100 }).notNull(),

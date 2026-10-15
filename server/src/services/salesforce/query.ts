@@ -138,6 +138,25 @@ export function buildContactQuery(scope: Scope, params: RowQueryParams): { dataQ
   return { dataQuery, countQuery, page, pageSize, maxPage };
 }
 
+/**
+ * Whether one borrower row (by its Lead or Contact Id) is on this user's dashboard -
+ * the same borrower filter and scope as the grid, so notes reach exactly the people who
+ * can see the borrower.
+ */
+export function buildRowInScopeQuery(scope: Scope, recordId: string): string {
+  const id = quoteId(recordId);
+  const conditions = [BORROWER_ROWS, `(Lead__c = ${id} OR Contact__c = ${id})`];
+  const scoped = scopeCondition(scope);
+  if (scoped) conditions.push(scoped);
+  return `SELECT COUNT() FROM LeadAccount__c WHERE ${conditions.join(' AND ')}`;
+}
+
+export async function isRowInScope(scope: Scope, recordId: string): Promise<boolean> {
+  if (!isSfId(recordId)) return false;
+  const result = await executeSoql(buildRowInScopeQuery(scope, recordId));
+  return result.totalSize > 0;
+}
+
 type Rel = { Email?: string; Owner?: { Name?: string } } | null | undefined;
 
 export function mapRow(record: Record<string, unknown>): ContactRow {

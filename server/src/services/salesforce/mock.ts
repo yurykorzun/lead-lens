@@ -101,6 +101,9 @@ export function mockExecuteSoql<T = Record<string, unknown>>(soql: string): SFQu
   if (agent) rows = rows.filter(r => r.referredById === agent[1]);
   const owner = soql.match(/Lead__r\.OwnerId = '([^']+)'/);
   if (owner) rows = rows.filter(r => r.ownerId === owner[1]);
+  // One borrower row by its Lead or Contact Id (the notes scope check)
+  const one = soql.match(/\(Lead__c = '([^']+)' OR Contact__c = '([^']+)'\)/);
+  if (one) rows = rows.filter(r => r.Lead__c === one[1] || r.Contact__c === one[1]);
 
   if (soql.includes('Lead__c = null')) rows = rows.filter(r => r.Contact__c);
   const status = soql.match(/Status__c = '([^']+)'/);

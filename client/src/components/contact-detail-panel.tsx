@@ -3,6 +3,7 @@ import type { ContactRow } from '@lead-lens/shared';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { formatDay } from '@/components/grid/columns';
+import { ContactNotes } from '@/components/contact-notes';
 
 export interface ContactDetailPanelProps {
   contact: ContactRow;
@@ -13,8 +14,9 @@ export interface ContactDetailPanelProps {
 // lgc-ci production. Admins only - a loan officer or agent has no Salesforce login.
 const SF_BASE_URL = 'https://flow-enterprise-8486.lightning.force.com/lightning/r';
 
-// Read-only for every role. No notes, no Activity or History: in lgc-ci those carry the
-// team's internal notes, and a Status change from here would text the realtor.
+// Read-only toward Salesforce for every role. No Salesforce notes, Activity or History: in
+// lgc-ci those carry the team's internal notes. The Notes section below is Lead Lens's own,
+// stored in its database and never written to Salesforce.
 export function ContactDetailPanel({ contact, onClose, role }: ContactDetailPanelProps) {
   const fields: Array<{ label: string; value?: string }> = [
     { label: 'Status', value: contact.status },
@@ -85,6 +87,8 @@ export function ContactDetailPanel({ contact, onClose, role }: ContactDetailPane
             ))}
           </div>
         </section>
+
+        <ContactNotes key={contact.id} recordId={contact.id} />
       </div>
 
       <div className="flex gap-2 border-t px-5 py-3">
