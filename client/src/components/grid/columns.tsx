@@ -1,7 +1,8 @@
 import { createColumnHelper, type ColumnDef } from '@tanstack/react-table';
 import type { ContactRow } from '@lead-lens/shared';
 import { Empty, StatusBadge, StageBadge, Temperature } from './cells';
-import { toTitleCase, formatDay, formatPhone } from './format';
+import { formatPhone } from '@lead-lens/shared';
+import { toTitleCase, formatDay } from './format';
 
 const columnHelper = createColumnHelper<ContactRow>();
 

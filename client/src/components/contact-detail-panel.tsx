@@ -3,7 +3,8 @@ import { createPortal } from 'react-dom';
 import { X, Phone, Mail, User, Calendar, ExternalLink } from 'lucide-react';
 import type { ContactRow } from '@lead-lens/shared';
 import { Button } from '@/components/ui/button';
-import { formatDay, formatPhone } from '@/components/grid/format';
+import { formatPhone, phoneHref } from '@lead-lens/shared';
+import { formatDay } from '@/components/grid/format';
 import { Empty } from '@/components/grid/cells';
 import { ContactNotes } from '@/components/contact-notes';
 
@@ -130,8 +131,8 @@ export function ContactDetailPanel({ contact, onClose, role, covers = false }: C
                 <Mail aria-hidden="true" className="h-3.5 w-3.5 shrink-0" /> <span className="truncate">{contact.email}</span>
               </a>
             )}
-            {contact.phone && (
-              <a href={`tel:${contact.phone}`} className={metaLink}>
+            {formatPhone(contact.phone) && phoneHref(contact.phone) && (
+              <a href={phoneHref(contact.phone)} className={metaLink}>
                 <Phone aria-hidden="true" className="h-3.5 w-3.5 shrink-0" /> {formatPhone(contact.phone)}
               </a>
             )}
