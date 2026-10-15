@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useId, useState } from 'react';
 import { CalendarRange, Search, X } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -22,9 +22,10 @@ export function FilterBar({ filters, onChange, dropdowns }: FilterBarProps) {
 
   const activeFilterCount = [filters.status, filters.temperature, filters.dateFrom, filters.dateTo].filter(Boolean).length;
   const dateCount = [filters.dateFrom, filters.dateTo].filter(Boolean).length;
-  // Phones fold the dates away, because two date rows pushed the list below the fold.
-  // They start open when a date is already set, and the dot on the button says so when closed.
-  const [showDates, setShowDates] = useState(dateCount > 0);
+  // Phones (below sm, where the grid shows cards) fold the dates away, because two date
+  // rows pushed the list below the fold. The dot on the button says when a date is set.
+  const [showDates, setShowDates] = useState(false);
+  const datesId = useId();
 
   const clearFilters = () => {
     onChange({ page: 1, pageSize: filters.pageSize });
@@ -71,16 +72,16 @@ export function FilterBar({ filters, onChange, dropdowns }: FilterBarProps) {
         size="icon"
         onClick={() => setShowDates(o => !o)}
         aria-expanded={showDates}
-        aria-controls="created-dates"
+        aria-controls={datesId}
         aria-label="Created date"
         title="Created date"
-        className="relative h-9 w-11 md:hidden"
+        className="relative h-9 w-11 sm:hidden"
       >
         <CalendarRange />
         {dateCount > 0 && <span aria-hidden="true" className="absolute -right-1 -top-1 h-2.5 w-2.5 rounded-full bg-primary" />}
       </Button>
       {/* One group, so "from" and "to" wrap together and never split across rows */}
-      <div id="created-dates" className={cn('col-span-3 grid-cols-2 gap-3 md:flex md:items-center md:gap-2', showDates ? 'grid' : 'hidden')}>
+      <div id={datesId} className={cn('col-span-3 grid-cols-2 gap-3 md:flex md:items-center md:gap-2', showDates ? 'grid' : 'hidden sm:grid')}>
         <label className="flex flex-col gap-1 text-xs font-medium text-muted-foreground md:flex-row md:items-center md:gap-2">
           Created from
           <Input

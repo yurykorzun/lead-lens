@@ -82,11 +82,8 @@
   body {
     @apply bg-background text-foreground;
   }
-  /* Selection and scrollbars follow the theme, not the browser's blue and white */
-  ::selection {
-    background: var(--color-row-selected);
-    color: var(--color-foreground);
-  }
+  /* Scrollbars follow the theme. Text selection keeps the browser's color on purpose:
+     the theme's light blue is the selected-row color, so a selection there was invisible. */
   * {
     scrollbar-color: color-mix(in srgb, var(--color-muted-foreground) 45%, transparent) transparent;
   }

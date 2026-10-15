@@ -109,8 +109,9 @@ export function DashboardContent({ displayRole }: { displayRole: DisplayRole }) 
                     <option value={100}>100 / page</option>
                   </select>
                 </div>
-                {/* One page has nowhere to go, so no pager */}
-                {pagination.totalPages > 1 && <div className="flex gap-2">
+                {/* One page has nowhere to go, so no pager - unless a refetch shrank the
+                    list under someone already past page 1, who needs Previous to get back */}
+                {(pagination.totalPages > 1 || pagination.page > 1) && <div className="flex gap-2">
                   <Button
                     variant="outline"
                     size="sm"
