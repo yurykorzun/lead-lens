@@ -23,7 +23,7 @@ export async function loginAsAdmin(page: Page) {
   await page.goto('/login');
   await page.getByRole('button', { name: 'Admin' }).click();
   await page.getByLabel('Email').fill(TEST_ADMIN.email);
-  await page.getByLabel('Password').fill(TEST_ADMIN.password);
+  await page.getByLabel('Password', { exact: true }).fill(TEST_ADMIN.password);
   await page.getByRole('button', { name: 'Sign in' }).click();
   await page.locator('table').waitFor({ state: 'visible', timeout: 15_000 });
 }

@@ -25,11 +25,11 @@ export default function ViewAsPage() {
 
   return (
     <AppLayout>
-      <div className="flex h-full flex-col gap-2">
-        <div className="shrink-0 rounded-lg border border-amber-200 bg-amber-50 px-4 py-2">
-          <span className="text-sm font-medium text-amber-800">
-            {LABELS[viewKey]} — Viewing contacts as a {viewKey === 'officers' ? 'loan officer' : 'real estate agent'} would see them
-          </span>
+      <div className="flex h-full flex-col gap-4">
+        {/* It shows the role's columns over every borrower, not one person's list - so it says that */}
+        <div role="note" className="shrink-0 rounded-lg border border-notice-border bg-notice px-4 py-2 text-sm text-notice-foreground">
+          <span className="font-semibold">{LABELS[viewKey]}</span>
+          <span> - the columns a {viewKey === 'officers' ? 'loan officer' : 'real estate agent'} sees, shown for every borrower.</span>
         </div>
         <div className="min-h-0 flex-1">
           <DashboardContent displayRole={displayRole} />

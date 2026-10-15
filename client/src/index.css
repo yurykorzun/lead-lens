@@ -1,5 +1,9 @@
 @import "tailwindcss";
 
+/* Dark mode follows the .dark class on <html>, set before first paint in index.html
+   from the saved choice or the system setting (see providers/theme-provider.tsx). */
+@custom-variant dark (&:where(.dark, .dark *));
+
 @theme {
   --color-background: hsl(0 0% 100%);
   --color-foreground: hsl(240 10% 3.9%);
@@ -12,18 +16,69 @@
   --color-secondary: hsl(240 4.8% 95.9%);
   --color-secondary-foreground: hsl(240 5.9% 10%);
   --color-muted: hsl(240 4.8% 95.9%);
-  --color-muted-foreground: hsl(240 3.8% 46.1%);
+  /* 40% not 46%: secondary text sits on tinted rows, and 46% fell to 4.4:1 there */
+  --color-muted-foreground: hsl(240 4% 40%);
   --color-accent: hsl(240 4.8% 95.9%);
   --color-accent-foreground: hsl(240 5.9% 10%);
-  --color-destructive: hsl(0 84.2% 60.2%);
+  /* 45% not 60%: error text was 3.8:1 on white, this is 5.6:1 */
+  --color-destructive: hsl(0 72% 45%);
   --color-destructive-foreground: hsl(0 0% 98%);
   --color-border: hsl(240 5.9% 90%);
   --color-input: hsl(240 5.9% 90%);
   --color-ring: hsl(240 5.9% 10%);
+  /* Grid rows. Opaque, because the pinned name column sits over scrolled cells. */
+  --color-row-alt: hsl(240 5% 98.5%);
+  --color-row-hover: hsl(240 5% 96%);
+  --color-row-selected: hsl(214 95% 93%);
+  /* Notices such as the View As banner */
+  --color-notice: hsl(48 100% 96%);
+  --color-notice-border: hsl(48 97% 77%);
+  --color-notice-foreground: hsl(26 83% 26%);
   --radius: 0.5rem;
 }
 
+/* A near-black theme: surfaces lighten as they rise, text is off-white, contrast
+   checked separately from light. */
+.dark {
+  --color-background: hsl(240 10% 3.9%);
+  --color-foreground: hsl(0 0% 96%);
+  --color-card: hsl(240 8% 6%);
+  --color-card-foreground: hsl(0 0% 96%);
+  --color-popover: hsl(240 8% 8%);
+  --color-popover-foreground: hsl(0 0% 96%);
+  --color-primary: hsl(0 0% 96%);
+  --color-primary-foreground: hsl(240 5.9% 10%);
+  --color-secondary: hsl(240 4% 16%);
+  --color-secondary-foreground: hsl(0 0% 96%);
+  --color-muted: hsl(240 4% 14%);
+  --color-muted-foreground: hsl(240 5% 66%);
+  --color-accent: hsl(240 4% 16%);
+  --color-accent-foreground: hsl(0 0% 96%);
+  --color-destructive: hsl(0 80% 66%);
+  --color-destructive-foreground: hsl(240 10% 3.9%);
+  --color-border: hsl(240 4% 18%);
+  --color-input: hsl(240 4% 22%);
+  --color-ring: hsl(240 5% 70%);
+  --color-row-alt: hsl(240 8% 6%);
+  --color-row-hover: hsl(240 5% 10%);
+  --color-row-selected: hsl(217 32% 17%);
+  --color-notice: hsl(40 60% 10%);
+  --color-notice-border: hsl(40 50% 24%);
+  --color-notice-foreground: hsl(45 90% 75%);
+  color-scheme: dark;
+}
+
 @layer base {
+  :root {
+    color-scheme: light;
+  }
+  /* Tailwind v4 draws a bare `border` in currentColor, which made every table, panel
+     and tab outline black. Borders use the token unless a class says otherwise. */
+  *,
+  ::before,
+  ::after {
+    border-color: var(--color-border);
+  }
   body {
     @apply bg-background text-foreground;
   }

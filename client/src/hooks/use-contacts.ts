@@ -1,6 +1,13 @@
 import { useQuery, keepPreviousData } from '@tanstack/react-query';
 import { api } from '@/lib/api';
-import type { PaginatedResponse, ContactRow, ContactFilters } from '@lead-lens/shared';
+import type { ContactRow, ContactFilters } from '@lead-lens/shared';
+
+/** What GET /api/contacts returns (server/src/routes/contacts.ts) */
+export interface ContactsResponse {
+  success: boolean;
+  data: ContactRow[];
+  pagination: { page: number; pageSize: number; totalCount: number; totalPages: number };
+}
 
 export function useContacts(filters: ContactFilters) {
   return useQuery({
@@ -8,7 +15,6 @@ export function useContacts(filters: ContactFilters) {
     placeholderData: keepPreviousData,
     queryFn: () => {
       const params = new URLSearchParams();
-      if (filters.loanOfficerId) params.set('loanOfficerId', filters.loanOfficerId);
       if (filters.search) params.set('search', filters.search);
       if (filters.status) params.set('status', filters.status);
       if (filters.temperature) params.set('temperature', filters.temperature);
@@ -17,7 +23,7 @@ export function useContacts(filters: ContactFilters) {
       if (filters.page) params.set('page', String(filters.page));
       if (filters.pageSize) params.set('pageSize', String(filters.pageSize));
       const qs = params.toString();
-      return api.get<PaginatedResponse<ContactRow>>(`/contacts${qs ? `?${qs}` : ''}`);
+      return api.get<ContactsResponse>(`/contacts${qs ? `?${qs}` : ''}`);
     },
   });
 }

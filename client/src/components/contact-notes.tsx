@@ -46,32 +46,33 @@ export function ContactNotes({ recordId }: { recordId: string }) {
         aria-label="New note"
         value={draft}
         onChange={e => setDraft(e.target.value)}
+        onKeyDown={e => { if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) { e.preventDefault(); void save(); } }}
         rows={3}
         placeholder="Add a note"
-        className="w-full resize-y rounded-md border bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        className="w-full resize-y rounded-md border border-input bg-background px-3 py-2 text-base shadow-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring md:text-sm"
       />
       <div className="mt-2 flex items-center justify-between gap-2">
         <span className={`text-xs ${tooLong ? 'text-destructive' : 'text-muted-foreground'}`}>
-          {tooLong ? `${draft.length} / ${NOTE_MAX_LENGTH} - too long` : ''}
+          {draft.length > NOTE_MAX_LENGTH * 0.9 ? `${draft.length} / ${NOTE_MAX_LENGTH}${tooLong ? ' - too long' : ''}` : ''}
         </span>
         <Button size="sm" onClick={save} disabled={!draft.trim() || tooLong || add.isPending}>
-          {add.isPending ? 'Saving...' : 'Add note'}
+          {add.isPending ? 'Saving…' : 'Add note'}
         </Button>
       </div>
       {add.isError && (
-        <p className="mt-2 text-sm text-destructive">{add.error instanceof Error ? add.error.message : 'Could not save the note'}</p>
+        <p role="alert" className="mt-2 text-sm text-destructive">{add.error instanceof Error ? add.error.message : 'Could not save the note'}</p>
       )}
 
       <div className="mt-4 space-y-3">
         {notes.isPending ? (
-          <p className="text-sm text-muted-foreground">Loading notes...</p>
+          <p className="text-sm text-muted-foreground">Loading notes…</p>
         ) : notes.isError ? (
           <p className="text-sm text-destructive">Could not load notes</p>
         ) : items.length === 0 ? (
           <p className="text-sm text-muted-foreground">No notes yet.</p>
         ) : (
           items.map(n => (
-            <div key={n.id} className="rounded-lg border bg-muted/30 p-3" data-testid="note">
+            <div key={n.id} className="rounded-lg border bg-card p-3" data-testid="note">
               <div className="mb-1 flex flex-wrap items-baseline justify-between gap-x-2 text-xs text-muted-foreground">
                 <span>
                   <span className="font-medium text-foreground">{n.mine ? 'You' : n.authorName}</span> · {ROLE_LABELS[n.authorRole] ?? n.authorRole}

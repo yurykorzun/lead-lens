@@ -119,7 +119,8 @@ export function AdminManager() {
       <div className="relative max-w-sm">
         <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
         <Input
-          placeholder="Search by name or email..."
+          aria-label="Search by name or email"
+          placeholder="Search by name or email…"
           value={search}
           onChange={e => setSearch(e.target.value)}
           className="pl-9"
@@ -130,13 +131,13 @@ export function AdminManager() {
         <table className="w-full text-sm">
           <thead>
             <tr className="border-b bg-muted/60">
-              <th className="px-3 py-2 text-left text-xs font-medium uppercase tracking-wider text-muted-foreground">Name</th>
-              <th className="px-3 py-2 text-left text-xs font-medium uppercase tracking-wider text-muted-foreground">Email</th>
-              <th className="px-3 py-2 text-left text-xs font-medium uppercase tracking-wider text-muted-foreground">Scope</th>
-              <th className="px-3 py-2 text-left text-xs font-medium uppercase tracking-wider text-muted-foreground">Status</th>
-              <th className="px-3 py-2 text-left text-xs font-medium uppercase tracking-wider text-muted-foreground">Created</th>
-              <th className="px-3 py-2 text-left text-xs font-medium uppercase tracking-wider text-muted-foreground">Last Login</th>
-              <th className="px-3 py-2 text-left text-xs font-medium uppercase tracking-wider text-muted-foreground">Actions</th>
+              <th scope="col" className="whitespace-nowrap px-3 py-2 text-left text-xs font-medium uppercase tracking-wider text-muted-foreground">Name</th>
+              <th scope="col" className="whitespace-nowrap px-3 py-2 text-left text-xs font-medium uppercase tracking-wider text-muted-foreground">Email</th>
+              <th scope="col" className="whitespace-nowrap px-3 py-2 text-left text-xs font-medium uppercase tracking-wider text-muted-foreground">Scope</th>
+              <th scope="col" className="whitespace-nowrap px-3 py-2 text-left text-xs font-medium uppercase tracking-wider text-muted-foreground">Status</th>
+              <th scope="col" className="whitespace-nowrap px-3 py-2 text-left text-xs font-medium uppercase tracking-wider text-muted-foreground">Created</th>
+              <th scope="col" className="whitespace-nowrap px-3 py-2 text-left text-xs font-medium uppercase tracking-wider text-muted-foreground">Last Login</th>
+              <th scope="col" className="whitespace-nowrap px-3 py-2 text-left text-xs font-medium uppercase tracking-wider text-muted-foreground">Actions</th>
             </tr>
           </thead>
           <tbody>
@@ -155,31 +156,31 @@ export function AdminManager() {
             ) : (
               admins.map(admin => (
                 <tr key={admin.id} className="border-b transition-colors hover:bg-muted/50">
-                  <td className="px-3 py-2 font-medium">{admin.name}</td>
-                  <td className="px-3 py-2">{admin.email}</td>
-                  <td className="px-3 py-2">{admin.sfValue || 'All contacts'}</td>
-                  <td className="px-3 py-2">
+                  <td className="whitespace-nowrap px-3 py-2 font-medium">{admin.name}</td>
+                  <td className="whitespace-nowrap px-3 py-2">{admin.email}</td>
+                  <td className="whitespace-nowrap px-3 py-2">{admin.sfValue || 'All contacts'}</td>
+                  <td className="whitespace-nowrap px-3 py-2">
                     <Badge
                       variant="outline"
                       className={
                         admin.status === 'active'
-                          ? 'bg-green-100 text-green-800 border-green-200'
-                          : 'bg-red-100 text-red-800 border-red-200'
+                          ? 'bg-green-100 text-green-800 border-green-200 dark:bg-green-950/60 dark:text-green-300 dark:border-green-900'
+                          : 'bg-red-100 text-red-800 border-red-200 dark:bg-red-950/60 dark:text-red-300 dark:border-red-900'
                       }
                     >
-                      {admin.status}
+                      {admin.status === 'active' ? 'Active' : 'Disabled'}
                     </Badge>
                   </td>
-                  <td className="px-3 py-2">
+                  <td className="whitespace-nowrap px-3 py-2">
                     {admin.createdAt ? new Date(admin.createdAt).toLocaleDateString() : ''}
                   </td>
-                  <td className="px-3 py-2">
+                  <td className="whitespace-nowrap px-3 py-2">
                     {admin.lastLoginAt ? new Date(admin.lastLoginAt).toLocaleDateString() : 'Never'}
                   </td>
-                  <td className="px-3 py-2">
+                  <td className="whitespace-nowrap px-3 py-2">
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" size="icon" className="h-8 w-8">
+                        <Button variant="ghost" size="icon" className="h-8 w-8" aria-label={`Actions for ${admin.name || admin.email}`}>
                           <MoreHorizontal className="h-4 w-4" />
                         </Button>
                       </DropdownMenuTrigger>

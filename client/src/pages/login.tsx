@@ -1,6 +1,7 @@
 import { Navigate } from 'react-router-dom';
 import { LoginForm } from '@/components/auth/login-form';
 import { useAuth } from '@/hooks/use-auth';
+import { ThemeToggle } from '@/providers/theme-provider';
 
 export default function LoginPage() {
   const { user, isLoading } = useAuth();
@@ -9,7 +10,8 @@ export default function LoginPage() {
   if (user) return <Navigate to="/" replace />;
 
   return (
-    <div className="flex min-h-screen items-center justify-center">
+    <div className="relative flex min-h-dvh items-center justify-center">
+      <ThemeToggle className="absolute right-3 top-3" />
       <div className="w-full max-w-sm space-y-6 p-4">
         <div className="text-center">
           <h1 className="text-2xl font-bold">Lead Lens</h1>

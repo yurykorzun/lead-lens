@@ -2,6 +2,23 @@ import type { ApiError } from '@lead-lens/shared';
 
 const BASE_URL = '/api';
 
+/** An error the server answered with, carrying its HTTP status (401 means the session is gone) */
+export class ApiRequestError extends Error {
+  constructor(message: string, readonly status: number) {
+    super(message);
+    this.name = 'ApiRequestError';
+  }
+}
+
+async function toError(res: Response): Promise<ApiRequestError> {
+  try {
+    const body: ApiError = await res.json();
+    return new ApiRequestError(body.error.message, res.status);
+  } catch {
+    return new ApiRequestError(`Request failed (${res.status})`, res.status);
+  }
+}
+
 class ApiClient {
   private token: string | null = null;
 
@@ -20,8 +37,7 @@ class ApiClient {
   async get<T>(path: string): Promise<T> {
     const res = await fetch(`${BASE_URL}${path}`, { headers: this.getHeaders() });
     if (!res.ok) {
-      const error: ApiError = await res.json();
-      throw new Error(error.error.message);
+      throw await toError(res);
     }
     return res.json();
   }
@@ -33,8 +49,7 @@ class ApiClient {
       body: body ? JSON.stringify(body) : undefined,
     });
     if (!res.ok) {
-      const error: ApiError = await res.json();
-      throw new Error(error.error.message);
+      throw await toError(res);
     }
     return res.json();
   }
@@ -46,8 +61,7 @@ class ApiClient {
       body: JSON.stringify(body),
     });
     if (!res.ok) {
-      const error: ApiError = await res.json();
-      throw new Error(error.error.message);
+      throw await toError(res);
     }
     return res.json();
   }
@@ -58,8 +72,7 @@ class ApiClient {
       headers: this.getHeaders(),
     });
     if (!res.ok) {
-      const error: ApiError = await res.json();
-      throw new Error(error.error.message);
+      throw await toError(res);
     }
     return res.json();
   }

@@ -1,89 +1,119 @@
 import { useState, type ReactNode } from 'react';
-import { Link, useLocation } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/hooks/use-auth';
 import { Button } from '@/components/ui/button';
-import { LogOut, KeyRound } from 'lucide-react';
+import { LogOut, KeyRound, Menu, Moon, Sun } from 'lucide-react';
 import { ChangePasswordDialog } from '@/components/admin/change-password-dialog';
+import { ThemeToggle, useIsDark } from '@/providers/theme-provider';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
+import { cn } from '@/lib/utils';
+
+const ADMIN_PAGES = [
+  { to: '/', label: 'Contacts' },
+  { to: '/admin', label: 'Manage LOs' },
+  { to: '/agents', label: 'Manage Agents' },
+  { to: '/admins', label: 'Manage Admins' },
+];
+const VIEW_AS_PAGES = [
+  { to: '/view/officers', label: 'Officer View' },
+  { to: '/view/agents', label: 'Agent View' },
+];
+
+function NavLink({ to, label, current }: { to: string; label: string; current: boolean }) {
+  return (
+    <Link
+      to={to}
+      aria-current={current ? 'page' : undefined}
+      className={cn(
+        'inline-flex h-8 items-center whitespace-nowrap rounded-sm text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+        current ? 'text-foreground' : 'text-muted-foreground hover:text-foreground',
+      )}
+    >
+      {label}
+    </Link>
+  );
+}
 
 export function AppLayout({ children }: { children: ReactNode }) {
   const { user, logout } = useAuth();
   const location = useLocation();
+  const navigate = useNavigate();
+  const { isDark, toggle } = useIsDark();
   const [showChangePassword, setShowChangePassword] = useState(false);
+  const isAdmin = user?.role === 'admin';
+  const isCurrent = (to: string) => location.pathname === to;
 
   return (
     <div className="flex h-dvh flex-col bg-background">
       <header className="shrink-0 border-b">
-        <div className="container mx-auto flex h-14 items-center justify-between px-4">
-          <div className="flex items-center gap-6">
-            <h1 className="text-lg font-semibold">Lead Lens</h1>
-            {user?.role === 'admin' && (
-              <nav className="flex gap-4">
-                <Link
-                  to="/"
-                  className={`text-sm font-medium transition-colors ${
-                    location.pathname === '/' ? 'text-foreground' : 'text-muted-foreground hover:text-foreground'
-                  }`}
-                >
-                  Contacts
-                </Link>
-                <Link
-                  to="/admin"
-                  className={`text-sm font-medium transition-colors ${
-                    location.pathname === '/admin' ? 'text-foreground' : 'text-muted-foreground hover:text-foreground'
-                  }`}
-                >
-                  Manage LOs
-                </Link>
-                <Link
-                  to="/agents"
-                  className={`text-sm font-medium transition-colors ${
-                    location.pathname === '/agents' ? 'text-foreground' : 'text-muted-foreground hover:text-foreground'
-                  }`}
-                >
-                  Manage Agents
-                </Link>
-                <Link
-                  to="/admins"
-                  className={`text-sm font-medium transition-colors ${
-                    location.pathname === '/admins' ? 'text-foreground' : 'text-muted-foreground hover:text-foreground'
-                  }`}
-                >
-                  Manage Admins
-                </Link>
-                <span className="text-slate-300">|</span>
-                <Link
-                  to="/view/officers"
-                  className={`text-sm font-medium transition-colors ${
-                    location.pathname === '/view/officers' ? 'text-foreground' : 'text-muted-foreground hover:text-foreground'
-                  }`}
-                >
-                  Officer View
-                </Link>
-                <Link
-                  to="/view/agents"
-                  className={`text-sm font-medium transition-colors ${
-                    location.pathname === '/view/agents' ? 'text-foreground' : 'text-muted-foreground hover:text-foreground'
-                  }`}
-                >
-                  Agent View
-                </Link>
+        <div className="flex h-14 items-center justify-between gap-4 px-4">
+          <div className="flex min-w-0 items-center gap-6">
+            <h1 className="whitespace-nowrap text-lg font-semibold">Lead Lens</h1>
+            {isAdmin && (
+              <nav aria-label="Main" className="hidden items-center gap-4 lg:flex">
+                {ADMIN_PAGES.map(p => <NavLink key={p.to} {...p} current={isCurrent(p.to)} />)}
+                <span aria-hidden="true" className="h-4 w-px bg-border" />
+                {VIEW_AS_PAGES.map(p => <NavLink key={p.to} {...p} current={isCurrent(p.to)} />)}
               </nav>
             )}
           </div>
           {user && (
-            <div className="flex items-center gap-4">
-              <span className="text-sm text-muted-foreground">
-                {user.name || user.email}
-              </span>
-              {user.role === 'admin' && (
-                <Button variant="ghost" size="icon" onClick={() => setShowChangePassword(true)} title="Change Password">
-                  <KeyRound className="h-4 w-4" />
+            <>
+              {/* Wide screens: name and icon buttons */}
+              <div className="hidden items-center gap-1 lg:flex">
+                <span className="mr-3 max-w-56 truncate text-sm text-muted-foreground">{user.name || user.email}</span>
+                <ThemeToggle />
+                {isAdmin && (
+                  <Button variant="ghost" size="icon" onClick={() => setShowChangePassword(true)} aria-label="Change password" title="Change password">
+                    <KeyRound />
+                  </Button>
+                )}
+                <Button variant="ghost" size="icon" onClick={logout} aria-label="Sign out" title="Sign out">
+                  <LogOut />
                 </Button>
-              )}
-              <Button variant="ghost" size="icon" onClick={logout}>
-                <LogOut className="h-4 w-4" />
-              </Button>
-            </div>
+              </div>
+
+              {/* Narrow screens: everything in one menu, so sign out is always reachable */}
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="outline" size="sm" className="h-10 lg:hidden">
+                    <Menu /> Menu
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-56">
+                  <DropdownMenuLabel className="truncate font-normal text-muted-foreground">{user.name || user.email}</DropdownMenuLabel>
+                  {isAdmin && (
+                    <>
+                      <DropdownMenuSeparator />
+                      {[...ADMIN_PAGES, ...VIEW_AS_PAGES].map(p => (
+                        <DropdownMenuItem key={p.to} onSelect={() => navigate(p.to)} className={cn('min-h-10', isCurrent(p.to) && 'font-semibold')}>
+                          {p.label}
+                        </DropdownMenuItem>
+                      ))}
+                    </>
+                  )}
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem onSelect={toggle} className="min-h-10">
+                    {isDark ? <Sun /> : <Moon />} {isDark ? 'Light theme' : 'Dark theme'}
+                  </DropdownMenuItem>
+                  {isAdmin && (
+                    <DropdownMenuItem onSelect={() => setShowChangePassword(true)} className="min-h-10">
+                      <KeyRound /> Change password
+                    </DropdownMenuItem>
+                  )}
+                  <DropdownMenuItem onSelect={logout} className="min-h-10">
+                    <LogOut /> Sign out
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </>
           )}
         </div>
       </header>

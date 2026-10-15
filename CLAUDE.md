@@ -240,6 +240,11 @@ FRONTEND_URL            # CORS origin, e.g., http://localhost:5173
 - Contact detail panel is read-only for Salesforce fields: status, loan stage, temperature, source, referred by. No tabs. Below them, Lead Lens notes (`contact-notes.tsx`).
 - Vite proxy: `/api` → `http://localhost:3001` (configured in `client/vite.config.ts`). Configurable via `VITE_API_TARGET` env var.
 - Column definitions are split: `adminColumns`, `loanOfficerColumns`, and `agentColumns`.
+- **Light and dark themes.** Colors are role tokens in `client/src/index.css` (`bg-background`, `text-muted-foreground`, `bg-row-selected`, `bg-notice`...), with the dark values under `.dark`. Use a token, not a raw palette class like `text-slate-500`; where a hue is the point (status badges in `columns.tsx`) write the `dark:` pair next to it. `next-themes` sets the class (`providers/theme-provider.tsx`, key `lead-lens-theme`).
+- Tailwind v4 draws a bare `border` in `currentColor`; the base layer sets `border-color` to the token, so don't remove that rule.
+- Below 1024px the contact panel covers the screen and the admin nav moves into the Menu. Tests find the panel by `data-testid="contact-panel"`.
+- Only a 401/403 from `/auth/verify` signs a user out (`ApiRequestError.status`); a dropped connection must not delete the saved login.
+- Phones: inputs and selects are 16px (`text-base md:text-sm`) so iOS Safari doesn't zoom.
 
 ### Code Patterns & Guidance
 

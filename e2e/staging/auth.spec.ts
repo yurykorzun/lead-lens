@@ -25,7 +25,7 @@ test.describe('Auth flows', () => {
     await page.goto('/login');
     await page.getByRole('button', { name: 'Admin' }).click();
     await page.getByLabel('Email').fill(TEST_ADMIN.email);
-    await page.getByLabel('Password').fill('wrongpassword');
+    await page.getByLabel('Password', { exact: true }).fill('wrongpassword');
     await page.getByRole('button', { name: 'Sign in' }).click();
     await expect(page.getByText(/failed|invalid|error/i)).toBeVisible({ timeout: 5_000 });
   });

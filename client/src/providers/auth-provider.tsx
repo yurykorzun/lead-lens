@@ -1,6 +1,6 @@
 import { createContext, useContext, useState, useEffect, type ReactNode } from 'react';
 import type { User, Session } from '@lead-lens/shared';
-import { api } from '@/lib/api';
+import { api, ApiRequestError } from '@/lib/api';
 import { queryClient } from './query-provider';
 
 export interface AuthContextValue {
@@ -24,10 +24,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     api
       .get<{ success: boolean; data: { user: User } }>('/auth/verify')
       .then(res => setUser(res.data.user))
-      .catch(() => {
-        setToken(null);
-        localStorage.removeItem('token');
-        api.setToken(null);
+      .catch(err => {
+        // Only a rejected session signs you out. A dropped connection or a reload in the
+        // middle of this check used to delete the saved login too.
+        if (err instanceof ApiRequestError && (err.status === 401 || err.status === 403)) {
+          setToken(null);
+          localStorage.removeItem('token');
+          api.setToken(null);
+        }
       })
       .finally(() => setIsLoading(false));
   }, [token]);
