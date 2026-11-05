@@ -32,6 +32,14 @@ describe('buildMovedNoteInsert', () => {
     expect(insert.Author_Role__c).toBe('Loan Officer');
   });
 
+  it('a note on a person account Contact also gets the account, a business one does not', () => {
+    const onContact = { ...note, sfRecordId: CONTACT };
+    expect(buildMovedNoteInsert(onContact, undefined, { Id: CONTACT, AccountId: '001MOCKACCT00003AA', personAccount: true }).Parent_Account__c)
+      .toBe('001MOCKACCT00003AA');
+    expect(buildMovedNoteInsert(onContact, undefined, { Id: CONTACT, AccountId: '001MOCKBIZZ00001AA', personAccount: false }).Parent_Account__c)
+      .toBeUndefined();
+  });
+
   it('a converted lead also gets its Contact, and its person account', () => {
     const insert = buildMovedNoteInsert(note, {
       Id: LEAD, IsConverted: true, ConvertedContactId: CONTACT, ConvertedAccountId: '001MOCKACCT00003AA', personAccount: true,

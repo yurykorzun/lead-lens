@@ -19,7 +19,7 @@ import { asc } from 'drizzle-orm';
 import { isSfId } from '../services/validate.js';
 import {
   buildMovedNoteInsert, isAlreadyMoved, parentType,
-  type LeadConversion, type MovedNote, type NeonNote,
+  type ContactAccount, type LeadConversion, type MovedNote, type NeonNote,
 } from '../services/move-notes.js';
 import { chunks, insert, query, requireLgcCi } from './lgc-ci.js';
 
@@ -54,6 +54,17 @@ async function leadConversions(leadIds: string[]): Promise<Map<string, LeadConve
   return out;
 }
 
+async function contactAccounts(contactIds: string[]): Promise<Map<string, ContactAccount>> {
+  const out = new Map<string, ContactAccount>();
+  for (const batch of chunks(contactIds, 200)) {
+    const rows = await query<{ Id: string; AccountId: string | null; Account: { IsPersonAccount: boolean } | null }>(
+      `SELECT Id, AccountId, Account.IsPersonAccount FROM Contact WHERE Id IN (${batch.map(quote).join(',')})`,
+    );
+    for (const r of rows) out.set(r.Id, { Id: r.Id, AccountId: r.AccountId, personAccount: Boolean(r.Account?.IsPersonAccount) });
+  }
+  return out;
+}
+
 async function movedNotes(recordIds: string[]): Promise<MovedNote[]> {
   const out: MovedNote[] = [];
   for (const batch of chunks(recordIds, 200)) {
@@ -74,6 +85,7 @@ async function main() {
 
   const recordIds = [...new Set(neon.map(n => n.sfRecordId))];
   const leads = await leadConversions(recordIds.filter(id => parentType(id) === 'Lead'));
+  const contacts = await contactAccounts(recordIds.filter(id => parentType(id) === 'Contact'));
   const existing = await movedNotes(recordIds);
 
   const perType = new Map<string, number>();
@@ -98,7 +110,7 @@ async function main() {
 
   let written = 0;
   for (const n of toMove) {
-    const id = await insert('Realtor_Note__c', buildMovedNoteInsert(n, leads.get(n.sfRecordId)));
+    const id = await insert('Realtor_Note__c', buildMovedNoteInsert(n, leads.get(n.sfRecordId), contacts.get(n.sfRecordId)));
     console.log(`moved ${n.id} -> ${id}`);
     written++;
   }

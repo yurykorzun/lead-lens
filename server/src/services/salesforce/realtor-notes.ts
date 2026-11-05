@@ -15,7 +15,7 @@ import { isSfId } from '../validate.js';
 // edit or delete path.
 export const NOTE_FIELDS = 'Id, Body__c, Author_Name__c, Author_Role__c, Source__c, Written_At__c';
 export const NOTE_INSERT_FIELDS = Object.freeze([
-  'Body__c', 'Parent_Lead__c', 'Parent_Contact__c', 'Author_Name__c', 'Author_Role__c', 'Source__c',
+  'Body__c', 'Parent_Lead__c', 'Parent_Contact__c', 'Parent_Account__c', 'Author_Name__c', 'Author_Role__c', 'Source__c',
 ] as const);
 
 const ROLE_TO_SF: Record<string, string> = {
@@ -59,16 +59,23 @@ export type NoteInsertBody = Partial<Record<(typeof NOTE_INSERT_FIELDS)[number],
 
 /**
  * The insert body for one note. A Lead row is parented by Lead, a person account row by
- * Contact - the same Id the borrower is on the dashboard by.
+ * Contact - the same Id the borrower is on the dashboard by - and by its person account
+ * too (personAccountId), because the Realtor Notes list on the person account page is
+ * keyed on Account Id. Without it the LO would not see the note there.
  */
-export function buildNoteInsert(recordId: string, body: string, author: NoteAuthor): NoteInsertBody {
+export function buildNoteInsert(recordId: string, body: string, author: NoteAuthor, personAccountId?: string): NoteInsertBody {
   if (!isSfId(recordId)) throw new Error('Invalid Salesforce Id');
   const role = ROLE_TO_SF[author.role];
   if (!role) throw new Error('Unknown author role');
   const insert: NoteInsertBody = { Body__c: String(body) };
   if (recordId.startsWith('00Q')) insert.Parent_Lead__c = recordId;
-  else if (recordId.startsWith('003')) insert.Parent_Contact__c = recordId;
-  else throw new Error('A note must be on a Lead or a Contact');
+  else if (recordId.startsWith('003')) {
+    insert.Parent_Contact__c = recordId;
+    if (personAccountId !== undefined) {
+      if (!isSfId(personAccountId) || !personAccountId.startsWith('001')) throw new Error('Invalid account Id');
+      insert.Parent_Account__c = personAccountId;
+    }
+  } else throw new Error('A note must be on a Lead or a Contact');
   insert.Author_Name__c = String(author.name || 'Unknown').slice(0, AUTHOR_NAME_MAX);
   insert.Author_Role__c = role;
   insert.Source__c = 'Lead Lens';
@@ -124,8 +131,8 @@ export async function listRealtorNotes(ids: RowIds): Promise<ContactNote[]> {
 }
 
 /** Inserts one note and returns its Salesforce Id */
-export async function createRealtorNote(recordId: string, body: string, author: NoteAuthor): Promise<string> {
-  const insert = buildNoteInsert(recordId, body, author);
+export async function createRealtorNote(recordId: string, body: string, author: NoteAuthor, personAccountId?: string): Promise<string> {
+  const insert = buildNoteInsert(recordId, body, author, personAccountId);
   if (process.env.MOCK_SALESFORCE === 'true') return mockCreateRecord('Realtor_Note__c', insert);
 
   const { accessToken, instanceUrl } = await getSalesforceToken();

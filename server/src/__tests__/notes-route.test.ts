@@ -123,10 +123,11 @@ describe('notes on a borrower (Realtor_Note__c)', () => {
     expect(mockWrites).toHaveLength(0);
   });
 
-  it('a note on a client row is parented by her Contact', async () => {
-    expect((await call('POST', '003MOCKCLNT00003AA', lo, { body: 'Docs in' })).status).toBe(200);
+  it('a note on a client row is parented by her Contact and her person account', async () => {
+    // The person account page lists Realtor Notes by Account Id, so without it the LO never sees the note
+    expect((await call('POST', '003MOCKCLNT00003AA', lo, { body: 'Docs in', Parent_Account__c: '001MOCKACCT00009AA' })).status).toBe(200);
     expect(mockWrites[0].body).toEqual({
-      Body__c: 'Docs in', Parent_Contact__c: '003MOCKCLNT00003AA',
+      Body__c: 'Docs in', Parent_Contact__c: '003MOCKCLNT00003AA', Parent_Account__c: '001MOCKACCT00003AA',
       Author_Name__c: 'Test LO', Author_Role__c: 'Loan Officer', Source__c: 'Lead Lens',
     });
   });

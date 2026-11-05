@@ -23,6 +23,13 @@ export interface LeadConversion {
   personAccount: boolean;
 }
 
+/** The account behind a Contact a note was written on */
+export interface ContactAccount {
+  Id: string;
+  AccountId: string | null;
+  personAccount: boolean;
+}
+
 /** A Lead Lens note already in Realtor_Note__c */
 export interface MovedNote {
   Id: string;
@@ -39,9 +46,11 @@ export interface MovedNote {
  * since converted also gets the converted Contact (and the person account), because
  * the convert carry-over only runs at convert time and the LO works the converted record.
  */
-export function buildMovedNoteInsert(note: NeonNote, lead?: LeadConversion): Record<string, string> {
+export function buildMovedNoteInsert(note: NeonNote, lead?: LeadConversion, contact?: ContactAccount): Record<string, string> {
+  // A note on a person account's Contact also gets the account, as the app does today
+  const personAccountId = contact?.personAccount && contact.AccountId ? contact.AccountId : undefined;
   const insert: Record<string, string> = {
-    ...buildNoteInsert(note.sfRecordId, note.body, { name: note.authorName, role: note.authorRole }),
+    ...buildNoteInsert(note.sfRecordId, note.body, { name: note.authorName, role: note.authorRole }, personAccountId),
     Written_At__c: note.createdAt.toISOString(),
   };
   if (lead?.IsConverted && lead.ConvertedContactId) {
