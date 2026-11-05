@@ -1,6 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import type { RealtorTask } from '@lead-lens/shared';
 import { api } from '@/lib/api';
+import { useViewAs, withViewAs } from './use-view-as';
 
 interface TasksResponse {
   success: boolean;
@@ -9,9 +10,10 @@ interface TasksResponse {
 
 /** The realtor task set on one borrower, earliest due first */
 export function useTasks(recordId: string) {
+  const viewAs = useViewAs();
   return useQuery({
-    queryKey: ['tasks', recordId],
-    queryFn: () => api.get<TasksResponse>(`/contacts/${encodeURIComponent(recordId)}/tasks`),
+    queryKey: ['tasks', recordId, viewAs],
+    queryFn: () => api.get<TasksResponse>(withViewAs(`/contacts/${encodeURIComponent(recordId)}/tasks`, viewAs)),
   });
 }
 

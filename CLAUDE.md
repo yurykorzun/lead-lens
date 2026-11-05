@@ -24,7 +24,7 @@ api/[...path].ts   → Vercel serverless entry point
 |------|-------------|-----------|------|
 | **Admin** | Email + password | All columns, nav with "Manage LOs" + "Manage Agents" | Every borrower |
 | **Loan Officer** | Email + access code | 7 columns, read-only | Rows they own (`sf_user_id`) |
-| **Agent** | Email + access code | 8 columns (incl. Lead Source, Referred By), read-only | Rows they referred (`sf_contact_id`) |
+| **Agent** | Email + access code | 7 columns (incl. Lead Source, no Referred By since it is always her), read-only | Rows they referred (`sf_contact_id`) |
 
 All roles are read-only and newest first by the tracker Created date. See Scoping below.
 

@@ -110,6 +110,19 @@ describe('notes on a borrower (Realtor_Note__c)', () => {
     expect(items[0]).toMatchObject({ body: 'from the first Alex', authorName: 'Alex Smith', mine: false });
   });
 
+  it('an admin viewing as a realtor reads her notes but cannot add one', async () => {
+    const asAgent = `viewAs=agent:${MOCK_AGENT_CONTACT_ID}`;
+    const headers = { 'Content-Type': 'application/json', Authorization: `Bearer ${admin}` };
+    const read = await fetch(`${base}/contacts/${JANE_LEAD}/notes?${asAgent}`, { headers });
+    expect(read.status).toBe(200);
+    // Her scope, not the admin's: a borrower outside her dashboard is 404
+    expect((await fetch(`${base}/contacts/${NOT_MINE}/notes?${asAgent}`, { headers })).status).toBe(404);
+
+    const write = await fetch(`${base}/contacts/${MINE}/notes?${asAgent}`, { method: 'POST', headers, body: JSON.stringify({ body: 'hi' }) });
+    expect(write.status).toBe(403);
+    expect(mockWrites).toHaveLength(0);
+  });
+
   it('a note on a client row is parented by her Contact', async () => {
     expect((await call('POST', '003MOCKCLNT00003AA', lo, { body: 'Docs in' })).status).toBe(200);
     expect(mockWrites[0].body).toEqual({

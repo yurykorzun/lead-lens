@@ -72,6 +72,17 @@ describe('realtor tasks on a borrower', () => {
     }
   });
 
+  it('an admin viewing as the realtor sees her steps, none completable', async () => {
+    const res = await call('GET', `/${MINE}/tasks?viewAs=agent:${MOCK_AGENT_CONTACT_ID}`, admin);
+    expect(res.status).toBe(200);
+    const data = (await res.json() as { data: RealtorTask[] }).data;
+    expect(data.map(t => t.subject)).toEqual(['Realtor: Call 1', 'Realtor: Call 2', 'Realtor: Showing 1']);
+    expect(data.every(t => !t.canComplete)).toBe(true);
+    const done = await call('POST', `/${MINE}/tasks/${CALL_1}/complete?viewAs=agent:${MOCK_AGENT_CONTACT_ID}`, admin);
+    expect(done.status).toBe(403);
+    expect(mockWrites).toHaveLength(0);
+  });
+
   it('no task fields that carry notes come back', async () => {
     const res = await call('GET', `/${MINE}/tasks`, agent);
     const raw = JSON.stringify(await res.json());

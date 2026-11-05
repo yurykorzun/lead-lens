@@ -62,6 +62,6 @@ export const agentColumns: ColumnDef<ContactRow, any>[] = [
   tempColumn,
   stageColumn,
   sourceColumn,
-  referredByColumn,
+  // No Referred By: an agent's rows are scoped to her own Contact, so it would repeat her name
   createdColumn,
 ];

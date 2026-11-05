@@ -1,6 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import type { ContactNote } from '@lead-lens/shared';
 import { api } from '@/lib/api';
+import { useViewAs, withViewAs } from './use-view-as';
 
 interface NotesResponse {
   success: boolean;
@@ -9,9 +10,10 @@ interface NotesResponse {
 
 /** Realtor notes on one borrower, newest first (Realtor_Note__c in Salesforce) */
 export function useNotes(recordId: string) {
+  const viewAs = useViewAs();
   return useQuery({
-    queryKey: ['notes', recordId],
-    queryFn: () => api.get<NotesResponse>(`/contacts/${encodeURIComponent(recordId)}/notes`),
+    queryKey: ['notes', recordId, viewAs],
+    queryFn: () => api.get<NotesResponse>(withViewAs(`/contacts/${encodeURIComponent(recordId)}/notes`, viewAs)),
   });
 }
 

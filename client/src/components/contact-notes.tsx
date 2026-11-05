@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { NOTE_MAX_LENGTH, type ContactNote, type NoteAuthorRole } from '@lead-lens/shared';
 import { Button } from '@/components/ui/button';
 import { useNotes, useAddNote } from '@/hooks/use-notes';
+import { useViewAs } from '@/hooks/use-view-as';
 
 const ROLE_LABELS: Record<NoteAuthorRole, string> = {
   admin: 'Admin',
@@ -28,6 +29,8 @@ export function ContactNotes({ recordId }: { recordId: string }) {
   const [draft, setDraft] = useState('');
   const notes = useNotes(recordId);
   const add = useAddNote(recordId);
+  // An admin viewing as someone reads their notes but writes none (the server refuses too)
+  const viewOnly = Boolean(useViewAs());
   const items = notes.data?.data ?? [];
   const tooLong = draft.length > NOTE_MAX_LENGTH;
 
@@ -49,6 +52,7 @@ export function ContactNotes({ recordId }: { recordId: string }) {
         Saved to Salesforce. The realtor, the loan officer and admins can read them.
       </p>
 
+      {!viewOnly && (<>
       <textarea
         aria-label="New note"
         value={draft}
@@ -69,6 +73,7 @@ export function ContactNotes({ recordId }: { recordId: string }) {
       {add.isError && (
         <p role="alert" className="mt-2 text-sm text-destructive">{add.error instanceof Error ? add.error.message : 'Could not save the note'}</p>
       )}
+      </>)}
 
       <div className="mt-4 space-y-3">
         {notes.isPending ? (
