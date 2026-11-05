@@ -7,6 +7,7 @@ import { formatPhone, phoneHref } from '@lead-lens/shared';
 import { formatDay } from '@/components/grid/format';
 import { Empty } from '@/components/grid/cells';
 import { ContactNotes } from '@/components/contact-notes';
+import { ContactTasks } from '@/components/contact-tasks';
 
 export interface ContactDetailPanelProps {
   contact: ContactRow;
@@ -19,9 +20,10 @@ export interface ContactDetailPanelProps {
 // lgc-ci production. Admins only - a loan officer or agent has no Salesforce login.
 const SF_BASE_URL = 'https://flow-enterprise-8486.lightning.force.com/lightning/r';
 
-// Read-only toward Salesforce for every role. No Salesforce notes, Activity or History: in
-// lgc-ci those carry the team's internal notes. The Notes section below is Lead Lens's own,
-// stored in its database and never written to Salesforce.
+// Read-only toward Salesforce, except that the realtor can mark her own realtor steps done.
+// No Salesforce notes, Activity or History: in lgc-ci those carry the team's internal
+// notes. The Notes section below is Lead Lens's own, stored in its database and never
+// written to Salesforce.
 //
 // A side column on wide screens; below 1024px it covers the screen, because next to the
 // grid it left neither readable (a 400px panel on a 375px phone).
@@ -168,6 +170,7 @@ export function ContactDetailPanel({ contact, onClose, role, covers = false }: C
           </dl>
         </section>
 
+        <ContactTasks key={`tasks-${contact.id}`} recordId={contact.id} role={role} />
         <ContactNotes key={contact.id} recordId={contact.id} />
       </div>
     </aside>

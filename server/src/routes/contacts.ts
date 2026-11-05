@@ -6,11 +6,13 @@ import { getDb } from '../db/index.js';
 import { notes } from '../db/schema.js';
 import { executeSoql, buildContactQuery, mapRow, isRowInScope, type Scope } from '../services/salesforce/query.js';
 import { isIsoDate, isSfId } from '../services/validate.js';
+import { listBorrowerTasks, listOpenTasks, findTaskForRealtor, completeTask, mapTask } from '../services/salesforce/tasks.js';
 
-// Read-only toward Salesforce. There is no Salesforce write: on lgc-ci a new Referred By on
-// a lead, or a Task completed with an "update realtor" box ticked, texts the realtor, so
-// nothing in Lead Lens may change a record. Notes are the one write, and they go to the
-// Lead Lens database only.
+// Read-only toward Salesforce, with ONE exception. On lgc-ci a new Referred By on a lead,
+// or a Task completed with an "update realtor" box ticked, texts the realtor, so Lead Lens
+// changes no record except this: the realtor marks one of her own realtor tasks Completed
+// (services/salesforce/tasks.ts - a constant body, Status only). Notes go to the Lead Lens
+// database only.
 const router = Router();
 
 // null when the user has no Salesforce Id yet - they see nothing rather than everything
@@ -85,7 +87,7 @@ function toNote(row: typeof notes.$inferSelect, userId: string | undefined): Con
   };
 }
 
-async function noteScope(req: AuthenticatedRequest, res: Response): Promise<string | null> {
+async function borrowerScope(req: AuthenticatedRequest, res: Response): Promise<string | null> {
   const recordId = req.params.id as string;
   const scope = scopeFor(req);
   if (!scope) {
@@ -101,7 +103,7 @@ async function noteScope(req: AuthenticatedRequest, res: Response): Promise<stri
 
 router.get('/:id/notes', requireAuth, async (req: AuthenticatedRequest, res) => {
   try {
-    const recordId = await noteScope(req, res);
+    const recordId = await borrowerScope(req, res);
     if (!recordId) return;
     const rows = await getDb().select().from(notes)
       .where(eq(notes.sfRecordId, recordId)).orderBy(desc(notes.createdAt));
@@ -123,7 +125,7 @@ router.post('/:id/notes', requireAuth, async (req: AuthenticatedRequest, res) =>
       res.status(400).json({ success: false, error: { code: 'VALIDATION', message: `Notes are limited to ${NOTE_MAX_LENGTH} characters` } });
       return;
     }
-    const recordId = await noteScope(req, res);
+    const recordId = await borrowerScope(req, res);
     if (!recordId) return;
     const [row] = await getDb().insert(notes).values({
       sfRecordId: recordId,
@@ -136,6 +138,66 @@ router.post('/:id/notes', requireAuth, async (req: AuthenticatedRequest, res) =>
   } catch (err) {
     console.error('Notes POST error:', err);
     res.status(500).json({ success: false, error: { code: 'SERVER_ERROR', message: 'Failed to save the note' } });
+  }
+});
+
+// ── Realtor tasks (lendinggroupco-uhnx.11) ─────────────────────────────
+// The fixed set Salesforce creates when a borrower is referred to a realtor. The realtor
+// sees and completes her own; the LO and admins see them read-only. Every other Task on
+// the borrower is the LP's and never leaves Salesforce.
+
+function realtorOnly(req: AuthenticatedRequest, res: Response): string | null {
+  if (req.userRole !== 'agent' || !isSfId(req.sfId)) {
+    res.status(403).json({ success: false, error: { code: 'FORBIDDEN', message: 'Only the realtor can do this' } });
+    return null;
+  }
+  return req.sfId;
+}
+
+router.get('/tasks/open', requireAuth, async (req: AuthenticatedRequest, res) => {
+  try {
+    const contactId = realtorOnly(req, res);
+    if (!contactId) return;
+    res.json({ success: true, data: await listOpenTasks(contactId) });
+  } catch (err) {
+    console.error('Open tasks GET error:', err);
+    res.status(500).json({ success: false, error: { code: 'SERVER_ERROR', message: 'Failed to load tasks' } });
+  }
+});
+
+router.get('/:id/tasks', requireAuth, async (req: AuthenticatedRequest, res) => {
+  try {
+    const recordId = await borrowerScope(req, res);
+    if (!recordId) return;
+    res.json({ success: true, data: await listBorrowerTasks(scopeFor(req)!, recordId) });
+  } catch (err) {
+    console.error('Tasks GET error:', err);
+    res.status(500).json({ success: false, error: { code: 'SERVER_ERROR', message: 'Failed to load tasks' } });
+  }
+});
+
+// Takes no body on purpose: whatever the client sends is ignored, never forwarded
+router.post('/:id/tasks/:taskId/complete', requireAuth, async (req: AuthenticatedRequest, res) => {
+  try {
+    const contactId = realtorOnly(req, res);
+    if (!contactId) return;
+    const recordId = await borrowerScope(req, res);
+    if (!recordId) return;
+    const taskId = req.params.taskId as string;
+    const found = isSfId(taskId) ? await findTaskForRealtor(contactId, recordId, taskId) : null;
+    if (!found) {
+      res.status(404).json({ success: false, error: { code: 'NOT_FOUND', message: 'Task not found' } });
+      return;
+    }
+    if (!found.IsClosed) {
+      await completeTask(taskId);
+      found.IsClosed = true;
+      found.Status = 'Completed';
+    }
+    res.json({ success: true, data: mapTask(found, { role: 'agent', contactId }) });
+  } catch (err) {
+    console.error('Task complete error:', err);
+    res.status(500).json({ success: false, error: { code: 'SERVER_ERROR', message: 'Could not mark the task done' } });
   }
 });
 
