@@ -96,7 +96,7 @@ By Id, never by name - two realtors can share a name. The Id is in the JWT as `s
 
 - **No long text fields in the SELECT** - `Rep_Notes__c`, `Message_to_Realtor__c`, `Description`. They are internal notes and never leave the org, and on `LeadAccount__c` they also make Salesforce return short pages.
 - **Never filter `LeadAccount__c.Referred_By__c`** - it is a formula holding the 15-character Id, so an 18-character Id matches nothing. Use the `Lead__r` / `Contact__r` lookups.
-- No Tasks, no field history, no activity. Task bodies carry notes in lgc-ci.
+- No field history, no activity, and no Task except the realtor set: Tasks stamped with `Realtor_Contact__c` (lendinggroupco-uhnx.11). Every other Task is the LP's and its body carries notes in lgc-ci. Select only `TASK_FIELDS` in `services/salesforce/tasks.ts`, never `Description`.
 - SOQL OFFSET stops at 2000, so `totalPages` is capped - narrow with filters.
 
 ## API Routes
@@ -111,6 +111,9 @@ All routes prefixed with `/api/`. Auth via `Authorization: Bearer <jwt>` header.
 | GET | /contacts | Paginated borrower rows (SOQL on LeadAccount__c, scoped by Id) |
 | GET | /contacts/:id/notes | Notes on one borrower, newest first (Lead Lens DB only; anyone whose dashboard shows the borrower) |
 | POST | /contacts/:id/notes | Add a note, max 2000 characters (Lead Lens DB only, never Salesforce) |
+| GET | /contacts/tasks/open | The realtor's open realtor tasks on all her in-scope borrowers (agent only) |
+| GET | /contacts/:id/tasks | Realtor tasks on one borrower: hers for an agent, all realtors' read-only for LO/admin |
+| POST | /contacts/:id/tasks/:taskId/complete | Mark one of her tasks Completed in Salesforce (agent only, no body) - the only Salesforce write |
 | GET | /metadata/dropdowns | Picklist values (cached 30min) |
 | GET | /loan-officers | List all LOs (admin only, paginated+search) |
 | POST | /loan-officers | Create LO (admin only, returns access code) |
@@ -150,6 +153,7 @@ FRONTEND_URL            # CORS origin, e.g., http://localhost:5173
 | `server/src/services/auth.ts` | Password/access code hashing, JWT creation |
 | `server/src/services/salesforce/auth.ts` | SF OAuth token acquisition |
 | `server/src/services/salesforce/query.ts` | LeadAccount__c query builder, Id scoping, row mapper |
+| `server/src/services/salesforce/tasks.ts` | Realtor task queries and the one Salesforce write (Status = Completed) |
 | `server/src/routes/auth.ts` | Login/verify/logout handlers |
 | `server/src/routes/contacts.ts` | GET contacts (read-only) |
 | `server/src/routes/loan-officers.ts` | LO CRUD (admin only, paginated) |
@@ -219,10 +223,10 @@ FRONTEND_URL            # CORS origin, e.g., http://localhost:5173
 - Pin TypeScript to exact version (no caret) to avoid Vercel resolving a different version.
 
 ### Salesforce
-- Read-only. Do not add a write route or a PATCH - a new Referred By or a Task with a realtor-update box ticked texts the realtor.
+- Read-only, with ONE write: the realtor marks her own realtor Task Completed (`completeTask` in `services/salesforce/tasks.ts`). Its body is the constant `{ Status: 'Completed' }`, and the route re-reads the task (Id + borrower + `Realtor_Contact__c`) before writing. Do not add any other write, and never pass request data into that body - a new Referred By, or a Task completed with `Update_Referred_By_via_SMS__c` / `_via_Email__c` / `Update_Last_Touch__c` ticked, texts or emails the realtor. `tasks.test.ts` and `tasks-route.test.ts` fail if the body changes.
 - Notes (`notes` table) are the one write, and they stay in the Lead Lens database. Every notes call re-checks the borrower against the caller's Salesforce scope (`isRowInScope`), so a realtor loses access when a referral moves. They hold borrower details, so treat the Neon database as borrower data.
 - Read `First_name__c` with a lowercase n. SOQL ignores case, but the JSON keys use the org's casing.
-- Never select notes (`Rep_Notes__c`, `Message_to_Realtor__c`, `Description`) or Tasks. See Rules above.
+- Never select notes (`Rep_Notes__c`, `Message_to_Realtor__c`, `Description`) or any Task without `Realtor_Contact__c`. See Rules above.
 - Scope by Id only. Every Id goes through `isSfId` before it reaches SOQL - the REST query endpoint has no binds.
 
 ### Auth & Roles
@@ -231,13 +235,13 @@ FRONTEND_URL            # CORS origin, e.g., http://localhost:5173
 - An LO is scoped by `sf_user_id`, an agent by `sf_contact_id`. Without one they get 403 NO_SCOPE.
 - An agent cannot be created or saved without `sf_contact_id`, and the server checks the Contact exists. Admins pick it by name or email in Manage Agents rather than typing an Id: three agents were created unlinked on 2026-10-14 and saw an empty dashboard. A realtor's email in Salesforce often differs from the one they sign in with, so search by name too.
 - `requireAdmin` middleware gates all `/api/loan-officers` and `/api/agents` routes.
-- Nobody edits Salesforce data from Lead Lens.
+- Nobody edits Salesforce data from Lead Lens, except the realtor marking her own realtor task done.
 
 ### Frontend
 - Tailwind CSS v4 with `@tailwindcss/vite` plugin (CSS-based config, no tailwind.config).
 - `@/` path alias resolves to `client/src/`.
 - shadcn/ui components in `client/src/components/ui/`.
-- Contact detail panel is read-only for Salesforce fields: status, loan stage, temperature, source, referred by. No tabs. Below them, Lead Lens notes (`contact-notes.tsx`).
+- Contact detail panel is read-only for Salesforce fields: status, loan stage, temperature, source, referred by. No tabs. Below them, the realtor steps (`contact-tasks.tsx`), then Lead Lens notes (`contact-notes.tsx`). A realtor's own dashboard also shows her open steps above the grid (`open-tasks.tsx`).
 - Vite proxy: `/api` → `http://localhost:3001` (configured in `client/vite.config.ts`). Configurable via `VITE_API_TARGET` env var.
 - Column definitions are split: `adminColumns`, `loanOfficerColumns`, and `agentColumns`.
 - **Light and dark themes.** Colors are role tokens in `client/src/index.css` (`bg-background`, `text-muted-foreground`, `bg-row-selected`, `bg-notice`...), with the dark values under `.dark`. Use a token, not a raw palette class like `text-slate-500`; where a hue is the point (status badges in `columns.tsx`) write the `dark:` pair next to it. `next-themes` sets the class (`providers/theme-provider.tsx`, key `lead-lens-theme`).

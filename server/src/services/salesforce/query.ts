@@ -61,7 +61,7 @@ function escapeSOQL(value: string): string {
 
 // The REST query endpoint has no bind variables, so an Id is checked against the
 // Salesforce Id shape and only then quoted in - nothing else can reach the WHERE clause.
-function quoteId(id: string): string {
+export function quoteId(id: string): string {
   if (!isSfId(id)) throw new Error('Invalid Salesforce Id');
   return `'${id}'`;
 }
