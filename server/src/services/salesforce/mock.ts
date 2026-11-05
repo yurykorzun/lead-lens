@@ -16,6 +16,8 @@ interface FakeRow {
   Id: string;
   Lead__c: string | null;
   Contact__c: string | null;
+  Account__c: string | null;
+  Opportunity__c: string | null;
   First_name__c: string;
   Last_Name__c: string;
   Phone__c: string | null;
@@ -35,6 +37,7 @@ interface FakeRow {
 function lead(n: number, first: string, last: string, extra: Partial<FakeRow>): FakeRow {
   return {
     Id: `a0XMOCKROW00000${n}AA`, Lead__c: `00QMOCKLEAD0000${n}AA`, Contact__c: null,
+    Account__c: null, Opportunity__c: null,
     First_name__c: first, Last_Name__c: last, Phone__c: `(555) 111-000${n}`,
     Status__c: 'Open', Temperature__c: null, Lead_Source__c: 'Realtor Referral',
     Created_Date__c: `2026-0${(n % 9) + 1}-1${n}`,
@@ -47,13 +50,21 @@ function lead(n: number, first: string, last: string, extra: Partial<FakeRow>): 
 
 function client(n: number, first: string, last: string, stage: string, extra: Partial<FakeRow>): FakeRow {
   return lead(n, first, last, {
-    Lead__c: null, Contact__c: `003MOCKCLNT0000${n}AA`, Status__c: stage, stage, ...extra,
+    Lead__c: null, Contact__c: `003MOCKCLNT0000${n}AA`, Account__c: `001MOCKACCT0000${n}AA`,
+    Opportunity__c: `006MOCKOPPT0000${n}AA`, Status__c: stage, stage, ...extra,
   });
 }
 
+// Lead 2 (Jane Doe) is mid-conversion: her row carries both the Lead and the new Contact Id,
+// and she has realtor notes on each (see FAKE_NOTES)
+const JANE_CONTACT_ID = '003MOCKCONV00002AA';
+
 const FAKE_ROWS: FakeRow[] = [
   lead(1, 'John', 'Smith', { Status__c: 'Meeting Set', Temperature__c: '60 days or less' }),
-  lead(2, 'Jane', 'Doe', { Status__c: 'Contacting', Temperature__c: 'Need more follow ups' }),
+  lead(2, 'Jane', 'Doe', {
+    Status__c: 'Contacting', Temperature__c: 'Need more follow ups',
+    Contact__c: JANE_CONTACT_ID, Account__c: '001MOCKACCT00002AA',
+  }),
   client(3, 'Maria', 'Garcia', 'Processing', { Temperature__c: '60 days or less' }),
   client(4, 'David', 'Lee', 'Documents Gathering', { Phone__c: '15551110004' }),
   lead(5, 'Olga', 'Petrova', { Status__c: 'Nurture', Temperature__c: '60 days or longer', Lead_Source__c: 'FB - Rus', Phone__c: '+7 916 123-45-67' }),
@@ -70,6 +81,7 @@ function toRecord(r: FakeRow) {
   return {
     attributes: { type: 'LeadAccount__c', url: `/services/data/v62.0/sobjects/LeadAccount__c/${r.Id}` },
     Id: r.Id, Lead__c: r.Lead__c, Contact__c: r.Contact__c,
+    Account__c: r.Account__c, Opportunity__c: r.Opportunity__c,
     First_name__c: r.First_name__c, Last_Name__c: r.Last_Name__c, Phone__c: r.Phone__c,
     Status__c: r.Status__c, Temperature__c: r.Temperature__c, Lead_Source__c: r.Lead_Source__c,
     Created_Date__c: r.Created_Date__c,
@@ -174,9 +186,82 @@ function mockTaskQuery(soql: string) {
   return { totalSize: records.length, done: true, records };
 }
 
+// ── Realtor notes (lendinggroupco-uhnx.12) ─────────────────────────────
+// Jane Doe (lead 2) has one note on her Lead and one on her new Contact. Maria Garcia has an
+// LO note on her loan. Lead 6 has the other realtor's note. John Smith starts with none.
+
+interface FakeNote {
+  Id: string; Body__c: string; Author_Name__c: string; Author_Role__c: string; Source__c: string;
+  Written_At__c: string | null; Parent_Lead__c: string | null; Parent_Contact__c: string | null;
+  Parent_Account__c: string | null; Parent_Opportunity__c: string | null;
+}
+
+function note(n: number, parent: Partial<FakeNote>, author: string, role: string, source: string, at: string, body: string): FakeNote {
+  return {
+    Id: `a1RMOCKNOTE0000${n}AA`, Body__c: body, Author_Name__c: author, Author_Role__c: role, Source__c: source,
+    Written_At__c: at, Parent_Lead__c: null, Parent_Contact__c: null, Parent_Account__c: null, Parent_Opportunity__c: null,
+    ...parent,
+  };
+}
+
+const INITIAL_NOTES: FakeNote[] = [
+  note(1, { Parent_Lead__c: '00QMOCKLEAD00002AA' }, 'Test LO', 'Loan Officer', 'Salesforce', '2026-11-01T15:00:00.000Z',
+    'Pre-approval letter is out, she can start showing.'),
+  note(2, { Parent_Contact__c: JANE_CONTACT_ID }, 'Test Agent', 'Realtor', 'Lead Lens', '2026-11-03T18:30:00.000Z',
+    'Saw two houses on Saturday, wants a third visit.'),
+  note(3, { Parent_Opportunity__c: '006MOCKOPPT00003AA' }, 'Test LO', 'Loan Officer', 'Salesforce', '2026-10-28T14:00:00.000Z',
+    'Appraisal ordered.'),
+  note(4, { Parent_Lead__c: '00QMOCKLEAD00006AA' }, 'Other Agent', 'Realtor', 'Lead Lens', '2026-11-02T12:00:00.000Z',
+    'Not yours to read.'),
+];
+
+let fakeNotes: FakeNote[] = INITIAL_NOTES.map(n => ({ ...n }));
+
+export function resetMockNotes() {
+  fakeNotes = INITIAL_NOTES.map(n => ({ ...n }));
+  mockWrites.length = 0;
+}
+
+/** An insert. Only Realtor_Note__c is known; the stored note keeps only real note fields. */
+export function mockCreateRecord(sobject: string, body: Record<string, unknown>): string {
+  const id = sobject === 'Realtor_Note__c' ? `a1RMOCKNOTE${String(fakeNotes.length + 1).padStart(4, '0')}NEW` : '';
+  mockWrites.push({ sobject, id, body: { ...body } });
+  if (!id) throw new Error(`Mock insert failed: 404 ${sobject}`);
+  const str = (v: unknown) => (typeof v === 'string' ? v : null);
+  fakeNotes.push({
+    Id: id, Body__c: str(body.Body__c) ?? '', Author_Name__c: str(body.Author_Name__c) ?? '',
+    Author_Role__c: str(body.Author_Role__c) ?? '', Source__c: str(body.Source__c) ?? '',
+    // Written_At__c defaults to NOW() in lgc-ci
+    Written_At__c: new Date().toISOString(),
+    Parent_Lead__c: str(body.Parent_Lead__c), Parent_Contact__c: str(body.Parent_Contact__c),
+    Parent_Account__c: str(body.Parent_Account__c), Parent_Opportunity__c: str(body.Parent_Opportunity__c),
+  });
+  return id;
+}
+
+const NOTE_PARENTS = ['Parent_Lead__c', 'Parent_Contact__c', 'Parent_Account__c', 'Parent_Opportunity__c'] as const;
+
+function mockNoteQuery(soql: string) {
+  const wanted = NOTE_PARENTS.map(field => {
+    const m = soql.match(new RegExp(`${field} IN \\(([^)]+)\\)`));
+    return [field, m ? m[1].split(',').map(s => s.trim().replace(/'/g, '')) : []] as const;
+  });
+  const notes = fakeNotes
+    .filter(n => wanted.some(([field, ids]) => n[field] !== null && ids.includes(n[field] as string)))
+    .sort((a, b) => (b.Written_At__c ?? '').localeCompare(a.Written_At__c ?? '') || b.Id.localeCompare(a.Id));
+  // Only the selected fields, like the real API
+  const fields = soql.match(/SELECT (.+?) FROM/)![1].split(',').map(f => f.trim()) as (keyof FakeNote)[];
+  const records = notes.map(n => ({
+    attributes: { type: 'Realtor_Note__c', url: `/services/data/v62.0/sobjects/Realtor_Note__c/${n.Id}` },
+    ...Object.fromEntries(fields.map(f => [f, n[f]])),
+  }));
+  return { totalSize: records.length, done: true, records };
+}
+
 export function mockExecuteSoql<T = Record<string, unknown>>(soql: string): SFQueryResponse<T> {
   if (/FROM Contact\b/.test(soql)) return mockContactQuery(soql) as unknown as SFQueryResponse<T>;
   if (/FROM Task\b/.test(soql)) return mockTaskQuery(soql) as unknown as SFQueryResponse<T>;
+  if (/FROM Realtor_Note__c\b/.test(soql)) return mockNoteQuery(soql) as unknown as SFQueryResponse<T>;
   let rows = [...FAKE_ROWS];
 
   // Scope - the builder always puts the Lead__r side first
@@ -194,7 +279,7 @@ export function mockExecuteSoql<T = Record<string, unknown>>(soql: string): SFQu
     rows = rows.filter(r => ids.includes(r.Lead__c ?? '') || ids.includes(r.Contact__c ?? ''));
   }
 
-  if (soql.includes('Lead__c = null')) rows = rows.filter(r => r.Contact__c);
+  if (soql.includes('Lead__c = null')) rows = rows.filter(r => !r.Lead__c);
   const status = soql.match(/Status__c = '([^']+)'/);
   if (status) rows = rows.filter(r => r.Lead__c && r.Status__c === status[1]);
   const temp = soql.match(/Temperature__c = '([^']+)'/);

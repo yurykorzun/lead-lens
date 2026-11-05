@@ -1,18 +1,20 @@
 import { Router, type Response } from 'express';
-import { eq, desc } from 'drizzle-orm';
+import { inArray, desc } from 'drizzle-orm';
 import { requireAuth, type AuthenticatedRequest } from '../middleware/auth.js';
 import { NOTE_MAX_LENGTH, type ContactFilters, type ContactNote } from '@lead-lens/shared';
 import { getDb } from '../db/index.js';
 import { notes } from '../db/schema.js';
-import { executeSoql, buildContactQuery, mapRow, isRowInScope, type Scope } from '../services/salesforce/query.js';
+import { executeSoql, buildContactQuery, mapRow, isRowInScope, rowIdsInScope, type Scope } from '../services/salesforce/query.js';
+import { listRealtorNotes, createRealtorNote } from '../services/salesforce/realtor-notes.js';
 import { isIsoDate, isSfId } from '../services/validate.js';
 import { listBorrowerTasks, listOpenTasks, findTaskForRealtor, completeTask, mapTask } from '../services/salesforce/tasks.js';
 
-// Read-only toward Salesforce, with ONE exception. On lgc-ci a new Referred By on a lead,
+// Read-only toward Salesforce, with TWO exceptions. On lgc-ci a new Referred By on a lead,
 // or a Task completed with an "update realtor" box ticked, texts the realtor, so Lead Lens
-// changes no record except this: the realtor marks one of her own realtor tasks Completed
-// (services/salesforce/tasks.ts - a constant body, Status only). Notes go to the Lead Lens
-// database only.
+// changes no existing record except this: the realtor marks one of her own realtor tasks
+// Completed (services/salesforce/tasks.ts - a constant body, Status only). The other write
+// is an insert: a new Realtor_Note__c (services/salesforce/realtor-notes.ts - an allowlisted
+// body built field by field).
 const router = Router();
 
 // null when the user has no Salesforce Id yet - they see nothing rather than everything
@@ -72,19 +74,36 @@ router.get('/', requireAuth, async (req: AuthenticatedRequest, res) => {
 });
 
 // ── Notes ──────────────────────────────────────────────────────────────
-// Kept in Lead Lens only. Everyone who can see a borrower on their dashboard can read and
-// add its notes: the realtor, the loan officer who owns it, and admins. Checked against
-// Salesforce on every call, so a realtor whose referral moves elsewhere loses access.
+// Realtor notes live on Realtor_Note__c in lgc-ci (lendinggroupco-uhnx.12), so the LO sees
+// them in Salesforce and the realtor sees the LO's "Note to Realtor" here. Everyone who can
+// see a borrower on their dashboard can read and add its notes: the realtor, the loan
+// officer who owns it, and admins. Checked against Salesforce on every call, so a realtor
+// whose referral moves elsewhere loses access.
+//
+// Notes written before the move are still in the Lead Lens `notes` table. GET merges them
+// in, marked as history, until lendinggroupco-uhnx.12.4 copies them to Salesforce.
 
-function toNote(row: typeof notes.$inferSelect, userId: string | undefined): ContactNote {
+const NOTE_ROLES: readonly string[] = ['admin', 'loan_officer', 'agent'];
+
+function toHistoryNote(row: typeof notes.$inferSelect, userId: string | undefined): ContactNote {
   return {
     id: row.id,
     body: row.body,
     authorName: row.authorName,
-    authorRole: row.authorRole as ContactNote['authorRole'],
+    authorRole: NOTE_ROLES.includes(row.authorRole) ? row.authorRole as ContactNote['authorRole'] : undefined,
+    source: 'Lead Lens',
+    history: true,
     createdAt: row.createdAt.toISOString(),
     mine: Boolean(userId) && row.authorId === userId,
   };
+}
+
+function reader(req: AuthenticatedRequest) {
+  return { name: req.userName || 'Unknown', role: req.userRole ?? 'agent' };
+}
+
+function newestFirst(a: ContactNote, b: ContactNote) {
+  return (b.createdAt || '').localeCompare(a.createdAt || '');
 }
 
 async function borrowerScope(req: AuthenticatedRequest, res: Response): Promise<string | null> {
@@ -105,9 +124,16 @@ router.get('/:id/notes', requireAuth, async (req: AuthenticatedRequest, res) => 
   try {
     const recordId = await borrowerScope(req, res);
     if (!recordId) return;
-    const rows = await getDb().select().from(notes)
-      .where(eq(notes.sfRecordId, recordId)).orderBy(desc(notes.createdAt));
-    res.json({ success: true, data: rows.map(r => toNote(r, req.userId)) });
+    const ids = await rowIdsInScope(scopeFor(req)!, recordId);
+    // History rows are keyed by ContactRow.id, so look them up by every Lead and Contact Id on the row
+    const historyIds = [...new Set([recordId, ...ids.leadIds, ...ids.contactIds])];
+    const [sfNotes, history] = await Promise.all([
+      listRealtorNotes(ids),
+      getDb().select().from(notes)
+        .where(inArray(notes.sfRecordId, historyIds)).orderBy(desc(notes.createdAt)),
+    ]);
+    const merged = [...sfNotes, ...history.map(r => toHistoryNote(r, req.userId))].sort(newestFirst);
+    res.json({ success: true, data: merged });
   } catch (err) {
     console.error('Notes GET error:', err);
     res.status(500).json({ success: false, error: { code: 'SERVER_ERROR', message: 'Failed to load notes' } });
@@ -127,14 +153,19 @@ router.post('/:id/notes', requireAuth, async (req: AuthenticatedRequest, res) =>
     }
     const recordId = await borrowerScope(req, res);
     if (!recordId) return;
-    const [row] = await getDb().insert(notes).values({
-      sfRecordId: recordId,
-      authorId: req.userId ?? null,
-      authorName: req.userName || 'Unknown',
-      authorRole: req.userRole ?? 'agent',
+    // Only the trimmed text and the caller's own name and role reach the insert
+    const author = reader(req);
+    const id = await createRealtorNote(recordId, body, author);
+    const note: ContactNote = {
+      id,
       body,
-    }).returning();
-    res.json({ success: true, data: toNote(row, req.userId) });
+      authorName: author.name,
+      authorRole: author.role as ContactNote['authorRole'],
+      source: 'Lead Lens',
+      createdAt: new Date().toISOString(),
+      mine: true,
+    };
+    res.json({ success: true, data: note });
   } catch (err) {
     console.error('Notes POST error:', err);
     res.status(500).json({ success: false, error: { code: 'SERVER_ERROR', message: 'Failed to save the note' } });
