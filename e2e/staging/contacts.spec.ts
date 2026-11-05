@@ -1,8 +1,8 @@
 import { test, expect, type Page } from '@playwright/test';
 import { loginAsAdmin, loginAsLO, loginAsAgent } from './fixtures';
 
-// Lead Lens is read-only on lgc-ci: no selects, no Save, no Activity or History, and no
-// Salesforce notes. The only box is the Lead Lens note, which is stored in Lead Lens.
+// Lead Lens is read-only on lgc-ci fields: no selects, no Save, no Activity or History, and
+// none of the team's internal notes. The only box is the realtor note (Realtor_Note__c).
 async function expectReadOnlyPanel(page: Page) {
   const panel = page.getByTestId('contact-panel');
   await expect(panel).toBeVisible({ timeout: 5_000 });
@@ -16,7 +16,7 @@ async function expectReadOnlyPanel(page: Page) {
   return panel;
 }
 
-test.describe('Notes (Lead Lens only)', () => {
+test.describe('Realtor notes (Realtor_Note__c, mock Salesforce)', () => {
   test('the realtor adds a note and the loan officer reads it', async ({ page, browser }) => {
     const text = `Spoke with John, docs by Friday ${Date.now().toString(36)}`;
 
@@ -24,7 +24,8 @@ test.describe('Notes (Lead Lens only)', () => {
     await expect(page.locator('tbody tr').first()).toBeVisible({ timeout: 15_000 });
     await page.getByText('John Smith').click();
     let panel = page.getByTestId('contact-panel');
-    await expect(panel.getByText('No notes yet.')).toBeVisible({ timeout: 5_000 });
+    // Mock notes live in the staging server's memory, so an earlier run may have left some
+    await expect(panel.getByText('Loading notes…')).toHaveCount(0, { timeout: 5_000 });
     await expect(panel.getByRole('button', { name: 'Add note' })).toBeDisabled();
     await panel.getByLabel('New note').fill(text);
     await panel.getByRole('button', { name: 'Add note' }).click();
@@ -42,7 +43,19 @@ test.describe('Notes (Lead Lens only)', () => {
     const seen = panel.getByTestId('note').filter({ hasText: text });
     await expect(seen).toContainText('Test Agent');
     await expect(seen).toContainText('Realtor');
+    await expect(seen.getByTestId('note-source')).toHaveText('in Lead Lens');
     await context.close();
+  });
+
+  test("the realtor reads the LO's Salesforce note on a converted lead", async ({ page }) => {
+    await loginAsAgent(page);
+    await expect(page.locator('tbody tr').first()).toBeVisible({ timeout: 15_000 });
+    await page.getByText('Jane Doe').click();
+    const panel = page.getByTestId('contact-panel');
+    const lo = panel.getByTestId('note').filter({ hasText: 'Pre-approval letter is out' });
+    await expect(lo).toContainText('Test LO');
+    await expect(lo.getByTestId('note-source')).toHaveText('in Salesforce');
+    await expect(panel.getByTestId('note').filter({ hasText: 'Saw two houses' })).toBeVisible();
   });
 });
 

@@ -1,21 +1,28 @@
 import { useState } from 'react';
-import { NOTE_MAX_LENGTH, type ContactNote } from '@lead-lens/shared';
+import { NOTE_MAX_LENGTH, type ContactNote, type NoteAuthorRole } from '@lead-lens/shared';
 import { Button } from '@/components/ui/button';
 import { useNotes, useAddNote } from '@/hooks/use-notes';
 
-const ROLE_LABELS: Record<ContactNote['authorRole'], string> = {
+const ROLE_LABELS: Record<NoteAuthorRole, string> = {
   admin: 'Admin',
   loan_officer: 'Loan officer',
   agent: 'Realtor',
+  loan_partner: 'Loan partner',
 };
 
 function when(iso: string) {
+  if (!iso) return '';
   return new Date(iso).toLocaleString(undefined, { month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit' });
 }
 
+function where(n: ContactNote) {
+  return n.source === 'Salesforce' ? 'in Salesforce' : 'in Lead Lens';
+}
+
 /**
- * Notes on a borrower, shared by everyone who sees it in Lead Lens (its realtor, its loan
- * officer, admins). They live in Lead Lens only and never reach Salesforce.
+ * Notes on a borrower, shared by its realtor, its loan officer and admins. They are saved
+ * to Salesforce (Realtor_Note__c), so the loan officer sees them there too, and notes the
+ * team writes to the realtor in Salesforce show up here.
  */
 export function ContactNotes({ recordId }: { recordId: string }) {
   const [draft, setDraft] = useState('');
@@ -39,7 +46,7 @@ export function ContactNotes({ recordId }: { recordId: string }) {
     <section className="mt-6" data-testid="notes">
       <h3 className="mb-1 text-sm font-medium text-muted-foreground">Notes</h3>
       <p className="mb-3 text-xs text-muted-foreground">
-        Kept in Lead Lens only. Everyone who can see this borrower here can read them.
+        Saved to Salesforce. The realtor, the loan officer and admins can read them.
       </p>
 
       <textarea
@@ -75,7 +82,9 @@ export function ContactNotes({ recordId }: { recordId: string }) {
             <div key={n.id} className="rounded-lg border bg-card p-3" data-testid="note">
               <div className="mb-1 flex flex-wrap items-baseline justify-between gap-x-2 text-xs text-muted-foreground">
                 <span>
-                  <span className="font-medium text-foreground">{n.mine ? 'You' : n.authorName}</span> · {ROLE_LABELS[n.authorRole] ?? n.authorRole}
+                  <span className="font-medium text-foreground">{n.mine ? 'You' : n.authorName}</span>
+                  {n.authorRole && <> · {ROLE_LABELS[n.authorRole] ?? n.authorRole}</>}
+                  {' · '}<span data-testid="note-source">{where(n)}</span>
                 </span>
                 <span>{when(n.createdAt)}</span>
               </div>

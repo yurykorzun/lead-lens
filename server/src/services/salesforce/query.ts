@@ -143,18 +143,54 @@ export function buildContactQuery(scope: Scope, params: RowQueryParams): { dataQ
  * the same borrower filter and scope as the grid, so notes reach exactly the people who
  * can see the borrower.
  */
-export function buildRowInScopeQuery(scope: Scope, recordId: string): string {
+function rowInScopeWhere(scope: Scope, recordId: string): string {
   const id = quoteId(recordId);
   const conditions = [BORROWER_ROWS, `(Lead__c = ${id} OR Contact__c = ${id})`];
   const scoped = scopeCondition(scope);
   if (scoped) conditions.push(scoped);
-  return `SELECT COUNT() FROM LeadAccount__c WHERE ${conditions.join(' AND ')}`;
+  return `WHERE ${conditions.join(' AND ')}`;
+}
+
+export function buildRowInScopeQuery(scope: Scope, recordId: string): string {
+  return `SELECT COUNT() FROM LeadAccount__c ${rowInScopeWhere(scope, recordId)}`;
 }
 
 export async function isRowInScope(scope: Scope, recordId: string): Promise<boolean> {
   if (!isSfId(recordId)) return false;
   const result = await executeSoql(buildRowInScopeQuery(scope, recordId));
   return result.totalSize > 0;
+}
+
+/** Every record Id on the borrower's row, under the same borrower filter and scope */
+export function buildRowIdsQuery(scope: Scope, recordId: string): string {
+  return `SELECT Lead__c, Contact__c, Account__c, Opportunity__c FROM LeadAccount__c ${rowInScopeWhere(scope, recordId)} LIMIT 20`;
+}
+
+export interface RowIds {
+  leadIds: string[];
+  contactIds: string[];
+  accountIds: string[];
+  opportunityIds: string[];
+}
+
+/**
+ * The Lead, Contact, Account and Opportunity Ids on the borrower's row (empty when it is
+ * out of scope). A converted lead keeps both its Lead and Contact Id on the row, so notes
+ * parented to either are still found.
+ */
+export async function rowIdsInScope(scope: Scope, recordId: string): Promise<RowIds> {
+  const ids: RowIds = { leadIds: [], contactIds: [], accountIds: [], opportunityIds: [] };
+  if (!isSfId(recordId)) return ids;
+  type IdRow = { Lead__c: string | null; Contact__c: string | null; Account__c: string | null; Opportunity__c: string | null };
+  const result = await executeSoql<IdRow>(buildRowIdsQuery(scope, recordId));
+  const add = (list: string[], id: string | null) => { if (isSfId(id) && !list.includes(id)) list.push(id); };
+  for (const r of result.records) {
+    add(ids.leadIds, r.Lead__c);
+    add(ids.contactIds, r.Contact__c);
+    add(ids.accountIds, r.Account__c);
+    add(ids.opportunityIds, r.Opportunity__c);
+  }
+  return ids;
 }
 
 type Rel = { Email?: string; Owner?: { Name?: string } } | null | undefined;

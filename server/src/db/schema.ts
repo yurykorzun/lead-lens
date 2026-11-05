@@ -45,8 +45,9 @@ export const auditLog = pgTable('audit_log', {
   userAgent: text('user_agent'),
 });
 
-// Notes on a borrower, kept in Lead Lens only. Nothing here is written to Salesforce: a
-// write there can text the realtor, and the team's own notes in lgc-ci stay internal.
+// Notes written in Lead Lens before they moved to Realtor_Note__c in Salesforce
+// (lendinggroupco-uhnx.12). Read-only history now: the notes GET merges these in until
+// lendinggroupco-uhnx.12.4 copies them over, and nothing new is written here.
 export const notes = pgTable('notes', {
   id: uuid('id').defaultRandom().primaryKey(),
   // The borrower row's Lead or Contact Id (ContactRow.id)

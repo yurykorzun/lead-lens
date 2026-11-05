@@ -7,7 +7,7 @@ interface NotesResponse {
   data: ContactNote[];
 }
 
-/** Notes on one borrower, newest first. Lead Lens only - never written to Salesforce. */
+/** Realtor notes on one borrower, newest first (Realtor_Note__c in Salesforce) */
 export function useNotes(recordId: string) {
   return useQuery({
     queryKey: ['notes', recordId],
