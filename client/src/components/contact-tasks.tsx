@@ -60,8 +60,9 @@ export function ContactTasks({ recordId, role }: { recordId: string; role: 'admi
   const tasks = useTasks(recordId);
   const items = tasks.data?.data ?? [];
 
-  // Nothing to show and nothing to explain: most borrowers have no realtor set
-  if (tasks.isSuccess && items.length === 0 && role !== 'agent') return null;
+  // No section until a borrower has steps: Salesforce creates them only for borrowers
+  // referred to a realtor, and none exist until the creation flow ships
+  if (tasks.isSuccess && items.length === 0) return null;
 
   return (
     <section className="mt-6" data-testid="tasks">
@@ -75,8 +76,6 @@ export function ContactTasks({ recordId, role }: { recordId: string; role: 'admi
         <p className="text-sm text-muted-foreground">Loading steps…</p>
       ) : tasks.isError ? (
         <p className="text-sm text-destructive">Could not load steps</p>
-      ) : items.length === 0 ? (
-        <p className="text-sm text-muted-foreground">No steps for this borrower yet.</p>
       ) : (
         <ul className="divide-y rounded-lg border bg-card px-4">
           {items.map(t => <TaskRow key={t.id} task={t} />)}
