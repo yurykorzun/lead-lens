@@ -22,7 +22,8 @@ test.describe('Realtor notes (Realtor_Note__c, mock Salesforce)', () => {
 
     await loginAsAgent(page);
     await expect(page.locator('tbody tr').first()).toBeVisible({ timeout: 15_000 });
-    await page.getByText('John Smith').click();
+    // The grid row, not her open-steps list above it, which also names the borrower
+    await page.locator('tbody tr', { hasText: 'John Smith' }).click();
     let panel = page.getByTestId('contact-panel');
     // Mock notes live in the staging server's memory, so an earlier run may have left some
     await expect(panel.getByText('Loading notes…')).toHaveCount(0, { timeout: 5_000 });
@@ -38,7 +39,7 @@ test.describe('Realtor notes (Realtor_Note__c, mock Salesforce)', () => {
     const lo = await context.newPage();
     await loginAsLO(lo);
     await expect(lo.locator('tbody tr').first()).toBeVisible({ timeout: 15_000 });
-    await lo.getByText('John Smith').click();
+    await lo.locator('tbody tr', { hasText: 'John Smith' }).click();
     panel = lo.getByTestId('contact-panel');
     const seen = panel.getByTestId('note').filter({ hasText: text });
     await expect(seen).toContainText('Test Agent');
@@ -50,7 +51,7 @@ test.describe('Realtor notes (Realtor_Note__c, mock Salesforce)', () => {
   test("the realtor reads the LO's Salesforce note on a converted lead", async ({ page }) => {
     await loginAsAgent(page);
     await expect(page.locator('tbody tr').first()).toBeVisible({ timeout: 15_000 });
-    await page.getByText('Jane Doe').click();
+    await page.locator('tbody tr', { hasText: 'Jane Doe' }).click();
     const panel = page.getByTestId('contact-panel');
     const lo = panel.getByTestId('note').filter({ hasText: 'Pre-approval letter is out' });
     await expect(lo).toContainText('Test LO');
