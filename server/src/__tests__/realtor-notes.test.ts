@@ -8,7 +8,6 @@ const { buildNotesQuery, listRealtorNotes } = await import('../services/salesfor
 
 const LEAD = '00QVr00000AbCdEIAZ';
 const ids = { leadIds: [LEAD], contactIds: [], accountIds: [], opportunityIds: [] };
-const reader = { name: 'Test Agent', role: 'agent' };
 
 function note(n: number) {
   return {
@@ -42,7 +41,7 @@ describe('reading the whole notes thread', () => {
       .mockResolvedValueOnce(Response.json({ totalSize: 250, done: false, nextRecordsUrl: '/services/data/v62.0/query/01gNEXT-200', records: first }))
       .mockResolvedValueOnce(Response.json({ totalSize: 250, done: true, records: rest }));
 
-    const notes = await listRealtorNotes(ids, reader);
+    const notes = await listRealtorNotes(ids);
 
     expect(notes).toHaveLength(250);
     expect(notes[249].body).toBe('note 1');
@@ -55,6 +54,6 @@ describe('reading the whole notes thread', () => {
     fetchMock
       .mockResolvedValueOnce(Response.json({ totalSize: 2, done: false, nextRecordsUrl: '/services/data/v62.0/query/01gNEXT-1', records: [note(2)] }))
       .mockResolvedValueOnce(new Response('boom', { status: 500 }));
-    await expect(listRealtorNotes(ids, reader)).rejects.toThrow(/500/);
+    await expect(listRealtorNotes(ids)).rejects.toThrow(/500/);
   });
 });

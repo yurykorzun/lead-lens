@@ -84,23 +84,26 @@ export interface NoteRecord {
   Written_At__c: string | null;
 }
 
-/** "Mine" is display only (the "You" label): Salesforce keeps no Lead Lens user Id */
-export function mapNote(r: NoteRecord, reader: NoteAuthor): ContactNote {
+/**
+ * Never "mine" (the "You" label): Salesforce keeps no Lead Lens user Id, and matching by
+ * name would label another user's note as yours when two users share a name. The note
+ * shows its author's name instead.
+ */
+export function mapNote(r: NoteRecord): ContactNote {
   const source: NoteSource = r.Source__c === 'Lead Lens' ? 'Lead Lens' : 'Salesforce';
   const authorRole = r.Author_Role__c ? SF_TO_ROLE[r.Author_Role__c] : undefined;
-  const authorName = r.Author_Name__c ?? '';
   return {
     id: r.Id,
     body: r.Body__c ?? '',
-    authorName: authorName || 'Unknown',
+    authorName: r.Author_Name__c || 'Unknown',
     authorRole,
     source,
     createdAt: r.Written_At__c ?? '',
-    mine: source === 'Lead Lens' && authorRole === reader.role && Boolean(authorName) && authorName === reader.name,
+    mine: false,
   };
 }
 
-export async function listRealtorNotes(ids: RowIds, reader: NoteAuthor): Promise<ContactNote[]> {
+export async function listRealtorNotes(ids: RowIds): Promise<ContactNote[]> {
   const soql = buildNotesQuery(ids);
   if (!soql) return [];
   const result = await executeSoql<NoteRecord>(soql);
@@ -117,7 +120,7 @@ export async function listRealtorNotes(ids: RowIds, reader: NoteAuthor): Promise
       next = page.done ? undefined : page.nextRecordsUrl;
     }
   }
-  return records.map(r => mapNote(r, reader));
+  return records.map(mapNote);
 }
 
 /** Inserts one note and returns its Salesforce Id */

@@ -95,11 +95,19 @@ describe('notes on a borrower (Realtor_Note__c)', () => {
       Source__c: 'Lead Lens',
     });
 
-    for (const [token, mine] of [[agent, true], [lo, false], [admin, false]] as const) {
+    for (const token of [agent, lo, admin]) {
       const items = await list(MINE, token);
       expect(items).toHaveLength(1);
-      expect(items[0]).toMatchObject({ id: saved.id, authorName: 'Test Agent', authorRole: 'agent', source: 'Lead Lens', mine });
+      expect(items[0]).toMatchObject({ id: saved.id, authorName: 'Test Agent', authorRole: 'agent', source: 'Lead Lens', mine: false });
     }
+  });
+
+  it('never labels a note "mine" by name, because two users can share a name', async () => {
+    const alex1 = createSessionToken('u-alex1', 'admin', 'Alex Smith');
+    const alex2 = createSessionToken('u-alex2', 'admin', 'Alex Smith');
+    expect((await call('POST', MINE, alex1, { body: 'from the first Alex' })).status).toBe(200);
+    const items = await list(MINE, alex2);
+    expect(items[0]).toMatchObject({ body: 'from the first Alex', authorName: 'Alex Smith', mine: false });
   });
 
   it('a note on a client row is parented by her Contact', async () => {
@@ -127,7 +135,7 @@ describe('notes on a borrower (Realtor_Note__c)', () => {
         'Saw two houses on Saturday, wants a third visit.',
         'Pre-approval letter is out, she can start showing.',
       ]);
-      expect(items[0]).toMatchObject({ authorName: 'Test Agent', authorRole: 'agent', source: 'Lead Lens', mine: true });
+      expect(items[0]).toMatchObject({ authorName: 'Test Agent', authorRole: 'agent', source: 'Lead Lens', mine: false });
       expect(items[1]).toMatchObject({ authorName: 'Test LO', authorRole: 'loan_officer', source: 'Salesforce', mine: false });
     }
   });

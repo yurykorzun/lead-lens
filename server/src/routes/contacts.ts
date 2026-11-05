@@ -128,7 +128,7 @@ router.get('/:id/notes', requireAuth, async (req: AuthenticatedRequest, res) => 
     // History rows are keyed by ContactRow.id, so look them up by every Lead and Contact Id on the row
     const historyIds = [...new Set([recordId, ...ids.leadIds, ...ids.contactIds])];
     const [sfNotes, history] = await Promise.all([
-      listRealtorNotes(ids, reader(req)),
+      listRealtorNotes(ids),
       getDb().select().from(notes)
         .where(inArray(notes.sfRecordId, historyIds)).orderBy(desc(notes.createdAt)),
     ]);

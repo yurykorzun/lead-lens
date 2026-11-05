@@ -31,7 +31,8 @@ test.describe('Realtor notes (Realtor_Note__c, mock Salesforce)', () => {
     await panel.getByLabel('New note').fill(text);
     await panel.getByRole('button', { name: 'Add note' }).click();
     const mine = panel.getByTestId('note').filter({ hasText: text });
-    await expect(mine).toContainText('You');
+    // Salesforce keeps no Lead Lens user Id, so her own note shows her name, not "You"
+    await expect(mine).toContainText('Test Agent');
     await expect(panel.getByLabel('New note')).toHaveValue('');
 
     // A separate browser for the loan officer, the way they would use it
