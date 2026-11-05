@@ -1,4 +1,4 @@
-import type { ContactNote, NoteAuthorRole, NoteSource } from '@lead-lens/shared';
+import type { ContactNote, NoteAuthorRole, NoteSource, SFQueryResponse } from '@lead-lens/shared';
 import { getSalesforceToken } from './auth.js';
 import { executeSoql, quoteId, type RowIds } from './query.js';
 import { mockCreateRecord } from './mock.js';
@@ -32,7 +32,10 @@ const SF_TO_ROLE: Record<string, NoteAuthorRole> = {
 
 const AUTHOR_NAME_MAX = 255;
 
-/** Notes parented to any record on the borrower's row, newest first */
+/**
+ * Notes parented to any record on the borrower's row, newest first. No LIMIT: the old
+ * Lead Lens thread showed every note, so listRealtorNotes follows nextRecordsUrl instead.
+ */
 export function buildNotesQuery(ids: RowIds): string | null {
   const parts: string[] = [];
   const clause = (field: string, list: string[]) => {
@@ -44,7 +47,7 @@ export function buildNotesQuery(ids: RowIds): string | null {
   clause('Parent_Opportunity__c', ids.opportunityIds);
   if (parts.length === 0) return null;
   return `SELECT ${NOTE_FIELDS} FROM Realtor_Note__c WHERE (${parts.join(' OR ')})` +
-    ' ORDER BY Written_At__c DESC NULLS LAST, Id DESC LIMIT 200';
+    ' ORDER BY Written_At__c DESC NULLS LAST, Id DESC';
 }
 
 export interface NoteAuthor {
@@ -101,7 +104,20 @@ export async function listRealtorNotes(ids: RowIds, reader: NoteAuthor): Promise
   const soql = buildNotesQuery(ids);
   if (!soql) return [];
   const result = await executeSoql<NoteRecord>(soql);
-  return result.records.map(r => mapNote(r, reader));
+  const records: NoteRecord[] = [...result.records];
+  let next = result.done ? undefined : result.nextRecordsUrl;
+  if (next) {
+    // Later pages of the same query. A failed page fails the call, so the thread is never shown half
+    const { accessToken, instanceUrl } = await getSalesforceToken();
+    while (next) {
+      const response = await fetch(`${instanceUrl}${next}`, { headers: { Authorization: `Bearer ${accessToken}` } });
+      if (!response.ok) throw new Error(`SOQL query failed: ${response.status} ${await response.text()}`);
+      const page = await response.json() as SFQueryResponse<NoteRecord>;
+      records.push(...page.records);
+      next = page.done ? undefined : page.nextRecordsUrl;
+    }
+  }
+  return records.map(r => mapNote(r, reader));
 }
 
 /** Inserts one note and returns its Salesforce Id */
