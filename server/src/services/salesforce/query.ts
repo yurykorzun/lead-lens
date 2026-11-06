@@ -161,9 +161,13 @@ export async function isRowInScope(scope: Scope, recordId: string): Promise<bool
   return result.totalSize > 0;
 }
 
-/** Every record Id on the borrower's row, under the same borrower filter and scope */
+/**
+ * Every record Id on the borrower's row, under the same borrower filter and scope.
+ * LeadAccount__c.Account__c is empty on every client row in lgc-ci (checked 2026-11-06:
+ * 6931 of 6931), so the person account comes from Contact__r.AccountId instead.
+ */
 export function buildRowIdsQuery(scope: Scope, recordId: string): string {
-  return `SELECT Lead__c, Contact__c, Account__c, Opportunity__c FROM LeadAccount__c ${rowInScopeWhere(scope, recordId)} LIMIT 20`;
+  return `SELECT Lead__c, Contact__c, Account__c, Opportunity__c, Contact__r.AccountId FROM LeadAccount__c ${rowInScopeWhere(scope, recordId)} LIMIT 20`;
 }
 
 export interface RowIds {
@@ -181,13 +185,17 @@ export interface RowIds {
 export async function rowIdsInScope(scope: Scope, recordId: string): Promise<RowIds> {
   const ids: RowIds = { leadIds: [], contactIds: [], accountIds: [], opportunityIds: [] };
   if (!isSfId(recordId)) return ids;
-  type IdRow = { Lead__c: string | null; Contact__c: string | null; Account__c: string | null; Opportunity__c: string | null };
+  type IdRow = {
+    Lead__c: string | null; Contact__c: string | null; Account__c: string | null; Opportunity__c: string | null;
+    Contact__r?: { AccountId?: string | null } | null;
+  };
   const result = await executeSoql<IdRow>(buildRowIdsQuery(scope, recordId));
-  const add = (list: string[], id: string | null) => { if (isSfId(id) && !list.includes(id)) list.push(id); };
+  const add = (list: string[], id: string | null | undefined) => { if (isSfId(id) && !list.includes(id)) list.push(id); };
   for (const r of result.records) {
     add(ids.leadIds, r.Lead__c);
     add(ids.contactIds, r.Contact__c);
     add(ids.accountIds, r.Account__c);
+    add(ids.accountIds, r.Contact__r?.AccountId);
     add(ids.opportunityIds, r.Opportunity__c);
   }
   return ids;

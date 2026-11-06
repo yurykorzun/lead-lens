@@ -143,9 +143,11 @@ describe('notes on a borrower (Realtor_Note__c)', () => {
     }
   });
 
-  it('finds a note the LO left on the loan', async () => {
+  it('finds the LO notes on the person account and the first loan, which the tracker row does not name', async () => {
+    // lgc-ci leaves LeadAccount__c.Account__c empty on client rows, and only a second loan
+    // has its own row, so both are reached through Contact__r.AccountId
     const items = await list('003MOCKCLNT00003AA', admin);
-    expect(items.map(n => n.body)).toEqual(['Appraisal ordered.']);
+    expect(items.map(n => n.body)).toEqual(['Rate lock runs to the 20th.', 'Appraisal ordered.']);
   });
 
   it('returns only the note fields Lead Lens selects', async () => {
@@ -193,6 +195,7 @@ describe('Realtor_Note__c SOQL and insert body', () => {
     expect(q).toContain(`Parent_Contact__c IN ('${JANE_CONTACT}')`);
     expect(q).toContain("Parent_Account__c IN ('001MOCKACCT00002AA')");
     expect(q).toContain("Parent_Opportunity__c IN ('006MOCKOPPT00003AA')");
+    expect(q).toContain("Parent_Opportunity__r.AccountId IN ('001MOCKACCT00002AA')");
     expect(buildNotesQuery({ leadIds: [], contactIds: [], accountIds: [], opportunityIds: [] })).toBeNull();
     expect(() => buildNotesQuery({ ...ids, leadIds: ["x' OR Id != '"] })).toThrow();
   });

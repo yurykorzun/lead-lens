@@ -83,6 +83,7 @@ npx tsx server/src/seed.ts               # seed/migrate admin users
 - `Status__c` is the Lead status on a lead row and the account's newest loan stage on a client row. The API returns `status: 'Client'` plus `stage` for clients.
 - `Created_Date__c` is a Date (converted date, else source created date, else CreatedDate) - the same date the tracker filters and shows.
 - A client with a second loan has an extra row with `Opportunity__c` set, as on the tracker.
+- `Account__c` is empty on every client row (6931 of 6931, 2026-11-06). The person account is `Contact__r.AccountId`, and a first loan is reached through it (`Parent_Opportunity__r.AccountId`).
 
 ### Scoping
 
