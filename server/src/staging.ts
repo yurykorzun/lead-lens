@@ -15,10 +15,23 @@ if (!process.env.DATABASE_URL) {
   process.exit(1);
 }
 
+import express from 'express';
 import app from './app.js';
+import { resetMockNotes, resetMockTasks } from './services/salesforce/mock.js';
+
+// Mock notes and tasks live in this process, so a step marked done in one e2e run would
+// still be done in the next. global-setup.ts calls this route first. It only exists here,
+// never in app.ts, so production has no such route.
+const staging = express();
+staging.post('/api/__staging/reset-mock', (_req, res) => {
+  resetMockTasks();
+  resetMockNotes();
+  res.json({ ok: true });
+});
+staging.use(app);
 
 const port = 3002;
-app.listen(port, () => {
+staging.listen(port, () => {
   console.log(`Staging server running on http://localhost:${port}`);
   console.log('  MOCK_SALESFORCE: true');
   console.log('  Database: staging branch');

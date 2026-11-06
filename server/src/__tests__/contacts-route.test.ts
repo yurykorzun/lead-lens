@@ -48,6 +48,36 @@ async function rows(res: Response) {
 
 const FREE_TEXT_KEYS = ['message', 'description', 'lastTouch', 'lastTouchSms', 'notes', 'repNotes'];
 
+describe('admin viewAs (Officer View / Agent View)', () => {
+  const AGENT_ROWS = ['Alex Kim', 'David Lee', 'Jane Doe', 'John Smith', 'Maria Garcia', 'Olga Petrova'];
+
+  it('viewing as a realtor shows exactly her rows', async () => {
+    const res = await get(`/contacts?viewAs=agent:${MOCK_AGENT_CONTACT_ID}`, admin);
+    expect(res.status).toBe(200);
+    expect((await rows(res)).map(r => r.name).sort()).toEqual(AGENT_ROWS);
+  });
+
+  it('viewing as a loan officer shows the rows she owns', async () => {
+    const asLo = (await rows(await get(`/contacts?viewAs=loan_officer:${MOCK_LO_USER_ID}`, admin))).map(r => r.name).sort();
+    const loSees = (await rows(await get('/contacts', lo))).map(r => r.name).sort();
+    expect(asLo).toEqual(loSees);
+  });
+
+  it('a non-admin viewAs is ignored', async () => {
+    const res = await get(`/contacts?viewAs=loan_officer:${MOCK_LO_USER_ID}`, agent);
+    expect((await rows(res)).map(r => r.name).sort()).toEqual(AGENT_ROWS);
+  });
+
+  it('a malformed viewAs never reaches SOQL and falls back to every row', async () => {
+    for (const bad of ["agent:x' OR Id != null", 'admin:003000000000001', 'agent']) {
+      vi.mocked(executeSoql).mockClear();
+      const res = await get(`/contacts?viewAs=${encodeURIComponent(bad)}`, admin);
+      expect((await rows(res)).length).toBe(8);
+      for (const [q] of vi.mocked(executeSoql).mock.calls) expect(String(q)).not.toContain("x'");
+    }
+  });
+});
+
 describe('GET /api/contacts scope', () => {
   it('an agent sees only rows they referred', async () => {
     const res = await get('/contacts', agent);

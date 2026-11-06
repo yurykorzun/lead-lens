@@ -22,15 +22,11 @@
  */
 import 'dotenv/config';
 import { and, eq, inArray } from 'drizzle-orm';
-import { getSalesforceToken } from '../services/salesforce/auth.js';
 import {
   type ContactCandidate, type MatchResult, type MatchRole, type UserCandidate,
   classifyAgent, classifyLoanOfficer, escapeSoqlString, formatResultLine, normalizeName,
 } from '../services/sf-id-match.js';
-
-// lgc-ci production. The app's own env may still point at the old Jungo org,
-// whose Ids mean nothing in lgc-ci, so refuse any other org unless told.
-const LGC_CI_ORG_ID = '00Da500001SpYbJEAV';
+import { chunks, query, requireLgcCi } from './lgc-ci.js';
 
 interface Target { id: string | null; role: MatchRole; name: string; current: string | null }
 
@@ -41,33 +37,6 @@ const cliNames = args.flatMap((a, i) => (a === '--name' ? [args[i + 1]] : [])).f
 const anyOrg = args.includes('--any-org');
 const cliRole = (args[args.indexOf('--role') + 1] ?? 'agent') as MatchRole;
 
-async function sfConnection(): Promise<{ accessToken: string; instanceUrl: string }> {
-  if (process.env.SF_ACCESS_TOKEN && process.env.SF_INSTANCE_URL) {
-    return { accessToken: process.env.SF_ACCESS_TOKEN, instanceUrl: process.env.SF_INSTANCE_URL };
-  }
-  return getSalesforceToken();
-}
-
-async function query<T>(soql: string): Promise<T[]> {
-  const { accessToken, instanceUrl } = await sfConnection();
-  const version = process.env.SF_API_VERSION || 'v62.0';
-  const out: T[] = [];
-  let next: string | null = `/services/data/${version}/query?q=${encodeURIComponent(soql)}`;
-  while (next) {
-    const res = await fetch(`${instanceUrl}${next}`, { headers: { Authorization: `Bearer ${accessToken}` } });
-    if (!res.ok) throw new Error(`SOQL failed: ${res.status} ${await res.text()}`);
-    const body = await res.json() as { records: T[]; nextRecordsUrl?: string };
-    out.push(...body.records);
-    next = body.nextRecordsUrl ?? null;
-  }
-  return out;
-}
-
-function chunks<T>(items: T[], size: number): T[][] {
-  const out: T[][] = [];
-  for (let i = 0; i < items.length; i += size) out.push(items.slice(i, i + size));
-  return out;
-}
 
 async function contactCandidates(names: string[]): Promise<Map<string, ContactCandidate[]>> {
   const byName = new Map<string, ContactCandidate[]>();
@@ -130,28 +99,9 @@ async function loadTargets(): Promise<Target[]> {
     }));
 }
 
-// The Lead_Lens integration user cannot read Organization (read-only permission set,
-// on purpose), so fall back to the instance the token was issued for.
-const LGC_CI_HOST = 'flow-enterprise-8486.my.salesforce.com';
-
-async function isLgcCi(): Promise<boolean> {
-  try {
-    const [org] = await query<{ Id: string; Name: string }>('SELECT Id, Name FROM Organization');
-    console.log(`Salesforce org: ${org.Name} ${org.Id}`);
-    return org.Id.startsWith(LGC_CI_ORG_ID);
-  } catch {
-    const { instanceUrl } = await sfConnection();
-    const host = new URL(instanceUrl).host;
-    console.log(`Salesforce instance: ${host} (Organization not readable by this user)`);
-    return host === LGC_CI_HOST;
-  }
-}
-
 async function main() {
   if (apply && cliNames.length > 0) throw new Error('--apply works only on users loaded from the database');
-  if (!(await isLgcCi()) && !anyOrg) {
-    throw new Error(`This is not lgc-ci (${LGC_CI_ORG_ID}). Set SF_ACCESS_TOKEN/SF_INSTANCE_URL for lgc-ci, or pass --any-org.`);
-  }
+  await requireLgcCi(anyOrg);
   const targets = await loadTargets();
   const agents = targets.filter(t => t.role === 'agent');
   const los = targets.filter(t => t.role === 'loan_officer');

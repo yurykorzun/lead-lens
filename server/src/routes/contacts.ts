@@ -17,9 +17,24 @@ import { listBorrowerTasks, listOpenTasks, findTaskForRealtor, completeTask, map
 // body built field by field).
 const router = Router();
 
+// An admin can look at Lead Lens as one loan officer or realtor sees it (Officer View /
+// Agent View, lendinggroupco-uhnx.7): ?viewAs=agent:<Contact Id> or loan_officer:<User Id>.
+// It only narrows what an admin already sees, so it needs no lookup; anyone else's viewAs
+// is ignored. A malformed value is ignored too, which shows the admin every row.
+export function viewAsScope(req: AuthenticatedRequest): Scope | null {
+  if (req.userRole !== 'admin') return null;
+  const raw = req.query?.viewAs;
+  if (typeof raw !== 'string') return null;
+  const [role, id] = raw.split(':');
+  if (!isSfId(id)) return null;
+  if (role === 'agent') return { role: 'agent', contactId: id };
+  if (role === 'loan_officer') return { role: 'loan_officer', userId: id };
+  return null;
+}
+
 // null when the user has no Salesforce Id yet - they see nothing rather than everything
 export function scopeFor(req: AuthenticatedRequest): Scope | null {
-  if (req.userRole === 'admin') return { role: 'admin' };
+  if (req.userRole === 'admin') return viewAsScope(req) ?? { role: 'admin' };
   if (!isSfId(req.sfId)) return null;
   if (req.userRole === 'agent') return { role: 'agent', contactId: req.sfId };
   if (req.userRole === 'loan_officer') return { role: 'loan_officer', userId: req.sfId };
@@ -151,11 +166,24 @@ router.post('/:id/notes', requireAuth, async (req: AuthenticatedRequest, res) =>
       res.status(400).json({ success: false, error: { code: 'VALIDATION', message: `Notes are limited to ${NOTE_MAX_LENGTH} characters` } });
       return;
     }
+    // Viewing as someone else is read-only, so a note never lands under the wrong name
+    if (viewAsScope(req)) {
+      res.status(403).json({ success: false, error: { code: 'VIEW_ONLY', message: 'Notes cannot be added while viewing as someone else' } });
+      return;
+    }
     const recordId = await borrowerScope(req, res);
     if (!recordId) return;
     // Only the trimmed text and the caller's own name and role reach the insert
     const author = reader(req);
-    const id = await createRealtorNote(recordId, body, author);
+    // A client row is a person account (the borrower filter), and its page lists notes by
+    // Account Id - so the note carries the row's one Account too. Taken from Salesforce,
+    // never from the request.
+    let personAccountId: string | undefined;
+    if (recordId.startsWith('003')) {
+      const { accountIds } = await rowIdsInScope(scopeFor(req)!, recordId);
+      if (accountIds.length === 1) personAccountId = accountIds[0];
+    }
+    const id = await createRealtorNote(recordId, body, author, personAccountId);
     const note: ContactNote = {
       id,
       body,
@@ -200,7 +228,10 @@ router.get('/:id/tasks', requireAuth, async (req: AuthenticatedRequest, res) => 
   try {
     const recordId = await borrowerScope(req, res);
     if (!recordId) return;
-    res.json({ success: true, data: await listBorrowerTasks(scopeFor(req)!, recordId) });
+    const tasks = await listBorrowerTasks(scopeFor(req)!, recordId);
+    // An admin viewing as a realtor sees her steps but cannot tick them
+    if (viewAsScope(req)) for (const t of tasks) t.canComplete = false;
+    res.json({ success: true, data: tasks });
   } catch (err) {
     console.error('Tasks GET error:', err);
     res.status(500).json({ success: false, error: { code: 'SERVER_ERROR', message: 'Failed to load tasks' } });

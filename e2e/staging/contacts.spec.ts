@@ -163,11 +163,37 @@ test.describe('Admin view-as pages', () => {
     await loginAsAdmin(page);
     await page.getByRole('link', { name: 'Agent View' }).click();
     await expect(page).toHaveURL(/\/view\/agents/);
-    await expect(page.getByText(/columns a real estate agent sees/i)).toBeVisible();
+    await expect(page.getByText(/columns a realtor sees/i)).toBeVisible();
     await expect(page.locator('tbody tr').first()).toBeVisible({ timeout: 15_000 });
-    await expect(page.locator('thead th', { hasText: 'Referred By' })).toBeVisible();
+    // Her rows are all hers, so Referred By would only repeat her own name
+    await expect(page.locator('thead th', { hasText: 'Referred By' })).toHaveCount(0);
+    await expect(page.locator('thead th', { hasText: 'Lead Source' })).toBeVisible();
 
     await page.locator('tbody tr').first().click();
     await expectReadOnlyPanel(page);
+  });
+
+  test('Agent View as one realtor shows exactly her rows, without a note box', async ({ page }) => {
+    await loginAsAdmin(page);
+    await page.getByRole('link', { name: 'Agent View' }).click();
+    const rows = page.locator('tbody tr');
+    await expect(rows.first()).toBeVisible({ timeout: 15_000 });
+    expect(await rows.count()).toBe(8);
+
+    await page.getByLabel('View as realtor').selectOption({ label: 'Test Agent' });
+    await expect(page).toHaveURL(/as=/);
+    await expect(page.getByText(/exactly the borrowers this realtor sees/i)).toBeVisible();
+    await expect(rows).toHaveCount(6, { timeout: 15_000 });
+    await expect(page.getByText('Sam Other')).toHaveCount(0);
+
+    await rows.filter({ hasText: 'Jane Doe' }).click();
+    const panel = page.getByTestId('contact-panel');
+    await expect(panel.getByTestId('notes')).toBeVisible();
+    await expect(panel.getByLabel('New note')).toHaveCount(0);
+    await expect(panel.getByRole('button', { name: /mark done/i })).toHaveCount(0);
+
+    // Reload keeps the person
+    await page.reload();
+    await expect(rows).toHaveCount(6, { timeout: 15_000 });
   });
 });
