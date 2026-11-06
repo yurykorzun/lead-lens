@@ -1,8 +1,11 @@
 import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { X, Phone, Mail, User, Calendar, ExternalLink } from 'lucide-react';
+import { X, Phone, Mail, MessageSquare, Calendar, ExternalLink } from 'lucide-react';
 import type { ContactRow } from '@lead-lens/shared';
 import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import { RealtorStageCard } from '@/components/realtor-stage';
+import { LoanOfficerCard } from '@/components/loan-officer-card';
 import { formatPhone, phoneHref } from '@lead-lens/shared';
 import { formatDay } from '@/components/grid/format';
 import { Empty } from '@/components/grid/cells';
@@ -20,10 +23,12 @@ export interface ContactDetailPanelProps {
 // lgc-ci production. Admins only - a loan officer or agent has no Salesforce login.
 const SF_BASE_URL = 'https://flow-enterprise-8486.lightning.force.com/lightning/r';
 
-// Read-only toward Salesforce, except that the realtor can mark her own realtor steps done.
-// No Salesforce notes, Activity or History: in lgc-ci those carry the team's internal
-// notes. The Notes section below is Lead Lens's own, stored in its database and never
-// written to Salesforce.
+// Read-only toward Salesforce, except that the realtor marks her own realtor steps done,
+// sets the buying stage and adds realtor notes (both new Realtor_Note__c rows). No team
+// notes, Activity or History: in lgc-ci those carry the team's internal notes.
+//
+// Laid out for a realtor on a phone: reach the buyer, where things stand, who the LO is,
+// what to do next, the conversation - and the reference fields last.
 //
 // A side column on wide screens; below 1024px it covers the screen, because next to the
 // grid it left neither readable (a 400px panel on a 375px phone).
@@ -96,9 +101,17 @@ export function ContactDetailPanel({ contact, onClose, role, covers = false }: C
     { label: 'Temperature', value: contact.temperature },
     { label: 'Lead Source', value: contact.leadSource },
     { label: 'Referred By', value: contact.referredBy },
+    { label: 'Phone', value: formatPhone(contact.phone) || undefined },
+    { label: 'Email', value: contact.email },
+    // The LO card covers this for realtors and admins; a loan officer sees only their own rows
+    ...(role === 'loan_officer' ? [] : [{ label: 'Loan Officer', value: contact.ownerName }]),
   ];
   const meta = 'inline-flex min-w-0 items-center gap-1.5';
-  const metaLink = `${meta} min-h-7 rounded-sm hover:text-foreground hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring`;
+  const tel = formatPhone(contact.phone) && phoneHref(contact.phone) ? phoneHref(contact.phone) : '';
+  // A loan stage for clients, else the lead status, then where the lead came from
+  const chips = [contact.kind === 'client' ? contact.stage || 'Client' : contact.status, contact.leadSource]
+    .filter((c): c is string => Boolean(c));
+  const action = 'inline-flex h-11 items-center justify-center gap-1.5 rounded-md border bg-card text-sm font-medium hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring md:h-9';
 
   const panel = (
     <aside
@@ -127,24 +140,10 @@ export function ContactDetailPanel({ contact, onClose, role, covers = false }: C
               </a>
             )}
           </div>
-          <div className="mt-1 flex flex-wrap gap-x-4 gap-y-1 text-sm text-muted-foreground">
-            {contact.email && (
-              <a href={`mailto:${contact.email}`} className={metaLink}>
-                <Mail aria-hidden="true" className="h-3.5 w-3.5 shrink-0" /> <span className="truncate">{contact.email}</span>
-              </a>
-            )}
-            {formatPhone(contact.phone) && phoneHref(contact.phone) && (
-              <a href={phoneHref(contact.phone)} className={metaLink}>
-                <Phone aria-hidden="true" className="h-3.5 w-3.5 shrink-0" /> {formatPhone(contact.phone)}
-              </a>
-            )}
-            {contact.ownerName && (
-              <span className={meta} title="Owner">
-                <User aria-hidden="true" className="h-3.5 w-3.5 shrink-0" /> <span className="sr-only">Owner: </span>{contact.ownerName}
-              </span>
-            )}
+          <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
+            {chips.map(c => <Badge key={c} variant="secondary">{c}</Badge>)}
             {contact.createdDate && (
-              <span className={meta} title="Created">
+              <span className={`${meta} ml-1 text-xs text-muted-foreground`} title="Created">
                 <Calendar aria-hidden="true" className="h-3.5 w-3.5 shrink-0" /> <span className="sr-only">Created: </span>{formatDay(contact.createdDate)}
               </span>
             )}
@@ -155,8 +154,34 @@ export function ContactDetailPanel({ contact, onClose, role, covers = false }: C
         </Button>
       </div>
 
-      <div className="flex-1 overflow-y-auto px-5 pb-6 pt-2">
-        <section aria-labelledby="panel-kind">
+      <div className="flex-1 overflow-y-auto px-5 pb-6 pt-1">
+        {/* Reach the buyer in one tap - the realtor's most common move, first on a phone */}
+        {(tel || contact.email) && (
+          <div className="grid grid-cols-3 gap-2" data-testid="contact-actions">
+            {tel ? (
+              <a href={tel} className={action} aria-label={`Call ${contact.name}, ${formatPhone(contact.phone)}`}>
+                <Phone aria-hidden="true" className="h-4 w-4" /> Call
+              </a>
+            ) : <span />}
+            {tel ? (
+              <a href={tel.replace(/^tel:/, 'sms:')} className={action} aria-label={`Text ${contact.name}`}>
+                <MessageSquare aria-hidden="true" className="h-4 w-4" /> Text
+              </a>
+            ) : <span />}
+            {contact.email ? (
+              <a href={`mailto:${contact.email}`} className={action} aria-label={`Email ${contact.name}, ${contact.email}`}>
+                <Mail aria-hidden="true" className="h-4 w-4" /> Email
+              </a>
+            ) : <span />}
+          </div>
+        )}
+
+        <RealtorStageCard key={`stage-${contact.id}`} recordId={contact.id} role={role} />
+        <LoanOfficerCard contact={contact} role={role} />
+        <ContactTasks key={`tasks-${contact.id}`} recordId={contact.id} role={role} />
+        <ContactNotes key={contact.id} recordId={contact.id} />
+
+        <section aria-labelledby="panel-kind" className="mt-6">
           <h3 id="panel-kind" className="mb-2 text-sm font-medium text-muted-foreground">
             {contact.kind === 'client' ? 'Client details' : 'Lead details'}
           </h3>
@@ -164,14 +189,11 @@ export function ContactDetailPanel({ contact, onClose, role, covers = false }: C
             {fields.map(f => (
               <div key={f.label} className="contents">
                 <dt className="text-xs font-medium leading-5 text-muted-foreground">{f.label}</dt>
-                <dd className="text-sm leading-5">{f.value || <Empty />}</dd>
+                <dd className="min-w-0 break-words text-sm leading-5">{f.value || <Empty />}</dd>
               </div>
             ))}
           </dl>
         </section>
-
-        <ContactTasks key={`tasks-${contact.id}`} recordId={contact.id} role={role} />
-        <ContactNotes key={contact.id} recordId={contact.id} />
       </div>
     </aside>
   );

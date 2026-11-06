@@ -29,6 +29,8 @@ interface FakeRow {
   email: string | null;
   ownerId: string;
   ownerName: string;
+  ownerEmail: string | null;
+  ownerPhone: string | null;
   referredById: string | null;
   stage: string | null;
   // Contact__r.AccountId, the person account. lgc-ci leaves Account__c empty on client rows.
@@ -44,7 +46,7 @@ function lead(n: number, first: string, last: string, extra: Partial<FakeRow>): 
     Created_Date__c: `2026-0${(n % 9) + 1}-1${n}`,
     Referred_By_First_Name__c: 'Test', Referred_By_Last_Name__c: 'Agent',
     email: `${first.toLowerCase()}.${last.toLowerCase()}@example.com`,
-    ownerId: MOCK_LO_USER_ID, ownerName: 'Test LO', referredById: MOCK_AGENT_CONTACT_ID, stage: null,
+    ownerId: MOCK_LO_USER_ID, ownerName: 'Test LO', ownerEmail: 'lo@test.com', ownerPhone: '(555) 200-0001', referredById: MOCK_AGENT_CONTACT_ID, stage: null,
     personAccountId: null,
     ...extra,
   };
@@ -73,14 +75,14 @@ const FAKE_ROWS: FakeRow[] = [
   lead(5, 'Olga', 'Petrova', { Status__c: 'Nurture', Temperature__c: '60 days or longer', Lead_Source__c: 'FB - Rus', Phone__c: '+7 916 123-45-67' }),
   lead(6, 'Sam', 'Other', {
     referredById: OTHER_AGENT_ID, Referred_By_First_Name__c: 'Other', Referred_By_Last_Name__c: 'Agent',
-    ownerId: OTHER_USER_ID, ownerName: 'Other LO',
+    ownerId: OTHER_USER_ID, ownerName: 'Other LO', ownerEmail: 'other.lo@test.com', ownerPhone: null,
   }),
-  client(7, 'Alex', 'Kim', 'Closed Won', { ownerId: OTHER_USER_ID, ownerName: 'Other LO' }),
+  client(7, 'Alex', 'Kim', 'Closed Won', { ownerId: OTHER_USER_ID, ownerName: 'Other LO', ownerEmail: 'other.lo@test.com', ownerPhone: null }),
   lead(8, 'Nina', 'Volkova', { Status__c: 'Qualified', referredById: null, Referred_By_First_Name__c: null, Referred_By_Last_Name__c: null }),
 ];
 
 function toRecord(r: FakeRow) {
-  const person = { Email: r.email, Owner: { Name: r.ownerName } };
+  const person = { Email: r.email, Owner: { Name: r.ownerName, Type: 'User', Email: r.ownerEmail, Phone: r.ownerPhone } };
   return {
     attributes: { type: 'LeadAccount__c', url: `/services/data/v62.0/sobjects/LeadAccount__c/${r.Id}` },
     Id: r.Id, Lead__c: r.Lead__c, Contact__c: r.Contact__c,
@@ -201,13 +203,14 @@ interface FakeNote {
   Id: string; Body__c: string; Author_Name__c: string; Author_Role__c: string; Source__c: string;
   Written_At__c: string | null; Parent_Lead__c: string | null; Parent_Contact__c: string | null;
   Parent_Account__c: string | null; Parent_Opportunity__c: string | null;
+  Stage__c: string | null;
 }
 
 function note(n: number, parent: Partial<FakeNote>, author: string, role: string, source: string, at: string, body: string): FakeNote {
   return {
     Id: `a1RMOCKNOTE0000${n}AA`, Body__c: body, Author_Name__c: author, Author_Role__c: role, Source__c: source,
     Written_At__c: at, Parent_Lead__c: null, Parent_Contact__c: null, Parent_Account__c: null, Parent_Opportunity__c: null,
-    ...parent,
+    Stage__c: null, ...parent,
   };
 }
 
@@ -223,6 +226,9 @@ const INITIAL_NOTES: FakeNote[] = [
     'Rate lock runs to the 20th.'),
   note(4, { Parent_Lead__c: '00QMOCKLEAD00006AA' }, 'Other Agent', 'Realtor', 'Lead Lens', '2026-11-02T12:00:00.000Z',
     'Not yours to read.'),
+  // David Lee (client 4): the realtor set a stage in Lead Lens
+  note(6, { Parent_Contact__c: '003MOCKCLNT00004AA', Parent_Account__c: '001MOCKACCT00004AA', Stage__c: 'Touring Homes' },
+    'Test Agent', 'Realtor', 'Lead Lens', '2026-11-04T17:00:00.000Z', 'Stage: Touring Homes'),
 ];
 
 let fakeNotes: FakeNote[] = INITIAL_NOTES.map(n => ({ ...n }));
@@ -245,6 +251,7 @@ export function mockCreateRecord(sobject: string, body: Record<string, unknown>)
     Written_At__c: new Date().toISOString(),
     Parent_Lead__c: str(body.Parent_Lead__c), Parent_Contact__c: str(body.Parent_Contact__c),
     Parent_Account__c: str(body.Parent_Account__c), Parent_Opportunity__c: str(body.Parent_Opportunity__c),
+    Stage__c: str(body.Stage__c),
   });
   return id;
 }
@@ -265,9 +272,13 @@ function mockNoteQuery(soql: string) {
   const oppRealtor = (opp: string | null) => FAKE_ROWS.find(r => r.personAccountId === oppAccount(opp))?.referredById ?? null;
   const viaLoan = (n: FakeNote) => accounts.includes(oppAccount(n.Parent_Opportunity__c))
     && (!loanRealtor || [loanRealtor, null].includes(oppRealtor(n.Parent_Opportunity__c)));
+  const staged = soql.includes('Stage__c != null');
+  const limit = Number(soql.match(/LIMIT (\d+)/)?.[1] ?? Infinity);
   const notes = fakeNotes
     .filter(n => wanted.some(([field, ids]) => n[field] !== null && ids.includes(n[field] as string)) || viaLoan(n))
-    .sort((a, b) => (b.Written_At__c ?? '').localeCompare(a.Written_At__c ?? '') || b.Id.localeCompare(a.Id));
+    .filter(n => !staged || n.Stage__c !== null)
+    .sort((a, b) => (b.Written_At__c ?? '').localeCompare(a.Written_At__c ?? '') || b.Id.localeCompare(a.Id))
+    .slice(0, limit);
   // Only the selected fields, like the real API
   const fields = soql.match(/SELECT (.+?) FROM/)![1].split(',').map(f => f.trim()) as (keyof FakeNote)[];
   const records = notes.map(n => ({

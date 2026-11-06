@@ -34,6 +34,9 @@
   --color-notice: hsl(48 100% 96%);
   --color-notice-border: hsl(48 97% 77%);
   --color-notice-foreground: hsl(26 83% 26%);
+  /* The realtor stage bar: steps done, and the steps still ahead */
+  --color-progress: hsl(142 64% 36%);
+  --color-progress-track: hsl(240 5% 90%);
   --radius: 0.5rem;
 }
 
@@ -65,6 +68,8 @@
   --color-notice: hsl(40 60% 10%);
   --color-notice-border: hsl(40 50% 24%);
   --color-notice-foreground: hsl(45 90% 75%);
+  --color-progress: hsl(142 55% 48%);
+  --color-progress-track: hsl(240 4% 20%);
   color-scheme: dark;
 }
 
