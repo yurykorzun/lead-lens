@@ -14,11 +14,11 @@
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
     "test": "npm run test --workspace=packages/shared && npm run test --workspace=server",
-    "test:e2e": "npx tsx e2e/staging/global-setup.ts && playwright test; npx tsx e2e/staging/global-teardown.ts",
+    "test:e2e": "playwright test",
     "staging:server": "npx tsx server/src/staging.ts",
     "staging:client": "VITE_API_TARGET=http://localhost:3002 npm run dev --workspace=client -- --port 5174",
     "staging": "concurrently \"npm run staging:server\" \"npm run staging:client\"",
-    "reset:staging": "npx tsx e2e/staging/global-setup.ts",
+    "reset:staging": "npx tsx e2e/staging/reset.ts",
     "seed:staging": "npx tsx server/src/seed-staging.ts"
   },
   "devDependencies": {

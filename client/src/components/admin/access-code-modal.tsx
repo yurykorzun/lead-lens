@@ -24,7 +24,7 @@ export function AccessCodeModal({ open, onClose, name, accessCode }: AccessCodeM
         <DialogHeader>
           <DialogTitle>Access Code for {name}</DialogTitle>
           <DialogDescription>
-            Share this code with the loan officer. It will only be shown once.
+            Share this code with {name}. It will only be shown once.
           </DialogDescription>
         </DialogHeader>
         <div className="space-y-4">
@@ -37,7 +37,7 @@ export function AccessCodeModal({ open, onClose, name, accessCode }: AccessCodeM
             </Button>
           </div>
           <p className="text-sm text-muted-foreground">
-            The loan officer will use this code along with their email to sign in.
+            They sign in with their email and this code.
           </p>
           <Button className="w-full" onClick={onClose}>Done</Button>
         </div>
