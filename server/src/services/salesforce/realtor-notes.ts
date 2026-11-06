@@ -45,6 +45,14 @@ export function buildNotesQuery(ids: RowIds): string | null {
   clause('Parent_Contact__c', ids.contactIds);
   clause('Parent_Account__c', ids.accountIds);
   clause('Parent_Opportunity__c', ids.opportunityIds);
+  // Only a second loan has its own tracker row, so a note written on the first loan's
+  // Opportunity page is found through the person account it belongs to. For a realtor,
+  // only loans she referred (or with no referring agent): a second loan can be another realtor's.
+  if (ids.accountIds.length) {
+    const realtor = ids.loanRealtorId === undefined ? '' :
+      ` AND (Parent_Opportunity__r.Referring_Agent__c = ${quoteId(ids.loanRealtorId)} OR Parent_Opportunity__r.Referring_Agent__c = null)`;
+    parts.push(`(Parent_Opportunity__r.AccountId IN (${ids.accountIds.map(quoteId).join(', ')})${realtor})`);
+  }
   if (parts.length === 0) return null;
   return `SELECT ${NOTE_FIELDS} FROM Realtor_Note__c WHERE (${parts.join(' OR ')})` +
     ' ORDER BY Written_At__c DESC NULLS LAST, Id DESC';

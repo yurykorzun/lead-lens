@@ -146,12 +146,12 @@ router.post('/:id/notes', requireAuth, async (req: AuthenticatedRequest, res) =>
     // Only the trimmed text and the caller's own name and role reach the insert
     const author = reader(req);
     // A client row is a person account (the borrower filter), and its page lists notes by
-    // Account Id - so the note carries the row's one Account too. Taken from Salesforce,
-    // never from the request.
+    // Account Id - so the note carries the person account too. Taken from Salesforce, never
+    // from the request, and from personAccountId rather than accountIds: what a realtor may
+    // read must not decide where her note lands.
     let personAccountId: string | undefined;
     if (recordId.startsWith('003')) {
-      const { accountIds } = await rowIdsInScope(scopeFor(req)!, recordId);
-      if (accountIds.length === 1) personAccountId = accountIds[0];
+      ({ personAccountId } = await rowIdsInScope(scopeFor(req)!, recordId));
     }
     const id = await createRealtorNote(recordId, body, author, personAccountId);
     const note: ContactNote = {

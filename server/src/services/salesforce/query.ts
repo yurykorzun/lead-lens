@@ -161,36 +161,79 @@ export async function isRowInScope(scope: Scope, recordId: string): Promise<bool
   return result.totalSize > 0;
 }
 
-/** Every record Id on the borrower's row, under the same borrower filter and scope */
+/**
+ * Every record Id on the borrower's row, under the same borrower filter and scope.
+ * LeadAccount__c.Account__c is empty on every client row in lgc-ci (checked 2026-11-05:
+ * 6931 of 6931), so the person account comes from Contact__r.AccountId instead.
+ */
 export function buildRowIdsQuery(scope: Scope, recordId: string): string {
-  return `SELECT Lead__c, Contact__c, Account__c, Opportunity__c FROM LeadAccount__c ${rowInScopeWhere(scope, recordId)} LIMIT 20`;
+  return 'SELECT Lead__c, Contact__c, Opportunity__c, Opportunity__r.Referring_Agent__c, ' +
+    'Contact__r.AccountId, Contact__r.Account.IsPersonAccount, Contact__r.Referred_By__c ' +
+    `FROM LeadAccount__c ${rowInScopeWhere(scope, recordId)} LIMIT 20`;
 }
 
 export interface RowIds {
   leadIds: string[];
   contactIds: string[];
+  /** The person account, for reading. Empty for a realtor who is not the client's Referred By. */
   accountIds: string[];
   opportunityIds: string[];
+  /**
+   * Set for a realtor: notes on the account's loans are hers only when the loan's
+   * Referring_Agent__c is her or empty, because a second loan can come from another realtor.
+   */
+  loanRealtorId?: string;
+  /** The borrower's person account whoever asks - where a new note is parented, never a read scope */
+  personAccountId?: string;
+}
+
+export type RowIdsRow = {
+  Lead__c: string | null; Contact__c: string | null; Opportunity__c: string | null;
+  Opportunity__r?: { Referring_Agent__c?: string | null } | null;
+  Contact__r?: { AccountId?: string | null; Account?: { IsPersonAccount?: boolean } | null; Referred_By__c?: string | null } | null;
+};
+
+/** The same Salesforce record, when one side may be the stored 15-character form */
+function sameSfId(a: string | null | undefined, b: string): boolean {
+  if (typeof a !== 'string') return false;
+  return a.length === 18 && b.length === 18 ? a === b : a.slice(0, 15) === b.slice(0, 15);
 }
 
 /**
- * The Lead, Contact, Account and Opportunity Ids on the borrower's row (empty when it is
- * out of scope). A converted lead keeps both its Lead and Contact Id on the row, so notes
- * parented to either are still found.
+ * The Ids from the borrower's rows. A realtor gets the person account only when she is the
+ * client's own Referred By, and a loan's own row only when she referred that loan (or nobody
+ * did): a client's second loan can come from another realtor (5 loans in lgc-ci, 2026-11-05).
+ * The thread on the Contact stays shared by everyone who sees the borrower, as before.
  */
-export async function rowIdsInScope(scope: Scope, recordId: string): Promise<RowIds> {
+export function idsFromRows(scope: Scope, rows: RowIdsRow[]): RowIds {
   const ids: RowIds = { leadIds: [], contactIds: [], accountIds: [], opportunityIds: [] };
-  if (!isSfId(recordId)) return ids;
-  type IdRow = { Lead__c: string | null; Contact__c: string | null; Account__c: string | null; Opportunity__c: string | null };
-  const result = await executeSoql<IdRow>(buildRowIdsQuery(scope, recordId));
-  const add = (list: string[], id: string | null) => { if (isSfId(id) && !list.includes(id)) list.push(id); };
-  for (const r of result.records) {
+  const realtor = scope.role === 'agent' ? scope.contactId : undefined;
+  if (realtor) ids.loanRealtorId = realtor;
+  const add = (list: string[], id: string | null | undefined) => { if (isSfId(id) && !list.includes(id)) list.push(id); };
+  for (const r of rows) {
     add(ids.leadIds, r.Lead__c);
     add(ids.contactIds, r.Contact__c);
-    add(ids.accountIds, r.Account__c);
-    add(ids.opportunityIds, r.Opportunity__c);
+    const loanRealtor = r.Opportunity__r?.Referring_Agent__c;
+    if (!realtor || !loanRealtor || sameSfId(loanRealtor, realtor)) add(ids.opportunityIds, r.Opportunity__c);
+    // Person accounts only: a Contact under a business account would pull in other borrowers' loans
+    const account = r.Contact__r?.Account?.IsPersonAccount ? r.Contact__r.AccountId : undefined;
+    if (isSfId(account)) {
+      ids.personAccountId ??= account;
+      if (!realtor || sameSfId(r.Contact__r?.Referred_By__c, realtor)) add(ids.accountIds, account);
+    }
   }
   return ids;
+}
+
+/**
+ * The Ids whose notes this user may read on the borrower (empty when it is out of scope),
+ * filtered by idsFromRows for a realtor, plus personAccountId for parenting a new note. A
+ * converted lead keeps both its Lead and Contact Id on the row, so notes on either are found.
+ */
+export async function rowIdsInScope(scope: Scope, recordId: string): Promise<RowIds> {
+  if (!isSfId(recordId)) return idsFromRows(scope, []);
+  const result = await executeSoql<RowIdsRow>(buildRowIdsQuery(scope, recordId));
+  return idsFromRows(scope, result.records);
 }
 
 type Rel = { Email?: string; Owner?: { Name?: string } } | null | undefined;

@@ -16,7 +16,6 @@ interface FakeRow {
   Id: string;
   Lead__c: string | null;
   Contact__c: string | null;
-  Account__c: string | null;
   Opportunity__c: string | null;
   First_name__c: string;
   Last_Name__c: string;
@@ -32,25 +31,28 @@ interface FakeRow {
   ownerName: string;
   referredById: string | null;
   stage: string | null;
+  // Contact__r.AccountId, the person account. lgc-ci leaves Account__c empty on client rows.
+  personAccountId: string | null;
 }
 
 function lead(n: number, first: string, last: string, extra: Partial<FakeRow>): FakeRow {
   return {
     Id: `a0XMOCKROW00000${n}AA`, Lead__c: `00QMOCKLEAD0000${n}AA`, Contact__c: null,
-    Account__c: null, Opportunity__c: null,
+    Opportunity__c: null,
     First_name__c: first, Last_Name__c: last, Phone__c: `(555) 111-000${n}`,
     Status__c: 'Open', Temperature__c: null, Lead_Source__c: 'Realtor Referral',
     Created_Date__c: `2026-0${(n % 9) + 1}-1${n}`,
     Referred_By_First_Name__c: 'Test', Referred_By_Last_Name__c: 'Agent',
     email: `${first.toLowerCase()}.${last.toLowerCase()}@example.com`,
     ownerId: MOCK_LO_USER_ID, ownerName: 'Test LO', referredById: MOCK_AGENT_CONTACT_ID, stage: null,
+    personAccountId: null,
     ...extra,
   };
 }
 
 function client(n: number, first: string, last: string, stage: string, extra: Partial<FakeRow>): FakeRow {
   return lead(n, first, last, {
-    Lead__c: null, Contact__c: `003MOCKCLNT0000${n}AA`, Account__c: `001MOCKACCT0000${n}AA`,
+    Lead__c: null, Contact__c: `003MOCKCLNT0000${n}AA`, personAccountId: `001MOCKACCT0000${n}AA`,
     Opportunity__c: `006MOCKOPPT0000${n}AA`, Status__c: stage, stage, ...extra,
   });
 }
@@ -63,9 +65,10 @@ const FAKE_ROWS: FakeRow[] = [
   lead(1, 'John', 'Smith', { Status__c: 'Meeting Set', Temperature__c: '60 days or less' }),
   lead(2, 'Jane', 'Doe', {
     Status__c: 'Contacting', Temperature__c: 'Need more follow ups',
-    Contact__c: JANE_CONTACT_ID, Account__c: '001MOCKACCT00002AA',
+    Contact__c: JANE_CONTACT_ID, personAccountId: '001MOCKACCT00002AA',
   }),
-  client(3, 'Maria', 'Garcia', 'Processing', { Temperature__c: '60 days or less' }),
+  // Maria's first loan has no tracker row of its own, as in lgc-ci, so her row has no Opportunity__c
+  client(3, 'Maria', 'Garcia', 'Processing', { Temperature__c: '60 days or less', Opportunity__c: null }),
   client(4, 'David', 'Lee', 'Documents Gathering', { Phone__c: '15551110004' }),
   lead(5, 'Olga', 'Petrova', { Status__c: 'Nurture', Temperature__c: '60 days or longer', Lead_Source__c: 'FB - Rus', Phone__c: '+7 916 123-45-67' }),
   lead(6, 'Sam', 'Other', {
@@ -81,14 +84,18 @@ function toRecord(r: FakeRow) {
   return {
     attributes: { type: 'LeadAccount__c', url: `/services/data/v62.0/sobjects/LeadAccount__c/${r.Id}` },
     Id: r.Id, Lead__c: r.Lead__c, Contact__c: r.Contact__c,
-    Account__c: r.Account__c, Opportunity__c: r.Opportunity__c,
+    // Empty on every lgc-ci row; the person account is Contact__r.AccountId
+    Account__c: null, Opportunity__c: r.Opportunity__c,
     First_name__c: r.First_name__c, Last_Name__c: r.Last_Name__c, Phone__c: r.Phone__c,
     Status__c: r.Status__c, Temperature__c: r.Temperature__c, Lead_Source__c: r.Lead_Source__c,
     Created_Date__c: r.Created_Date__c,
     Referred_By_First_Name__c: r.Referred_By_First_Name__c, Referred_By_Last_Name__c: r.Referred_By_Last_Name__c,
     Lead__r: r.Lead__c ? person : null,
-    Contact__r: r.Contact__c ? person : null,
-    Opportunity__r: r.stage ? { StageName: r.stage } : null,
+    Contact__r: r.Contact__c ? {
+      ...person, AccountId: r.personAccountId, Account: { IsPersonAccount: Boolean(r.personAccountId) }, Referred_By__c: r.referredById,
+    } : null,
+    // A mock loan's referring agent is its client's Referred By
+    Opportunity__r: r.Opportunity__c ? { StageName: r.stage, Referring_Agent__c: r.referredById } : null,
   };
 }
 
@@ -211,6 +218,9 @@ const INITIAL_NOTES: FakeNote[] = [
     'Saw two houses on Saturday, wants a third visit.'),
   note(3, { Parent_Opportunity__c: '006MOCKOPPT00003AA' }, 'Test LO', 'Loan Officer', 'Salesforce', '2026-10-28T14:00:00.000Z',
     'Appraisal ordered.'),
+  // "Note to Realtor" on Maria's person account page parents the note by Account only
+  note(5, { Parent_Account__c: '001MOCKACCT00003AA' }, 'Test LO', 'Loan Officer', 'Salesforce', '2026-10-30T16:00:00.000Z',
+    'Rate lock runs to the 20th.'),
   note(4, { Parent_Lead__c: '00QMOCKLEAD00006AA' }, 'Other Agent', 'Realtor', 'Lead Lens', '2026-11-02T12:00:00.000Z',
     'Not yours to read.'),
 ];
@@ -246,8 +256,17 @@ function mockNoteQuery(soql: string) {
     const m = soql.match(new RegExp(`${field} IN \\(([^)]+)\\)`));
     return [field, m ? m[1].split(',').map(s => s.trim().replace(/'/g, '')) : []] as const;
   });
+  // Parent_Opportunity__r.AccountId: mock loan 006MOCKOPPT0000nAA sits on account 001MOCKACCT0000nAA
+  const viaAccount = soql.match(/Parent_Opportunity__r\.AccountId IN \(([^)]+)\)/);
+  const accounts = viaAccount ? viaAccount[1].split(',').map(s => s.trim().replace(/'/g, '')) : [];
+  const oppAccount = (opp: string | null) => opp?.replace(/^006MOCKOPPT/, '001MOCKACCT') ?? '';
+  // A mock loan's referring agent is its client's Referred By
+  const loanRealtor = soql.match(/Parent_Opportunity__r\.Referring_Agent__c = '([^']+)'/)?.[1];
+  const oppRealtor = (opp: string | null) => FAKE_ROWS.find(r => r.personAccountId === oppAccount(opp))?.referredById ?? null;
+  const viaLoan = (n: FakeNote) => accounts.includes(oppAccount(n.Parent_Opportunity__c))
+    && (!loanRealtor || [loanRealtor, null].includes(oppRealtor(n.Parent_Opportunity__c)));
   const notes = fakeNotes
-    .filter(n => wanted.some(([field, ids]) => n[field] !== null && ids.includes(n[field] as string)))
+    .filter(n => wanted.some(([field, ids]) => n[field] !== null && ids.includes(n[field] as string)) || viaLoan(n))
     .sort((a, b) => (b.Written_At__c ?? '').localeCompare(a.Written_At__c ?? '') || b.Id.localeCompare(a.Id));
   // Only the selected fields, like the real API
   const fields = soql.match(/SELECT (.+?) FROM/)![1].split(',').map(f => f.trim()) as (keyof FakeNote)[];
