@@ -1,9 +1,6 @@
 import { Router, type Response } from 'express';
-import { inArray, desc } from 'drizzle-orm';
 import { requireAuth, type AuthenticatedRequest } from '../middleware/auth.js';
 import { NOTE_MAX_LENGTH, type ContactFilters, type ContactNote } from '@lead-lens/shared';
-import { getDb } from '../db/index.js';
-import { notes } from '../db/schema.js';
 import { executeSoql, buildContactQuery, mapRow, isRowInScope, rowIdsInScope, type Scope } from '../services/salesforce/query.js';
 import { listRealtorNotes, createRealtorNote } from '../services/salesforce/realtor-notes.js';
 import { isIsoDate, isSfId } from '../services/validate.js';
@@ -95,30 +92,11 @@ router.get('/', requireAuth, async (req: AuthenticatedRequest, res) => {
 // officer who owns it, and admins. Checked against Salesforce on every call, so a realtor
 // whose referral moves elsewhere loses access.
 //
-// Notes written before the move are still in the Lead Lens `notes` table. GET merges them
-// in, marked as history, until lendinggroupco-uhnx.12.4 copies them to Salesforce.
-
-const NOTE_ROLES: readonly string[] = ['admin', 'loan_officer', 'agent'];
-
-function toHistoryNote(row: typeof notes.$inferSelect, userId: string | undefined): ContactNote {
-  return {
-    id: row.id,
-    body: row.body,
-    authorName: row.authorName,
-    authorRole: NOTE_ROLES.includes(row.authorRole) ? row.authorRole as ContactNote['authorRole'] : undefined,
-    source: 'Lead Lens',
-    history: true,
-    createdAt: row.createdAt.toISOString(),
-    mine: Boolean(userId) && row.authorId === userId,
-  };
-}
+// The notes written before the move (the old Lead Lens `notes` table) were copied to
+// Realtor_Note__c on 2026-11-06 (lendinggroupco-uhnx.12.4), so nothing reads that table now.
 
 function reader(req: AuthenticatedRequest) {
   return { name: req.userName || 'Unknown', role: req.userRole ?? 'agent' };
-}
-
-function newestFirst(a: ContactNote, b: ContactNote) {
-  return (b.createdAt || '').localeCompare(a.createdAt || '');
 }
 
 async function borrowerScope(req: AuthenticatedRequest, res: Response): Promise<string | null> {
@@ -140,15 +118,7 @@ router.get('/:id/notes', requireAuth, async (req: AuthenticatedRequest, res) => 
     const recordId = await borrowerScope(req, res);
     if (!recordId) return;
     const ids = await rowIdsInScope(scopeFor(req)!, recordId);
-    // History rows are keyed by ContactRow.id, so look them up by every Lead and Contact Id on the row
-    const historyIds = [...new Set([recordId, ...ids.leadIds, ...ids.contactIds])];
-    const [sfNotes, history] = await Promise.all([
-      listRealtorNotes(ids),
-      getDb().select().from(notes)
-        .where(inArray(notes.sfRecordId, historyIds)).orderBy(desc(notes.createdAt)),
-    ]);
-    const merged = [...sfNotes, ...history.map(r => toHistoryNote(r, req.userId))].sort(newestFirst);
-    res.json({ success: true, data: merged });
+    res.json({ success: true, data: await listRealtorNotes(ids) });
   } catch (err) {
     console.error('Notes GET error:', err);
     res.status(500).json({ success: false, error: { code: 'SERVER_ERROR', message: 'Failed to load notes' } });

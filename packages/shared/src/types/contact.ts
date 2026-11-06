@@ -28,8 +28,7 @@ export type NoteSource = 'Lead Lens' | 'Salesforce';
 
 /**
  * A realtor note on a borrower (Realtor_Note__c in lgc-ci), shared by the realtor, her
- * loan officer and admins. Notes written before the move to Salesforce still come from the
- * Lead Lens database until they are copied over, marked with `history`.
+ * loan officer and admins.
  */
 export interface ContactNote {
   id: string;
@@ -38,8 +37,6 @@ export interface ContactNote {
   /** Missing when Salesforce holds a role Lead Lens does not know */
   authorRole?: NoteAuthorRole;
   source: NoteSource;
-  /** An older note from the Lead Lens database, not yet copied to Salesforce */
-  history?: boolean;
   /** ISO date-time; empty when Salesforce has no Written At */
   createdAt: string;
   /** Written by the user reading it (display only) */
