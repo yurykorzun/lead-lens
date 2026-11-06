@@ -91,8 +91,11 @@ function toRecord(r: FakeRow) {
     Created_Date__c: r.Created_Date__c,
     Referred_By_First_Name__c: r.Referred_By_First_Name__c, Referred_By_Last_Name__c: r.Referred_By_Last_Name__c,
     Lead__r: r.Lead__c ? person : null,
-    Contact__r: r.Contact__c ? { ...person, AccountId: r.personAccountId, Referred_By__c: r.referredById } : null,
-    Opportunity__r: r.stage ? { StageName: r.stage } : null,
+    Contact__r: r.Contact__c ? {
+      ...person, AccountId: r.personAccountId, Account: { IsPersonAccount: Boolean(r.personAccountId) }, Referred_By__c: r.referredById,
+    } : null,
+    // A mock loan's referring agent is its client's Referred By
+    Opportunity__r: r.stage ? { StageName: r.stage, Referring_Agent__c: r.referredById } : null,
   };
 }
 

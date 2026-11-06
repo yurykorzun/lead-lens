@@ -211,24 +211,41 @@ describe('Realtor_Note__c SOQL and insert body', () => {
 
   it('a realtor who sees the client only through a later loan gets that loan, not the person account', () => {
     const SECOND_LOAN_REALTOR = '003MOCKAGENT0002AA';
+    const ACCOUNT = '001MOCKACCT00003AA';
+    const person = { AccountId: ACCOUNT, Account: { IsPersonAccount: true }, Referred_By__c: MOCK_AGENT_CONTACT_ID };
     const rows = [
       // The client's own row, referred by the test agent
-      { Lead__c: null, Contact__c: '003MOCKCLNT00003AA', Account__c: null, Opportunity__c: null,
-        Contact__r: { AccountId: '001MOCKACCT00003AA', Referred_By__c: MOCK_AGENT_CONTACT_ID } },
+      { Lead__c: null, Contact__c: '003MOCKCLNT00003AA', Opportunity__c: null, Contact__r: person },
       // Her second loan, referred by another realtor
-      { Lead__c: null, Contact__c: '003MOCKCLNT00003AA', Account__c: null, Opportunity__c: '006MOCKOPPT00009AA',
-        Contact__r: { AccountId: '001MOCKACCT00003AA', Referred_By__c: MOCK_AGENT_CONTACT_ID } },
+      { Lead__c: null, Contact__c: '003MOCKCLNT00003AA', Opportunity__c: '006MOCKOPPT00009AA',
+        Opportunity__r: { Referring_Agent__c: SECOND_LOAN_REALTOR }, Contact__r: person },
     ];
     const second = idsFromRows({ role: 'agent', contactId: SECOND_LOAN_REALTOR }, rows.slice(1));
     expect(second).toEqual({
       leadIds: [], contactIds: ['003MOCKCLNT00003AA'], accountIds: [], opportunityIds: ['006MOCKOPPT00009AA'],
       loanRealtorId: SECOND_LOAN_REALTOR,
+      // Her own note still lands on the person account, so the LO sees it there
+      personAccountId: ACCOUNT,
     });
-    expect(idsFromRows({ role: 'agent', contactId: MOCK_AGENT_CONTACT_ID }, rows).accountIds).toEqual(['001MOCKACCT00003AA']);
-    // The LO and admins are staff and read the whole account, as in Salesforce
-    const staff = idsFromRows({ role: 'loan_officer', userId: MOCK_LO_USER_ID }, rows.slice(1));
-    expect(staff.accountIds).toEqual(['001MOCKACCT00003AA']);
+    // The client's realtor is in scope on the second-loan row too, but that loan is not hers
+    const first = idsFromRows({ role: 'agent', contactId: MOCK_AGENT_CONTACT_ID }, rows);
+    expect(first.accountIds).toEqual([ACCOUNT]);
+    expect(first.opportunityIds).toEqual([]);
+    // A 15-character stored Id is the same realtor
+    expect(idsFromRows({ role: 'agent', contactId: MOCK_AGENT_CONTACT_ID.slice(0, 15) }, rows).accountIds).toEqual([ACCOUNT]);
+    // The LO and admins are staff and read the whole account and every loan, as in Salesforce
+    const staff = idsFromRows({ role: 'loan_officer', userId: MOCK_LO_USER_ID }, rows);
+    expect(staff).toMatchObject({ accountIds: [ACCOUNT], opportunityIds: ['006MOCKOPPT00009AA'] });
     expect(staff.loanRealtorId).toBeUndefined();
+  });
+
+  it('never reads through a Contact on a business account', () => {
+    const ids = idsFromRows({ role: 'admin' }, [{
+      Lead__c: '00QMOCKLEAD00002AA', Contact__c: '003MOCKCONV00002AA', Opportunity__c: null,
+      Contact__r: { AccountId: '001MOCKBIZZ00001AA', Account: { IsPersonAccount: false }, Referred_By__c: null },
+    }]);
+    expect(ids.accountIds).toEqual([]);
+    expect(ids.personAccountId).toBeUndefined();
   });
 
   it('refuses a parent that is not a Lead or Contact, and an unknown role', () => {
