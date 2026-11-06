@@ -203,9 +203,9 @@ REALTOR_STAGE           # true once Realtor_Note__c.Stage__c is deployed to the 
 - Run tests: `npm run test:e2e` (auto-runs DB setup + teardown)
 - Config: `playwright.config.ts`, tests in `e2e/staging/`
 - Seed data: `npm run seed:staging` (3 test users: admin, LO, agent)
-- DB reset: `npm run reset:staging`
+- Reset: `npm run reset:staging` (seed users and mock Salesforce, so staging must be running). `test:e2e` resets before and after the run
 - SF mocking: `MOCK_SALESFORCE=true` in staging server activates mock layer. Staging also sets `REALTOR_STAGE=true`, because the mock knows `Stage__c`
-- Mock data: `server/src/services/salesforce/mock.ts` (8 fake contacts, tasks, realtor notes, picklists). Mock notes and tasks live in the staging server's memory. `npm run test:e2e` resets them through `POST /api/__staging/reset-mock`, a route that exists only in `staging.ts`, so the staging server must be running first. `reset:staging` does not reset them
+- Mock data: `server/src/services/salesforce/mock.ts` (8 fake contacts, tasks, realtor notes, picklists). Mock notes and tasks live in the staging server's memory. `npm run test:e2e` resets them through `POST /api/__staging/reset-mock`, a route that exists only in `staging.ts`, so the staging server must be running first. `reset:staging` resets them too
 - Test fixtures: `e2e/staging/fixtures.ts` (credentials + login helpers)
 - BaseURL is hardcoded to `http://localhost:5174` in playwright config — no env var override
 
