@@ -9,7 +9,9 @@
  *
  * The note text is never printed - it is borrower data. Only its length is.
  *
- * Usage (credentials: see scripts/lgc-ci.ts; notes come from DATABASE_URL):
+ * Usage (credentials: see scripts/lgc-ci.ts; notes come from DATABASE_URL). Run on
+ * 2026-11-06 with SF_CLI_ORG=lgc-ci (an admin's sf login): 2 notes copied, a second run wrote 0.
+ *   SF_CLI_ORG=lgc-ci npx tsx server/src/scripts/move-notes-to-salesforce.ts
  *   npx tsx server/src/scripts/move-notes-to-salesforce.ts            # report only
  *   npx tsx server/src/scripts/move-notes-to-salesforce.ts --apply    # write
  *   it refuses any org but lgc-ci unless --any-org is passed

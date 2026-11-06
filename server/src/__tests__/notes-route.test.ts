@@ -6,25 +6,15 @@ import type { ContactNote } from '@lead-lens/shared';
 process.env.MOCK_SALESFORCE = 'true';
 process.env.APP_JWT_SECRET = 'test-secret';
 
-// The old Lead Lens notes table, read-only now (history until lendinggroupco-uhnx.12.4).
-// Enough of the Drizzle chain for the GET route; an insert fails the test.
-type Row = { id: string; sfRecordId: string; authorId: string | null; authorName: string; authorRole: string; body: string; createdAt: Date };
-const table: Row[] = [];
+// The old Lead Lens notes table was copied to Realtor_Note__c (lendinggroupco-uhnx.12.4), so
+// the notes routes must not touch the database at all: any read or write fails the test.
+let dbTouched = false;
 vi.mock('../db/index.js', () => ({
-  getDb: () => ({
-    select: () => ({
-      from: () => ({
-        where: () => ({
-          orderBy: async () => [...table].sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())
-            .filter(r => r.sfRecordId === lastRecordId),
-        }),
-      }),
-    }),
-    insert: () => { throw new Error('notes must not be written to the Lead Lens database any more'); },
-  }),
+  getDb: () => {
+    dbTouched = true;
+    throw new Error('the notes routes must not use the Lead Lens database any more');
+  },
 }));
-// The fake select cannot read the Drizzle where clause, so the route's record Id is captured here
-let lastRecordId = '';
 
 const { default: app } = await import('../app.js');
 const { createSessionToken } = await import('../services/auth.js');
@@ -55,10 +45,9 @@ beforeAll(async () => {
 });
 
 afterAll(() => { server.close(); });
-beforeEach(() => { table.length = 0; resetMockNotes(); });
+beforeEach(() => { dbTouched = false; resetMockNotes(); });
 
 function call(method: string, recordId: string, token: string, body?: unknown) {
-  lastRecordId = recordId;
   return fetch(`${base}/contacts/${recordId}/notes`, {
     method,
     headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
@@ -166,16 +155,11 @@ describe('notes on a borrower (Realtor_Note__c)', () => {
     }
   });
 
-  it('merges older Lead Lens notes in as history, newest first', async () => {
+  it('reads and writes notes only in Salesforce, never the old Lead Lens table', async () => {
     await call('POST', MINE, lo, { body: 'new in Salesforce' });
-    table.push(
-      { id: 'h1', sfRecordId: MINE, authorId: 'u-agent', authorName: 'Test Agent', authorRole: 'agent', body: 'old note', createdAt: new Date('2026-09-01T10:00:00Z') },
-      { id: 'h2', sfRecordId: NOT_MINE, authorId: null, authorName: 'Other Agent', authorRole: 'agent', body: 'not this borrower', createdAt: new Date('2026-09-02T10:00:00Z') },
-    );
     const items = await list(MINE, agent);
-    expect(items.map(n => n.body)).toEqual(['new in Salesforce', 'old note']);
-    expect(items[1]).toMatchObject({ history: true, source: 'Lead Lens', mine: true, authorRole: 'agent' });
-    expect(items[0].history).toBeUndefined();
+    expect(items.map(n => n.body)).toContain('new in Salesforce');
+    expect(dbTouched).toBe(false);
   });
 
   it('an unlinked agent gets no notes at all', async () => {

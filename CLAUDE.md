@@ -109,7 +109,7 @@ All routes prefixed with `/api/`. Auth via `Authorization: Bearer <jwt>` header.
 | GET | /auth/verify | Validate token, return user |
 | POST | /auth/logout | Stateless (client discards token) |
 | GET | /contacts | Paginated borrower rows (SOQL on LeadAccount__c, scoped by Id) |
-| GET | /contacts/:id/notes | Realtor notes on one borrower, newest first: `Realtor_Note__c` on any Lead/Contact/Account/Opportunity Id of the row, plus older Lead Lens DB notes marked `history` until lendinggroupco-uhnx.12.4 moves them (anyone whose dashboard shows the borrower) |
+| GET | /contacts/:id/notes | Realtor notes on one borrower, newest first: `Realtor_Note__c` on any Lead/Contact/Account/Opportunity Id of the row (anyone whose dashboard shows the borrower) |
 | POST | /contacts/:id/notes | Add a note, max 2000 characters - one `Realtor_Note__c` insert, Source = Lead Lens |
 | GET | /contacts/tasks/open | The realtor's open realtor tasks on all her in-scope borrowers (agent only) |
 | GET | /contacts/:id/tasks | Realtor tasks on one borrower: hers for an agent, all realtors' read-only for LO/admin |
@@ -228,7 +228,7 @@ FRONTEND_URL            # CORS origin, e.g., http://localhost:5173
   1. The realtor marks her own realtor Task Completed (`completeTask` in `services/salesforce/tasks.ts`). Its body is the constant `{ Status: 'Completed' }`, and the route re-reads the task (Id + borrower + `Realtor_Contact__c`) before writing. Never pass request data into that body - a new Referred By, or a Task completed with `Update_Referred_By_via_SMS__c` / `_via_Email__c` / `Update_Last_Touch__c` ticked, texts or emails the realtor. `tasks.test.ts` and `tasks-route.test.ts` fail if the body changes.
   2. A new realtor note is one `Realtor_Note__c` insert (`createRealtorNote` in `services/salesforce/realtor-notes.ts`). The body is built field by field from `NOTE_INSERT_FIELDS`: `Body__c`, one `Parent_Lead__c` / `Parent_Contact__c` (from the row's Id), `Author_Name__c`, `Author_Role__c`, `Source__c = 'Lead Lens'`. Never spread the request into it. The object is append-only in lgc-ci (a validation rule refuses updates), so there is no edit or delete. `notes-route.test.ts` fails if the body changes.
 - Notes reads select only `NOTE_FIELDS` from `Realtor_Note__c`, parented to any Id on the borrower's `LeadAccount__c` row (`rowIdsInScope`), so a converted lead keeps its notes. Every notes call re-checks the borrower against the caller's Salesforce scope (`isRowInScope`), so a realtor loses access when a referral moves.
-- The old Lead Lens `notes` table is read-only history: GET merges it in until lendinggroupco-uhnx.12.4 copies it to Salesforce. It holds borrower details, so treat the Neon database as borrower data.
+- The old Lead Lens `notes` table is no longer read. Its 2 notes were copied to `Realtor_Note__c` on 2026-11-06 (lendinggroupco-uhnx.12.4, `server/src/scripts/move-notes-to-salesforce.ts`), and the table stays as a backup. It holds borrower details, so treat the Neon database as borrower data.
 - Read `First_name__c` with a lowercase n. SOQL ignores case, but the JSON keys use the org's casing.
 - Never select the team's notes (`Rep_Notes__c`, `Message_to_Realtor__c`, `Description`, `Rep_Note_History__c`) or any Task without `Realtor_Contact__c`. `Realtor_Note__c` is the only notes object Lead Lens reads. See Rules above.
 - Scope by Id only. Every Id goes through `isSfId` before it reaches SOQL - the REST query endpoint has no binds.
