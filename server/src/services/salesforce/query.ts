@@ -18,6 +18,10 @@ const ROW_FIELDS = [
   'Status__c', 'Temperature__c', 'Lead_Source__c', 'Created_Date__c',
   'Referred_By_First_Name__c', 'Referred_By_Last_Name__c',
   'Lead__r.Email', 'Lead__r.Owner.Name', 'Contact__r.Email', 'Contact__r.Owner.Name',
+  // The loan officer's work contact, for the realtor's LO card. Lead.Owner is polymorphic,
+  // and Name (the type it resolves to) has Email and Phone - checked on lgc-ci 2026-11-06.
+  // A Lead can sit in a Queue, so Owner.Type keeps a queue off the realtor's LO card.
+  'Lead__r.Owner.Type', 'Lead__r.Owner.Email', 'Lead__r.Owner.Phone', 'Contact__r.Owner.Email', 'Contact__r.Owner.Phone',
   'Opportunity__r.StageName',
 ].join(', ');
 
@@ -236,7 +240,7 @@ export async function rowIdsInScope(scope: Scope, recordId: string): Promise<Row
   return idsFromRows(scope, result.records);
 }
 
-type Rel = { Email?: string; Owner?: { Name?: string } } | null | undefined;
+type Rel = { Email?: string; Owner?: { Name?: string; Type?: string; Email?: string | null; Phone?: string | null } } | null | undefined;
 
 export function mapRow(record: Record<string, unknown>): ContactRow {
   const isLead = Boolean(record.Lead__c);
@@ -246,6 +250,7 @@ export function mapRow(record: Record<string, unknown>): ContactRow {
   const last = (record.Last_Name__c as string | null) ?? '';
   const refFirst = (record.Referred_By_First_Name__c as string | null) ?? '';
   const refLast = (record.Referred_By_Last_Name__c as string | null) ?? '';
+  const isQueue = Boolean(person?.Owner?.Type) && person?.Owner?.Type !== 'User';
 
   return {
     id: (isLead ? record.Lead__c : record.Contact__c) as string,
@@ -262,6 +267,9 @@ export function mapRow(record: Record<string, unknown>): ContactRow {
     leadSource: (record.Lead_Source__c as string | null) || undefined,
     referredBy: `${refFirst} ${refLast}`.trim() || undefined,
     ownerName: person?.Owner?.Name || undefined,
+    // A queue is nobody to call: the card then shows the owner's name only (Contact owners are always Users)
+    ownerEmail: (isQueue ? undefined : person?.Owner?.Email) || undefined,
+    ownerPhone: (isQueue ? undefined : person?.Owner?.Phone) || undefined,
     createdDate: (record.Created_Date__c as string | null) || undefined,
   };
 }

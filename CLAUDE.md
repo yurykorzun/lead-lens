@@ -112,6 +112,8 @@ All routes prefixed with `/api/`. Auth via `Authorization: Bearer <jwt>` header.
 | GET | /contacts | Paginated borrower rows (SOQL on LeadAccount__c, scoped by Id) |
 | GET | /contacts/:id/notes | Realtor notes on one borrower, newest first: `Realtor_Note__c` on the row's Lead/Contact, its person account and loans (anyone whose dashboard shows the borrower; a realtor gets the account and loan notes only for her own referral) |
 | POST | /contacts/:id/notes | Add a note, max 2000 characters - one `Realtor_Note__c` insert, Source = Lead Lens |
+| GET | /contacts/:id/stage | The buyer's realtor stage (the newest `Realtor_Note__c` with `Stage__c`), or `{ enabled: false }` while `REALTOR_STAGE` is off |
+| POST | /contacts/:id/stage | The realtor moves the buyer to a stage (agent only, `{ stage }` from `REALTOR_STAGES`) - one note insert with `Stage__c`; the same stage again writes nothing |
 | GET | /contacts/tasks/open | The realtor's open realtor tasks on all her in-scope borrowers (agent only) |
 | GET | /contacts/:id/tasks | Realtor tasks on one borrower: hers for an agent, all realtors' read-only for LO/admin |
 | POST | /contacts/:id/tasks/:taskId/complete | Mark one of her tasks Completed in Salesforce (agent only, no body) - the only Salesforce update |
@@ -140,6 +142,7 @@ DATABASE_URL            # Neon Postgres connection string
 APP_JWT_SECRET          # random 64-byte hex string
 APP_JWT_EXPIRES_IN      # e.g., 8h
 FRONTEND_URL            # CORS origin, e.g., http://localhost:5173
+REALTOR_STAGE           # true once Realtor_Note__c.Stage__c is deployed to the org; unset hides the stage tracker
 ```
 
 ## Key Files
@@ -155,7 +158,7 @@ FRONTEND_URL            # CORS origin, e.g., http://localhost:5173
 | `server/src/services/salesforce/auth.ts` | SF OAuth token acquisition |
 | `server/src/services/salesforce/query.ts` | LeadAccount__c query builder, Id scoping, row mapper |
 | `server/src/services/salesforce/tasks.ts` | Realtor task queries and the one Salesforce update (Status = Completed) |
-| `server/src/services/salesforce/realtor-notes.ts` | Realtor_Note__c read query and the allowlisted note insert |
+| `server/src/services/salesforce/realtor-notes.ts` | Realtor_Note__c read query, the allowlisted note insert, and the realtor stage (read + `stagesEnabled`) |
 | `server/src/routes/auth.ts` | Login/verify/logout handlers |
 | `server/src/routes/contacts.ts` | GET contacts (read-only) |
 | `server/src/routes/loan-officers.ts` | LO CRUD (admin only, paginated) |
@@ -201,7 +204,7 @@ FRONTEND_URL            # CORS origin, e.g., http://localhost:5173
 - Config: `playwright.config.ts`, tests in `e2e/staging/`
 - Seed data: `npm run seed:staging` (3 test users: admin, LO, agent)
 - DB reset: `npm run reset:staging`
-- SF mocking: `MOCK_SALESFORCE=true` in staging server activates mock layer
+- SF mocking: `MOCK_SALESFORCE=true` in staging server activates mock layer. Staging also sets `REALTOR_STAGE=true`, because the mock knows `Stage__c`
 - Mock data: `server/src/services/salesforce/mock.ts` (8 fake contacts, tasks, realtor notes, picklists). Mock notes and tasks live in the staging server's memory. `npm run test:e2e` resets them through `POST /api/__staging/reset-mock`, a route that exists only in `staging.ts`, so the staging server must be running first. `reset:staging` does not reset them
 - Test fixtures: `e2e/staging/fixtures.ts` (credentials + login helpers)
 - BaseURL is hardcoded to `http://localhost:5174` in playwright config — no env var override
@@ -227,7 +230,9 @@ FRONTEND_URL            # CORS origin, e.g., http://localhost:5173
 ### Salesforce
 - Read-only, with TWO writes. Do not add a third.
   1. The realtor marks her own realtor Task Completed (`completeTask` in `services/salesforce/tasks.ts`). Its body is the constant `{ Status: 'Completed' }`, and the route re-reads the task (Id + borrower + `Realtor_Contact__c`) before writing. Never pass request data into that body - a new Referred By, or a Task completed with `Update_Referred_By_via_SMS__c` / `_via_Email__c` / `Update_Last_Touch__c` ticked, texts or emails the realtor. `tasks.test.ts` and `tasks-route.test.ts` fail if the body changes.
-  2. A new realtor note is one `Realtor_Note__c` insert (`createRealtorNote` in `services/salesforce/realtor-notes.ts`). The body is built field by field from `NOTE_INSERT_FIELDS`: `Body__c`, one `Parent_Lead__c` / `Parent_Contact__c` (from the row's Id), `Author_Name__c`, `Author_Role__c`, `Source__c = 'Lead Lens'`. Never spread the request into it. The object is append-only in lgc-ci (a validation rule refuses updates), so there is no edit or delete. `notes-route.test.ts` fails if the body changes.
+  2. A new realtor note is one `Realtor_Note__c` insert (`createRealtorNote` in `services/salesforce/realtor-notes.ts`). The body is built field by field from `NOTE_INSERT_FIELDS`: `Body__c`, one `Parent_Lead__c` / `Parent_Contact__c` (from the row's Id), `Author_Name__c`, `Author_Role__c`, `Source__c = 'Lead Lens'`, and `Stage__c` only for a stage change. Never spread the request into it. The object is append-only in lgc-ci (a validation rule refuses updates), so there is no edit or delete. `notes-route.test.ts` fails if the body changes.
+  - A realtor stage change is this same insert with `Stage__c` set (body `Stage: <stage>`), not a third write: no update, no new object, and the LO sees it in the Salesforce notes. Only the realtor sets it (`POST /contacts/:id/stage`), only to a value in `REALTOR_STAGES` (the restricted picklist has exactly those). `stage-route.test.ts` fails if the body changes. The stage is the borrower's own realtor's (`tracksStage`: the Lead's Referred By, or the client's), because it sits on the shared Contact thread - a realtor who only referred a later loan gets no stage card, else she would overwrite the client realtor's.
+  - `REALTOR_STAGE=true` turns it on. Leave it unset until `Realtor_Note__c.Stage__c` is in the org, because selecting a missing field fails the whole notes query - while it is off nothing names `Stage__c`. The field and its FLS live in the lendinggroupco repo (`Lead_Lens_Note_Writer` edit, `Realtor_Notes` read).
 - Notes reads select only `NOTE_FIELDS` from `Realtor_Note__c`, parented to any Id on the borrower's `LeadAccount__c` row (`rowIdsInScope`), so a converted lead keeps its notes. Every notes call re-checks the borrower against the caller's Salesforce scope (`isRowInScope`), so a realtor loses access when a referral moves. A client's second loan can come from another realtor (5 loans, 2026-11-05), so a realtor reads the person account only when she is the client's Referred By, and a loan only when its `Referring_Agent__c` is her or empty (`idsFromRows`). The Contact thread stays shared. A new note's `Parent_Account__c` comes from `personAccountId`, never from what the realtor may read.
 - The old Lead Lens `notes` table is no longer read. Its 2 notes were copied to `Realtor_Note__c` on 2026-11-06 (lendinggroupco-uhnx.12.4, `server/src/scripts/move-notes-to-salesforce.ts`), and the table stays as a backup. It holds borrower details, so treat the Neon database as borrower data.
 - Read `First_name__c` with a lowercase n. SOQL ignores case, but the JSON keys use the org's casing.
@@ -246,7 +251,7 @@ FRONTEND_URL            # CORS origin, e.g., http://localhost:5173
 - Tailwind CSS v4 with `@tailwindcss/vite` plugin (CSS-based config, no tailwind.config).
 - `@/` path alias resolves to `client/src/`.
 - shadcn/ui components in `client/src/components/ui/`.
-- Contact detail panel is read-only for Salesforce fields: status, loan stage, temperature, source, referred by. No tabs. Below them, the realtor steps (`contact-tasks.tsx`), then realtor notes (`contact-notes.tsx`, each showing its author and whether it was written in Lead Lens or Salesforce). A realtor's own dashboard also shows her open steps above the grid (`open-tasks.tsx`).
+- Contact detail panel is laid out for a realtor on a phone, top to bottom: name with status and source chips, Call / Text / Email, the buying stage (`realtor-stage.tsx`, realtor sets it, others read), the LO card (`loan-officer-card.tsx`, the owner's name, email and phone - not shown to an LO, whose rows are all their own), the realtor steps (`contact-tasks.tsx`), realtor notes (`contact-notes.tsx`, each showing its author and whether it was written in Lead Lens or Salesforce), then the read-only details list. No tabs. A realtor's own dashboard also shows her open steps above the grid (`open-tasks.tsx`).
 - Vite proxy: `/api` → `http://localhost:3001` (configured in `client/vite.config.ts`). Configurable via `VITE_API_TARGET` env var.
 - Column definitions are split: `adminColumns`, `loanOfficerColumns`, and `agentColumns`.
 - **Light and dark themes.** Colors are role tokens in `client/src/index.css` (`bg-background`, `text-muted-foreground`, `bg-row-selected`, `bg-notice`...), with the dark values under `.dark`. Use a token, not a raw palette class like `text-slate-500`; where a hue is the point (status badges in `columns.tsx`) write the `dark:` pair next to it. `next-themes` sets the class (`providers/theme-provider.tsx`, key `lead-lens-theme`).

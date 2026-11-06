@@ -16,7 +16,41 @@ export interface ContactRow {
   leadSource?: string;
   referredBy?: string;
   ownerName?: string;
+  /** The owning loan officer's Salesforce User email and phone, for the realtor to reach them */
+  ownerEmail?: string;
+  ownerPhone?: string;
   createdDate?: string; // YYYY-MM-DD, the tracker's Created date
+}
+
+/**
+ * Where the realtor is with the buyer, set by the realtor in Lead Lens. The first seven are
+ * the path, in order; On Hold sits outside it. Saved in Salesforce as Realtor_Note__c.Stage__c
+ * (a restricted picklist with exactly these values), so changing a label here needs the
+ * picklist changed first.
+ */
+export const REALTOR_STAGES = [
+  'Attempting Contact',
+  'Initial Contact',
+  'Consultation',
+  'Touring Homes',
+  'Making Offers',
+  'Under Contract',
+  'Closed',
+] as const;
+export const REALTOR_STAGE_ON_HOLD = 'On Hold';
+export type RealtorStage = (typeof REALTOR_STAGES)[number] | typeof REALTOR_STAGE_ON_HOLD;
+
+export function isRealtorStage(v: unknown): v is RealtorStage {
+  return v === REALTOR_STAGE_ON_HOLD || (REALTOR_STAGES as readonly unknown[]).includes(v);
+}
+
+/** The newest stage on a borrower. `enabled` is false until Stage__c exists in the org. */
+export interface RealtorStageState {
+  enabled: boolean;
+  stage?: RealtorStage;
+  setBy?: string;
+  /** ISO date-time */
+  setAt?: string;
 }
 
 export const CLIENT_STATUS = 'Client';
@@ -41,6 +75,8 @@ export interface ContactNote {
   createdAt: string;
   /** Written by the user reading it (display only) */
   mine: boolean;
+  /** Set when the note records a stage change */
+  stage?: RealtorStage;
 }
 
 export const NOTE_MAX_LENGTH = 2000;

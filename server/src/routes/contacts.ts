@@ -1,8 +1,8 @@
 import { Router, type Response } from 'express';
 import { requireAuth, type AuthenticatedRequest } from '../middleware/auth.js';
-import { NOTE_MAX_LENGTH, type ContactFilters, type ContactNote } from '@lead-lens/shared';
-import { executeSoql, buildContactQuery, mapRow, isRowInScope, rowIdsInScope, type Scope } from '../services/salesforce/query.js';
-import { listRealtorNotes, createRealtorNote } from '../services/salesforce/realtor-notes.js';
+import { NOTE_MAX_LENGTH, isRealtorStage, type ContactFilters, type ContactNote, type RealtorStageState } from '@lead-lens/shared';
+import { executeSoql, buildContactQuery, mapRow, isRowInScope, rowIdsInScope, type RowIds, type Scope } from '../services/salesforce/query.js';
+import { listRealtorNotes, createRealtorNote, currentStage, stagesEnabled } from '../services/salesforce/realtor-notes.js';
 import { isIsoDate, isSfId } from '../services/validate.js';
 import { listBorrowerTasks, listOpenTasks, findTaskForRealtor, completeTask, mapTask } from '../services/salesforce/tasks.js';
 
@@ -11,7 +11,7 @@ import { listBorrowerTasks, listOpenTasks, findTaskForRealtor, completeTask, map
 // changes no existing record except this: the realtor marks one of her own realtor tasks
 // Completed (services/salesforce/tasks.ts - a constant body, Status only). The other write
 // is an insert: a new Realtor_Note__c (services/salesforce/realtor-notes.ts - an allowlisted
-// body built field by field).
+// body built field by field). A realtor stage change is that same insert with Stage__c set.
 const router = Router();
 
 // An admin can look at Lead Lens as one loan officer or realtor sees it (Officer View /
@@ -167,6 +167,72 @@ router.post('/:id/notes', requireAuth, async (req: AuthenticatedRequest, res) =>
   } catch (err) {
     console.error('Notes POST error:', err);
     res.status(500).json({ success: false, error: { code: 'SERVER_ERROR', message: 'Failed to save the note' } });
+  }
+});
+
+// ── Realtor stage ──────────────────────────────────────────────────────
+// Where the realtor is with the buyer (Attempting Contact … Closed, or On Hold). Everyone who
+// sees the borrower reads it; only the realtor sets it. A change is one more Realtor_Note__c
+// insert with Stage__c set - the same allowlisted write as a note, never an update - so the
+// LO sees it on the Salesforce page and the history stays. Off until REALTOR_STAGE=true.
+
+/**
+ * The stage belongs to the borrower's own realtor: the Referred By on the Lead, or on the
+ * client (then she reads the person account, see idsFromRows). A realtor who only referred a
+ * client's later loan gets no stage, because the stage sits on the shared Contact thread and
+ * hers would overwrite the client realtor's. Staff read every borrower's stage.
+ */
+export function tracksStage(scope: Scope, recordId: string, ids: RowIds): boolean {
+  if (scope.role !== 'agent') return true;
+  return recordId.startsWith('00Q') || ids.accountIds.length > 0;
+}
+
+router.get('/:id/stage', requireAuth, async (req: AuthenticatedRequest, res) => {
+  try {
+    if (!stagesEnabled()) { res.json({ success: true, data: { enabled: false } }); return; }
+    const recordId = await borrowerScope(req, res);
+    if (!recordId) return;
+    const scope = scopeFor(req)!;
+    const ids = await rowIdsInScope(scope, recordId);
+    if (!tracksStage(scope, recordId, ids)) { res.json({ success: true, data: { enabled: false } }); return; }
+    res.json({ success: true, data: await currentStage(ids) });
+  } catch (err) {
+    console.error('Stage GET error:', err);
+    res.status(500).json({ success: false, error: { code: 'SERVER_ERROR', message: 'Failed to load the stage' } });
+  }
+});
+
+router.post('/:id/stage', requireAuth, async (req: AuthenticatedRequest, res) => {
+  try {
+    if (!stagesEnabled()) {
+      res.status(404).json({ success: false, error: { code: 'NOT_ENABLED', message: 'Stages are not turned on yet' } });
+      return;
+    }
+    const contactId = realtorOnly(req, res);
+    if (!contactId) return;
+    const stage: unknown = req.body?.stage;
+    if (!isRealtorStage(stage)) {
+      res.status(400).json({ success: false, error: { code: 'VALIDATION', message: 'Pick one of the stages' } });
+      return;
+    }
+    const recordId = await borrowerScope(req, res);
+    if (!recordId) return;
+    const scope = scopeFor(req)!;
+    const ids = await rowIdsInScope(scope, recordId);
+    if (!tracksStage(scope, recordId, ids)) {
+      res.status(403).json({ success: false, error: { code: 'NOT_YOUR_BUYER', message: "The client's own realtor sets the stage" } });
+      return;
+    }
+    const now = await currentStage(ids);
+    // The same stage again writes nothing, so a double tap leaves one note
+    if (now.stage === stage) { res.json({ success: true, data: now }); return; }
+    const author = reader(req);
+    await createRealtorNote(recordId, `Stage: ${stage}`, author, recordId.startsWith('003') ? ids.personAccountId : undefined, stage);
+    const data: RealtorStageState = { enabled: true, stage, setBy: author.name, setAt: new Date().toISOString() };
+    res.json({ success: true, data });
+  } catch (err) {
+    console.error('Stage POST error:', err);
+    res.status(500).json({ success: false, error: { code: 'SERVER_ERROR', message: 'Could not save the stage' } });
   }
 });
 

@@ -1,4 +1,4 @@
-import type { ContactNote, NoteAuthorRole, NoteSource, SFQueryResponse } from '@lead-lens/shared';
+import { isRealtorStage, type ContactNote, type NoteAuthorRole, type NoteSource, type RealtorStage, type RealtorStageState, type SFQueryResponse } from '@lead-lens/shared';
 import { getSalesforceToken } from './auth.js';
 import { executeSoql, quoteId, type RowIds } from './query.js';
 import { mockCreateRecord } from './mock.js';
@@ -16,7 +16,21 @@ import { isSfId } from '../validate.js';
 export const NOTE_FIELDS = 'Id, Body__c, Author_Name__c, Author_Role__c, Source__c, Written_At__c';
 export const NOTE_INSERT_FIELDS = Object.freeze([
   'Body__c', 'Parent_Lead__c', 'Parent_Contact__c', 'Parent_Account__c', 'Author_Name__c', 'Author_Role__c', 'Source__c',
+  'Stage__c',
 ] as const);
+
+// REALTOR STAGE (where the realtor is with the buyer) rides on the same insert: a stage
+// change is one more Realtor_Note__c with Stage__c set, so there is no new kind of write, the
+// history is append-only, and the LO sees each change in the notes on the Salesforce page.
+// Off until Realtor_Note__c.Stage__c is deployed to the org: selecting a field that does not
+// exist fails the whole notes query, so nothing names Stage__c while REALTOR_STAGE is unset.
+export function stagesEnabled(): boolean {
+  return process.env.REALTOR_STAGE === 'true';
+}
+
+function noteFields(): string {
+  return stagesEnabled() ? `${NOTE_FIELDS}, Stage__c` : NOTE_FIELDS;
+}
 
 const ROLE_TO_SF: Record<string, string> = {
   agent: 'Realtor',
@@ -37,6 +51,21 @@ const AUTHOR_NAME_MAX = 255;
  * Lead Lens thread showed every note, so listRealtorNotes follows nextRecordsUrl instead.
  */
 export function buildNotesQuery(ids: RowIds): string | null {
+  const where = notesWhere(ids);
+  if (!where) return null;
+  return `SELECT ${noteFields()} FROM Realtor_Note__c WHERE ${where}` +
+    ' ORDER BY Written_At__c DESC NULLS LAST, Id DESC';
+}
+
+/** The newest stage note among the notes this user may read on the borrower */
+export function buildStageQuery(ids: RowIds): string | null {
+  const where = notesWhere(ids);
+  if (!where) return null;
+  return `SELECT Id, Stage__c, Author_Name__c, Written_At__c FROM Realtor_Note__c WHERE Stage__c != null AND ${where}` +
+    ' ORDER BY Written_At__c DESC NULLS LAST, Id DESC LIMIT 1';
+}
+
+function notesWhere(ids: RowIds): string | null {
   const parts: string[] = [];
   const clause = (field: string, list: string[]) => {
     if (list.length) parts.push(`${field} IN (${list.map(quoteId).join(', ')})`);
@@ -54,8 +83,7 @@ export function buildNotesQuery(ids: RowIds): string | null {
     parts.push(`(Parent_Opportunity__r.AccountId IN (${ids.accountIds.map(quoteId).join(', ')})${realtor})`);
   }
   if (parts.length === 0) return null;
-  return `SELECT ${NOTE_FIELDS} FROM Realtor_Note__c WHERE (${parts.join(' OR ')})` +
-    ' ORDER BY Written_At__c DESC NULLS LAST, Id DESC';
+  return `(${parts.join(' OR ')})`;
 }
 
 export interface NoteAuthor {
@@ -71,8 +99,9 @@ export type NoteInsertBody = Partial<Record<(typeof NOTE_INSERT_FIELDS)[number],
  * too (personAccountId), because the Realtor Notes list on the person account page is
  * keyed on Account Id. Without it the LO would not see the note there.
  */
-export function buildNoteInsert(recordId: string, body: string, author: NoteAuthor, personAccountId?: string): NoteInsertBody {
+export function buildNoteInsert(recordId: string, body: string, author: NoteAuthor, personAccountId?: string, stage?: RealtorStage): NoteInsertBody {
   if (!isSfId(recordId)) throw new Error('Invalid Salesforce Id');
+  if (stage !== undefined && (!stagesEnabled() || !isRealtorStage(stage))) throw new Error('Invalid stage');
   const role = ROLE_TO_SF[author.role];
   if (!role) throw new Error('Unknown author role');
   const insert: NoteInsertBody = { Body__c: String(body) };
@@ -87,6 +116,7 @@ export function buildNoteInsert(recordId: string, body: string, author: NoteAuth
   insert.Author_Name__c = String(author.name || 'Unknown').slice(0, AUTHOR_NAME_MAX);
   insert.Author_Role__c = role;
   insert.Source__c = 'Lead Lens';
+  if (stage !== undefined) insert.Stage__c = stage;
   return insert;
 }
 
@@ -97,6 +127,7 @@ export interface NoteRecord {
   Author_Role__c: string | null;
   Source__c: string | null;
   Written_At__c: string | null;
+  Stage__c?: string | null;
 }
 
 /**
@@ -115,7 +146,19 @@ export function mapNote(r: NoteRecord): ContactNote {
     source,
     createdAt: r.Written_At__c ?? '',
     mine: false,
+    ...(isRealtorStage(r.Stage__c) ? { stage: r.Stage__c } : {}),
   };
+}
+
+/** The newest stage this user may read on the borrower, or none yet */
+export async function currentStage(ids: RowIds): Promise<RealtorStageState> {
+  if (!stagesEnabled()) return { enabled: false };
+  const soql = buildStageQuery(ids);
+  if (!soql) return { enabled: true };
+  const result = await executeSoql<{ Stage__c: string | null; Author_Name__c: string | null; Written_At__c: string | null }>(soql);
+  const r = result.records[0];
+  if (!r || !isRealtorStage(r.Stage__c)) return { enabled: true };
+  return { enabled: true, stage: r.Stage__c, setBy: r.Author_Name__c || undefined, setAt: r.Written_At__c || undefined };
 }
 
 export async function listRealtorNotes(ids: RowIds): Promise<ContactNote[]> {
@@ -139,8 +182,8 @@ export async function listRealtorNotes(ids: RowIds): Promise<ContactNote[]> {
 }
 
 /** Inserts one note and returns its Salesforce Id */
-export async function createRealtorNote(recordId: string, body: string, author: NoteAuthor, personAccountId?: string): Promise<string> {
-  const insert = buildNoteInsert(recordId, body, author, personAccountId);
+export async function createRealtorNote(recordId: string, body: string, author: NoteAuthor, personAccountId?: string, stage?: RealtorStage): Promise<string> {
+  const insert = buildNoteInsert(recordId, body, author, personAccountId, stage);
   if (process.env.MOCK_SALESFORCE === 'true') return mockCreateRecord('Realtor_Note__c', insert);
 
   const { accessToken, instanceUrl } = await getSalesforceToken();
