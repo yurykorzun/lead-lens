@@ -61,8 +61,15 @@ export async function resetStagingDb() {
   }
 }
 
+// The staging server keeps mock notes and tasks in memory, so reset them too
+async function resetMockSalesforce() {
+  const res = await fetch('http://localhost:3002/api/__staging/reset-mock', { method: 'POST' }).catch(() => null);
+  if (!res?.ok) throw new Error('Could not reset the mock Salesforce data - is `npm run staging` running?');
+}
+
 export default async function globalSetup() {
   console.log('Resetting staging database...');
   await resetStagingDb();
-  console.log('Staging database reset complete.');
+  await resetMockSalesforce();
+  console.log('Staging database and mock Salesforce reset complete.');
 }

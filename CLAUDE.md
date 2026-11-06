@@ -201,7 +201,7 @@ FRONTEND_URL            # CORS origin, e.g., http://localhost:5173
 - Seed data: `npm run seed:staging` (3 test users: admin, LO, agent)
 - DB reset: `npm run reset:staging`
 - SF mocking: `MOCK_SALESFORCE=true` in staging server activates mock layer
-- Mock data: `server/src/services/salesforce/mock.ts` (8 fake contacts, tasks, realtor notes, picklists). Mock notes and tasks live in the staging server's memory, so they reset when it restarts, not on `reset:staging`
+- Mock data: `server/src/services/salesforce/mock.ts` (8 fake contacts, tasks, realtor notes, picklists). Mock notes and tasks live in the staging server's memory. `npm run test:e2e` resets them through `POST /api/__staging/reset-mock`, a route that exists only in `staging.ts`, so the staging server must be running first. `reset:staging` does not reset them
 - Test fixtures: `e2e/staging/fixtures.ts` (credentials + login helpers)
 - BaseURL is hardcoded to `http://localhost:5174` in playwright config — no env var override
 
