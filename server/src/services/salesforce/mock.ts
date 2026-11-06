@@ -91,7 +91,7 @@ function toRecord(r: FakeRow) {
     Created_Date__c: r.Created_Date__c,
     Referred_By_First_Name__c: r.Referred_By_First_Name__c, Referred_By_Last_Name__c: r.Referred_By_Last_Name__c,
     Lead__r: r.Lead__c ? person : null,
-    Contact__r: r.Contact__c ? { ...person, AccountId: r.personAccountId } : null,
+    Contact__r: r.Contact__c ? { ...person, AccountId: r.personAccountId, Referred_By__c: r.referredById } : null,
     Opportunity__r: r.stage ? { StageName: r.stage } : null,
   };
 }
@@ -257,9 +257,13 @@ function mockNoteQuery(soql: string) {
   const viaAccount = soql.match(/Parent_Opportunity__r\.AccountId IN \(([^)]+)\)/);
   const accounts = viaAccount ? viaAccount[1].split(',').map(s => s.trim().replace(/'/g, '')) : [];
   const oppAccount = (opp: string | null) => opp?.replace(/^006MOCKOPPT/, '001MOCKACCT') ?? '';
+  // A mock loan's referring agent is its client's Referred By
+  const loanRealtor = soql.match(/Parent_Opportunity__r\.Referring_Agent__c = '([^']+)'/)?.[1];
+  const oppRealtor = (opp: string | null) => FAKE_ROWS.find(r => r.personAccountId === oppAccount(opp))?.referredById ?? null;
+  const viaLoan = (n: FakeNote) => accounts.includes(oppAccount(n.Parent_Opportunity__c))
+    && (!loanRealtor || [loanRealtor, null].includes(oppRealtor(n.Parent_Opportunity__c)));
   const notes = fakeNotes
-    .filter(n => wanted.some(([field, ids]) => n[field] !== null && ids.includes(n[field] as string))
-      || accounts.includes(oppAccount(n.Parent_Opportunity__c)))
+    .filter(n => wanted.some(([field, ids]) => n[field] !== null && ids.includes(n[field] as string)) || viaLoan(n))
     .sort((a, b) => (b.Written_At__c ?? '').localeCompare(a.Written_At__c ?? '') || b.Id.localeCompare(a.Id));
   // Only the selected fields, like the real API
   const fields = soql.match(/SELECT (.+?) FROM/)![1].split(',').map(f => f.trim()) as (keyof FakeNote)[];

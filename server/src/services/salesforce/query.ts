@@ -167,7 +167,7 @@ export async function isRowInScope(scope: Scope, recordId: string): Promise<bool
  * 6931 of 6931), so the person account comes from Contact__r.AccountId instead.
  */
 export function buildRowIdsQuery(scope: Scope, recordId: string): string {
-  return `SELECT Lead__c, Contact__c, Account__c, Opportunity__c, Contact__r.AccountId FROM LeadAccount__c ${rowInScopeWhere(scope, recordId)} LIMIT 20`;
+  return `SELECT Lead__c, Contact__c, Account__c, Opportunity__c, Contact__r.AccountId, Contact__r.Referred_By__c FROM LeadAccount__c ${rowInScopeWhere(scope, recordId)} LIMIT 20`;
 }
 
 export interface RowIds {
@@ -175,6 +175,38 @@ export interface RowIds {
   contactIds: string[];
   accountIds: string[];
   opportunityIds: string[];
+  /**
+   * Set for a realtor: notes on the account's loans are hers only when the loan's
+   * Referring_Agent__c is her or empty, because a second loan can come from another realtor.
+   */
+  loanRealtorId?: string;
+}
+
+export type RowIdsRow = {
+  Lead__c: string | null; Contact__c: string | null; Account__c: string | null; Opportunity__c: string | null;
+  Contact__r?: { AccountId?: string | null; Referred_By__c?: string | null } | null;
+};
+
+/**
+ * The Ids from the borrower's rows. A realtor gets the person account only when she is the
+ * client's own Referred By - a realtor who sees the client only through a later loan's row
+ * gets that loan and the Contact, not the account-wide notes meant for the first realtor.
+ */
+export function idsFromRows(scope: Scope, rows: RowIdsRow[]): RowIds {
+  const ids: RowIds = { leadIds: [], contactIds: [], accountIds: [], opportunityIds: [] };
+  const realtor = scope.role === 'agent' ? scope.contactId : undefined;
+  if (realtor) ids.loanRealtorId = realtor;
+  const add = (list: string[], id: string | null | undefined) => { if (isSfId(id) && !list.includes(id)) list.push(id); };
+  for (const r of rows) {
+    add(ids.leadIds, r.Lead__c);
+    add(ids.contactIds, r.Contact__c);
+    add(ids.opportunityIds, r.Opportunity__c);
+    if (!realtor || r.Contact__r?.Referred_By__c === realtor) {
+      add(ids.accountIds, r.Account__c);
+      add(ids.accountIds, r.Contact__r?.AccountId);
+    }
+  }
+  return ids;
 }
 
 /**
@@ -183,22 +215,9 @@ export interface RowIds {
  * parented to either are still found.
  */
 export async function rowIdsInScope(scope: Scope, recordId: string): Promise<RowIds> {
-  const ids: RowIds = { leadIds: [], contactIds: [], accountIds: [], opportunityIds: [] };
-  if (!isSfId(recordId)) return ids;
-  type IdRow = {
-    Lead__c: string | null; Contact__c: string | null; Account__c: string | null; Opportunity__c: string | null;
-    Contact__r?: { AccountId?: string | null } | null;
-  };
-  const result = await executeSoql<IdRow>(buildRowIdsQuery(scope, recordId));
-  const add = (list: string[], id: string | null | undefined) => { if (isSfId(id) && !list.includes(id)) list.push(id); };
-  for (const r of result.records) {
-    add(ids.leadIds, r.Lead__c);
-    add(ids.contactIds, r.Contact__c);
-    add(ids.accountIds, r.Account__c);
-    add(ids.accountIds, r.Contact__r?.AccountId);
-    add(ids.opportunityIds, r.Opportunity__c);
-  }
-  return ids;
+  if (!isSfId(recordId)) return { leadIds: [], contactIds: [], accountIds: [], opportunityIds: [] };
+  const result = await executeSoql<RowIdsRow>(buildRowIdsQuery(scope, recordId));
+  return idsFromRows(scope, result.records);
 }
 
 type Rel = { Email?: string; Owner?: { Name?: string } } | null | undefined;
