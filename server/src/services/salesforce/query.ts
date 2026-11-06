@@ -226,12 +226,12 @@ export function idsFromRows(scope: Scope, rows: RowIdsRow[]): RowIds {
 }
 
 /**
- * The Lead, Contact, Account and Opportunity Ids on the borrower's row (empty when it is
- * out of scope). A converted lead keeps both its Lead and Contact Id on the row, so notes
- * parented to either are still found.
+ * The Ids whose notes this user may read on the borrower (empty when it is out of scope),
+ * filtered by idsFromRows for a realtor, plus personAccountId for parenting a new note. A
+ * converted lead keeps both its Lead and Contact Id on the row, so notes on either are found.
  */
 export async function rowIdsInScope(scope: Scope, recordId: string): Promise<RowIds> {
-  if (!isSfId(recordId)) return { leadIds: [], contactIds: [], accountIds: [], opportunityIds: [] };
+  if (!isSfId(recordId)) return idsFromRows(scope, []);
   const result = await executeSoql<RowIdsRow>(buildRowIdsQuery(scope, recordId));
   return idsFromRows(scope, result.records);
 }

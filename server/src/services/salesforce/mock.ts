@@ -16,7 +16,6 @@ interface FakeRow {
   Id: string;
   Lead__c: string | null;
   Contact__c: string | null;
-  Account__c: string | null;
   Opportunity__c: string | null;
   First_name__c: string;
   Last_Name__c: string;
@@ -39,7 +38,7 @@ interface FakeRow {
 function lead(n: number, first: string, last: string, extra: Partial<FakeRow>): FakeRow {
   return {
     Id: `a0XMOCKROW00000${n}AA`, Lead__c: `00QMOCKLEAD0000${n}AA`, Contact__c: null,
-    Account__c: null, Opportunity__c: null,
+    Opportunity__c: null,
     First_name__c: first, Last_Name__c: last, Phone__c: `(555) 111-000${n}`,
     Status__c: 'Open', Temperature__c: null, Lead_Source__c: 'Realtor Referral',
     Created_Date__c: `2026-0${(n % 9) + 1}-1${n}`,
@@ -85,7 +84,8 @@ function toRecord(r: FakeRow) {
   return {
     attributes: { type: 'LeadAccount__c', url: `/services/data/v62.0/sobjects/LeadAccount__c/${r.Id}` },
     Id: r.Id, Lead__c: r.Lead__c, Contact__c: r.Contact__c,
-    Account__c: r.Account__c, Opportunity__c: r.Opportunity__c,
+    // Empty on every lgc-ci row; the person account is Contact__r.AccountId
+    Account__c: null, Opportunity__c: r.Opportunity__c,
     First_name__c: r.First_name__c, Last_Name__c: r.Last_Name__c, Phone__c: r.Phone__c,
     Status__c: r.Status__c, Temperature__c: r.Temperature__c, Lead_Source__c: r.Lead_Source__c,
     Created_Date__c: r.Created_Date__c,
@@ -95,7 +95,7 @@ function toRecord(r: FakeRow) {
       ...person, AccountId: r.personAccountId, Account: { IsPersonAccount: Boolean(r.personAccountId) }, Referred_By__c: r.referredById,
     } : null,
     // A mock loan's referring agent is its client's Referred By
-    Opportunity__r: r.stage ? { StageName: r.stage, Referring_Agent__c: r.referredById } : null,
+    Opportunity__r: r.Opportunity__c ? { StageName: r.stage, Referring_Agent__c: r.referredById } : null,
   };
 }
 
