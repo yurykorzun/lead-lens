@@ -4,7 +4,7 @@ vi.mock('../services/salesforce/auth.js', () => ({
   getSalesforceToken: async () => ({ accessToken: 'tok', instanceUrl: 'https://org.example.com' }),
 }));
 
-const { buildBorrowerTasksQuery, buildOpenTasksQuery, buildTaskForRealtorQuery, completeTask, TASK_FIELDS } =
+const { buildBorrowerTasksQuery, buildOpenTasksQuery, buildTaskForRealtorQuery, completeTask, nextStepPerBorrower, TASK_FIELDS } =
   await import('../services/salesforce/tasks.js');
 
 const REALTOR = '003Vr000012cf87IAA';
@@ -41,6 +41,21 @@ describe('realtor task queries', () => {
     const q = buildOpenTasksQuery(REALTOR);
     expect(q).toContain(`Realtor_Contact__c = '${REALTOR}'`);
     expect(q).toContain('IsClosed = false');
+  });
+
+  it('keeps only the next open step on each borrower, earliest due first', () => {
+    const t = (Id: string, WhoId: string, Subject: string, ActivityDate: string | null) => ({ Id, WhoId, Subject, ActivityDate });
+    const next = nextStepPerBorrower([
+      t('a3', 'B', 'Realtor: Showing 1', '2026-11-12'),
+      t('a1', 'A', 'Realtor: Call 2', '2026-11-06'),
+      t('a2', 'A', 'Realtor: Call 1', '2026-11-05'),
+      // same day: Call 1 comes before Showing 1
+      t('a5', 'C', 'Realtor: Showing 1', '2026-11-10'),
+      t('a4', 'C', 'Realtor: Call 1', '2026-11-10'),
+      // no due date goes last
+      t('a6', 'B', 'Realtor: Call 1', null),
+    ]);
+    expect(next.map(x => x.Id)).toEqual(['a2', 'a4', 'a3']);
   });
 
   it('refuses anything that is not a Salesforce Id', () => {

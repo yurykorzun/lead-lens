@@ -17,11 +17,12 @@ export function useTasks(recordId: string) {
   });
 }
 
-/** The signed-in realtor's open tasks on all her borrowers */
+/** The realtor's next open step on each borrower: hers, or the one an admin views as */
 export function useOpenTasks(enabled: boolean) {
+  const viewAs = useViewAs();
   return useQuery({
-    queryKey: ['tasks', 'open'],
-    queryFn: () => api.get<TasksResponse>('/contacts/tasks/open'),
+    queryKey: ['tasks', 'open', viewAs],
+    queryFn: () => api.get<TasksResponse>(withViewAs('/contacts/tasks/open', viewAs)),
     enabled,
   });
 }

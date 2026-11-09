@@ -5,7 +5,7 @@ import { TaskRow } from '@/components/contact-tasks';
 
 const FIRST = 3;
 
-/** The signed-in realtor's open steps on all her borrowers, earliest due first */
+/** The signed-in realtor's next open step on each of her borrowers, earliest due first */
 export function OpenTasks() {
   const [showAll, setShowAll] = useState(false);
   const tasks = useOpenTasks(true);
@@ -20,7 +20,8 @@ export function OpenTasks() {
       <h2 id="open-tasks" className="text-sm font-medium">
         To do <span className="tabular-nums text-muted-foreground">({items.length})</span>
       </h2>
-      <ul className="divide-y">
+      {/* Expanded, the list scrolls on its own so the borrower table stays on screen */}
+      <ul className={showAll ? 'max-h-72 divide-y overflow-y-auto' : 'divide-y'}>
         {shown.map(t => <TaskRow key={t.id} task={t} showBorrower />)}
       </ul>
       {items.length > FIRST && (

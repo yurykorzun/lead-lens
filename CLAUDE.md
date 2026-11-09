@@ -114,7 +114,7 @@ All routes prefixed with `/api/`. Auth via `Authorization: Bearer <jwt>` header.
 | POST | /contacts/:id/notes | Add a note, max 2000 characters - one `Realtor_Note__c` insert, Source = Lead Lens |
 | GET | /contacts/:id/stage | The buyer's realtor stage (the newest `Realtor_Note__c` with `Stage__c`), or `{ enabled: false }` while `REALTOR_STAGE` is off |
 | POST | /contacts/:id/stage | The realtor moves the buyer to a stage (agent only, `{ stage }` from `REALTOR_STAGES`) - one note insert with `Stage__c`; the same stage again writes nothing |
-| GET | /contacts/tasks/open | The realtor's open realtor tasks on all her in-scope borrowers (agent only) |
+| GET | /contacts/tasks/open | The realtor's next open step on each in-scope borrower (agent, or admin with `viewAs=agent:`, read-only) |
 | GET | /contacts/:id/tasks | Realtor tasks on one borrower: hers for an agent, all realtors' read-only for LO/admin |
 | POST | /contacts/:id/tasks/:taskId/complete | Mark one of her tasks Completed in Salesforce (agent only, no body) - the only Salesforce update |
 | GET | /metadata/dropdowns | Picklist values (cached 30min) |

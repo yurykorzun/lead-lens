@@ -3,6 +3,7 @@ import type { RealtorTask } from '@lead-lens/shared';
 import { Button } from '@/components/ui/button';
 import { formatDay } from '@/components/grid/format';
 import { useTasks, useCompleteTask } from '@/hooks/use-tasks';
+import { useViewAs } from '@/hooks/use-view-as';
 
 function today(): string {
   const d = new Date();
@@ -58,6 +59,7 @@ export function TaskRow({ task, showBorrower = false }: { task: RealtorTask; sho
  */
 export function ContactTasks({ recordId, role }: { recordId: string; role: 'admin' | 'loan_officer' | 'agent' }) {
   const tasks = useTasks(recordId);
+  const asUser = useViewAs();
   const items = tasks.data?.data ?? [];
 
   // No section until a borrower has steps: Salesforce creates them only for borrowers
@@ -67,7 +69,7 @@ export function ContactTasks({ recordId, role }: { recordId: string; role: 'admi
   return (
     <section className="mt-6" data-testid="tasks">
       <h3 className="mb-1 text-sm font-medium text-muted-foreground">Realtor steps</h3>
-      {role === 'agent' && (
+      {role === 'agent' && !asUser && (
         <p className="mb-2 text-xs text-muted-foreground">
           Mark each step done when it happens. The team sees it in Salesforce.
         </p>

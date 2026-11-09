@@ -251,6 +251,14 @@ function realtorOnly(req: AuthenticatedRequest, res: Response): string | null {
 
 router.get('/tasks/open', requireAuth, async (req: AuthenticatedRequest, res) => {
   try {
+    // An admin viewing as one realtor sees her To do, read-only
+    const viewing = viewAsScope(req);
+    if (viewing?.role === 'agent') {
+      const tasks = await listOpenTasks(viewing.contactId);
+      for (const t of tasks) t.canComplete = false;
+      res.json({ success: true, data: tasks });
+      return;
+    }
     const contactId = realtorOnly(req, res);
     if (!contactId) return;
     res.json({ success: true, data: await listOpenTasks(contactId) });
