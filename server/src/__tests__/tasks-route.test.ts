@@ -132,13 +132,23 @@ describe('completing a realtor task', () => {
 });
 
 describe('open tasks across her borrowers', () => {
-  it('lists her open tasks with the borrower name, earliest due first', async () => {
+  it('lists only the next open step on each borrower, with the borrower name, earliest due first', async () => {
     const res = await call('GET', '/tasks/open', agent);
     expect(res.status).toBe(200);
     const data = (await res.json() as { data: RealtorTask[] }).data;
-    expect(data.map(t => t.subject)).toEqual(['Realtor: Call 1', 'Realtor: Call 2', 'Realtor: Showing 1', 'Realtor: Call 1']);
-    expect(data[0]).toMatchObject({ borrowerId: MINE, borrowerName: 'John Smith' });
+    // Lead 1 has Call 1, Call 2 and Showing 1 open - only Call 1 is listed
+    expect(data.map(t => [t.borrowerId, t.subject])).toEqual([
+      [MINE, 'Realtor: Call 1'],
+      ['00QMOCKLEAD00002AA', 'Realtor: Call 1'],
+    ]);
+    expect(data[0]).toMatchObject({ id: CALL_1, borrowerName: 'John Smith' });
     expect(data.every(t => !t.done)).toBe(true);
+  });
+
+  it('shows the following step once she completes the current one', async () => {
+    expect((await call('POST', `/${MINE}/tasks/${CALL_1}/complete`, agent)).status).toBe(200);
+    const data = (await (await call('GET', '/tasks/open', agent)).json() as { data: RealtorTask[] }).data;
+    expect(data.filter(t => t.borrowerId === MINE).map(t => t.id)).toEqual([CALL_2]);
   });
 
   it('drops a task whose borrower has left her dashboard', async () => {

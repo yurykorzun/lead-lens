@@ -21,8 +21,8 @@ const COLUMNS_BY_ROLE = {
   agent: agentColumns,
 } as const;
 
-// showOpenTasks: only on a realtor's own dashboard - the list is hers, and an admin's
-// "view as" page cannot load it
+// showOpenTasks: on a realtor's own dashboard, or an admin viewing as one realtor
+// (ViewAsContext) - the list belongs to one person
 export function DashboardContent({ displayRole, showOpenTasks = false }: { displayRole: DisplayRole; showOpenTasks?: boolean }) {
   const [filters, setFilters] = useState<ContactFilters>({ page: 1, pageSize: 50 });
   // What is actually queried. Typing in search waits 300ms and then goes out together
