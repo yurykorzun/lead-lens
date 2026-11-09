@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { NOTE_MAX_LENGTH, type ContactNote } from '@lead-lens/shared';
 import { Button } from '@/components/ui/button';
 import { useNotes, useAddNote } from '@/hooks/use-notes';
+import { useViewAs } from '@/hooks/use-view-as';
 
 const ROLE_LABELS: Record<ContactNote['authorRole'], string> = {
   admin: 'Admin',
@@ -19,6 +20,7 @@ function when(iso: string) {
  */
 export function ContactNotes({ recordId }: { recordId: string }) {
   const [draft, setDraft] = useState('');
+  const asUser = useViewAs();
   const notes = useNotes(recordId);
   const add = useAddNote(recordId);
   const items = notes.data?.data ?? [];
@@ -42,6 +44,8 @@ export function ContactNotes({ recordId }: { recordId: string }) {
         Kept in Lead Lens only. Everyone who can see this borrower here can read them.
       </p>
 
+      {/* Viewing as someone is read-only: a note here would be posted as the admin */}
+      {!asUser && <>
       <textarea
         aria-label="New note"
         value={draft}
@@ -62,6 +66,7 @@ export function ContactNotes({ recordId }: { recordId: string }) {
       {add.isError && (
         <p role="alert" className="mt-2 text-sm text-destructive">{add.error instanceof Error ? add.error.message : 'Could not save the note'}</p>
       )}
+      </>}
 
       <div className="mt-4 space-y-3">
         {notes.isPending ? (

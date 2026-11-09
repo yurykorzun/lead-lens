@@ -1,5 +1,6 @@
 import { useQuery, keepPreviousData } from '@tanstack/react-query';
 import { api } from '@/lib/api';
+import { useViewAs } from '@/hooks/use-view-as';
 import type { ContactRow, ContactFilters } from '@lead-lens/shared';
 
 /** What GET /api/contacts returns (server/src/routes/contacts.ts) */
@@ -10,8 +11,9 @@ export interface ContactsResponse {
 }
 
 export function useContacts(filters: ContactFilters) {
+  const asUser = useViewAs();
   return useQuery({
-    queryKey: ['contacts', filters],
+    queryKey: ['contacts', filters, asUser],
     placeholderData: keepPreviousData,
     queryFn: () => {
       const params = new URLSearchParams();
@@ -22,6 +24,7 @@ export function useContacts(filters: ContactFilters) {
       if (filters.dateTo) params.set('dateTo', filters.dateTo);
       if (filters.page) params.set('page', String(filters.page));
       if (filters.pageSize) params.set('pageSize', String(filters.pageSize));
+      if (asUser) params.set('asUser', asUser);
       const qs = params.toString();
       return api.get<ContactsResponse>(`/contacts${qs ? `?${qs}` : ''}`);
     },

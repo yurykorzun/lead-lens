@@ -1,7 +1,8 @@
 import { Router, type Response } from 'express';
 import { eq, desc } from 'drizzle-orm';
 import { requireAuth, type AuthenticatedRequest } from '../middleware/auth.js';
-import { NOTE_MAX_LENGTH, type ContactFilters, type ContactNote } from '@lead-lens/shared';
+import { NOTE_MAX_LENGTH, type ContactFilters, type ContactNote, type RealtorTask } from '@lead-lens/shared';
+import { findViewAsUser, isUuid, scopeForUser } from '../services/view-as.js';
 import { getDb } from '../db/index.js';
 import { notes } from '../db/schema.js';
 import { executeSoql, buildContactQuery, mapRow, isRowInScope, type Scope } from '../services/salesforce/query.js';
@@ -24,13 +25,52 @@ export function scopeFor(req: AuthenticatedRequest): Scope | null {
   return null;
 }
 
+function sendNoScope(res: Response, viewingAs: boolean) {
+  const message = viewingAs
+    ? 'This user is not linked to Salesforce yet.'
+    : 'Your account is not linked to Salesforce yet. Contact your admin.';
+  res.status(403).json({ success: false, error: { code: 'NO_SCOPE', message } });
+}
+
+interface ReadScope { scope: Scope; viewingAs: boolean }
+
+/**
+ * The scope for a GET. An admin may pass ?asUser=<Lead Lens user id> to see exactly what
+ * that agent or loan officer sees. Only GET routes call this, so writes never run as them.
+ */
+async function readScope(req: AuthenticatedRequest, res: Response): Promise<ReadScope | null> {
+  const asUser = req.query.asUser;
+  if (asUser === undefined) {
+    const scope = scopeFor(req);
+    if (!scope) { sendNoScope(res, false); return null; }
+    return { scope, viewingAs: false };
+  }
+  if (req.userRole !== 'admin') {
+    res.status(403).json({ success: false, error: { code: 'FORBIDDEN', message: 'Only admins can view as another user' } });
+    return null;
+  }
+  if (!isUuid(asUser)) {
+    res.status(400).json({ success: false, error: { code: 'VALIDATION', message: 'asUser must be a user id' } });
+    return null;
+  }
+  const user = await findViewAsUser(asUser);
+  if (!user || (user.role !== 'agent' && user.role !== 'loan_officer')) {
+    res.status(404).json({ success: false, error: { code: 'NOT_FOUND', message: 'User not found' } });
+    return null;
+  }
+  const scope = scopeForUser(user);
+  if (!scope) { sendNoScope(res, true); return null; }
+  return { scope, viewingAs: true };
+}
+
+// Viewing as a realtor shows her steps, but the admin cannot complete them
+const readOnly = (tasks: RealtorTask[]) => tasks.map(t => ({ ...t, canComplete: false }));
+
 router.get('/', requireAuth, async (req: AuthenticatedRequest, res) => {
   try {
-    const scope = scopeFor(req);
-    if (!scope) {
-      res.status(403).json({ success: false, error: { code: 'NO_SCOPE', message: 'Your account is not linked to Salesforce yet. Contact your admin.' } });
-      return;
-    }
+    const read = await readScope(req, res);
+    if (!read) return;
+    const { scope } = read;
 
     const filters = req.query as unknown as ContactFilters;
     if ((filters.dateFrom && !isIsoDate(filters.dateFrom)) || (filters.dateTo && !isIsoDate(filters.dateTo))) {
@@ -87,24 +127,34 @@ function toNote(row: typeof notes.$inferSelect, userId: string | undefined): Con
   };
 }
 
+/** The borrower in the URL, checked against the caller's own scope - for writes */
 async function borrowerScope(req: AuthenticatedRequest, res: Response): Promise<string | null> {
-  const recordId = req.params.id as string;
   const scope = scopeFor(req);
-  if (!scope) {
-    res.status(403).json({ success: false, error: { code: 'NO_SCOPE', message: 'Your account is not linked to Salesforce yet. Contact your admin.' } });
-    return null;
-  }
+  if (!scope) { sendNoScope(res, false); return null; }
+  return (await borrowerInScope(req, res, scope)) ? req.params.id as string : null;
+}
+
+/** The same check for a GET, where an admin may be viewing as someone */
+async function borrowerReadScope(req: AuthenticatedRequest, res: Response): Promise<(ReadScope & { recordId: string }) | null> {
+  const read = await readScope(req, res);
+  if (!read) return null;
+  return (await borrowerInScope(req, res, read.scope)) ? { ...read, recordId: req.params.id as string } : null;
+}
+
+async function borrowerInScope(req: AuthenticatedRequest, res: Response, scope: Scope): Promise<boolean> {
+  const recordId = req.params.id as string;
   if (!isSfId(recordId) || !(await isRowInScope(scope, recordId))) {
     res.status(404).json({ success: false, error: { code: 'NOT_FOUND', message: 'Borrower not found' } });
-    return null;
+    return false;
   }
-  return recordId;
+  return true;
 }
 
 router.get('/:id/notes', requireAuth, async (req: AuthenticatedRequest, res) => {
   try {
-    const recordId = await borrowerScope(req, res);
-    if (!recordId) return;
+    const read = await borrowerReadScope(req, res);
+    if (!read) return;
+    const { recordId } = read;
     const rows = await getDb().select().from(notes)
       .where(eq(notes.sfRecordId, recordId)).orderBy(desc(notes.createdAt));
     res.json({ success: true, data: rows.map(r => toNote(r, req.userId)) });
@@ -156,6 +206,16 @@ function realtorOnly(req: AuthenticatedRequest, res: Response): string | null {
 
 router.get('/tasks/open', requireAuth, async (req: AuthenticatedRequest, res) => {
   try {
+    if (req.query.asUser !== undefined) {
+      const read = await readScope(req, res);
+      if (!read) return;
+      if (read.scope.role !== 'agent') {
+        res.status(403).json({ success: false, error: { code: 'FORBIDDEN', message: 'Only realtors have a to do list' } });
+        return;
+      }
+      res.json({ success: true, data: readOnly(await listOpenTasks(read.scope.contactId)) });
+      return;
+    }
     const contactId = realtorOnly(req, res);
     if (!contactId) return;
     res.json({ success: true, data: await listOpenTasks(contactId) });
@@ -167,9 +227,10 @@ router.get('/tasks/open', requireAuth, async (req: AuthenticatedRequest, res) =>
 
 router.get('/:id/tasks', requireAuth, async (req: AuthenticatedRequest, res) => {
   try {
-    const recordId = await borrowerScope(req, res);
-    if (!recordId) return;
-    res.json({ success: true, data: await listBorrowerTasks(scopeFor(req)!, recordId) });
+    const read = await borrowerReadScope(req, res);
+    if (!read) return;
+    const tasks = await listBorrowerTasks(read.scope, read.recordId);
+    res.json({ success: true, data: read.viewingAs ? readOnly(tasks) : tasks });
   } catch (err) {
     console.error('Tasks GET error:', err);
     res.status(500).json({ success: false, error: { code: 'SERVER_ERROR', message: 'Failed to load tasks' } });

@@ -34,7 +34,31 @@ export function buildTaskForRealtorQuery(contactId: string, recordId: string, ta
 
 /** Her open tasks on every borrower, for the "to do" list */
 export function buildOpenTasksQuery(contactId: string): string {
-  return `SELECT ${TASK_FIELDS} FROM Task WHERE Realtor_Contact__c = ${quoteId(contactId)} AND IsClosed = false ${ORDER} LIMIT 200`;
+  // 2000 so a realtor with many borrowers still gets every borrower's first step (6 steps each)
+  return `SELECT ${TASK_FIELDS} FROM Task WHERE Realtor_Contact__c = ${quoteId(contactId)} AND IsClosed = false ${ORDER} LIMIT 2000`;
+}
+
+// Call 1/2/3 then Showing 1/2/3, for steps due the same day
+const STEP_ORDER = ['Call 1', 'Call 2', 'Call 3', 'Showing 1', 'Showing 2', 'Showing 3'];
+function stepRank(subject: string | null): number {
+  const i = STEP_ORDER.findIndex(s => subject?.endsWith(s));
+  return i === -1 ? STEP_ORDER.length : i;
+}
+
+/**
+ * Only the next open step on each borrower, earliest due first. Salesforce creates the
+ * whole set at once, so without this a realtor with 25 borrowers sees 150 steps.
+ */
+export function nextStepPerBorrower<T extends Pick<TaskRecord, 'WhoId' | 'Subject' | 'ActivityDate' | 'Id'>>(tasks: T[]): T[] {
+  const byDue = (a: T, b: T) =>
+    (a.ActivityDate ?? '9999').localeCompare(b.ActivityDate ?? '9999') ||
+    stepRank(a.Subject) - stepRank(b.Subject) ||
+    a.Id.localeCompare(b.Id);
+  const next = new Map<string, T>();
+  for (const t of [...tasks].sort(byDue)) {
+    if (!next.has(t.WhoId)) next.set(t.WhoId, t);
+  }
+  return [...next.values()];
 }
 
 interface TaskRecord {
@@ -76,7 +100,7 @@ export async function findTaskForRealtor(contactId: string, recordId: string, ta
  */
 export async function listOpenTasks(contactId: string): Promise<RealtorTask[]> {
   const scope: Scope = { role: 'agent', contactId };
-  const tasks = (await executeSoql<TaskRecord>(buildOpenTasksQuery(contactId))).records;
+  const tasks = nextStepPerBorrower((await executeSoql<TaskRecord>(buildOpenTasksQuery(contactId))).records);
   const whoIds = [...new Set(tasks.map(t => t.WhoId).filter(isSfId))];
   if (whoIds.length === 0) return [];
 

@@ -22,7 +22,8 @@ test.describe('Notes (Lead Lens only)', () => {
 
     await loginAsAgent(page);
     await expect(page.locator('tbody tr').first()).toBeVisible({ timeout: 15_000 });
-    await page.getByText('John Smith').click();
+    // In the grid: the realtor's To do list names John Smith too
+    await page.locator('tbody').getByText('John Smith').click();
     let panel = page.getByTestId('contact-panel');
     await expect(panel.getByText('No notes yet.')).toBeVisible({ timeout: 5_000 });
     await expect(panel.getByRole('button', { name: 'Add note' })).toBeDisabled();
@@ -50,8 +51,8 @@ test.describe('Contacts grid (admin)', () => {
   test('loads borrower rows', async ({ page }) => {
     await loginAsAdmin(page);
     const rows = page.locator('tbody tr');
-    await expect(rows.first()).toBeVisible({ timeout: 15_000 });
-    expect(await rows.count()).toBe(8);
+    // Retries: the loading skeleton draws 10 placeholder rows first
+    await expect(rows).toHaveCount(8, { timeout: 15_000 });
   });
 
   test('search filters by name', async ({ page }) => {
@@ -154,5 +155,39 @@ test.describe('Admin view-as pages', () => {
 
     await page.locator('tbody tr').first().click();
     await expectReadOnlyPanel(page);
+  });
+
+  test("Agent View as one realtor shows her dashboard and To do, read-only", async ({ page }) => {
+    await loginAsAdmin(page);
+    await page.getByRole('link', { name: 'Agent View' }).click();
+    await expect(page.locator('tbody tr').first()).toBeVisible({ timeout: 15_000 });
+    const everyone = await page.locator('tbody tr').count();
+
+    await page.getByLabel('View as real estate agent').selectOption({ label: 'Test Agent' });
+    await expect(page).toHaveURL(/\/view\/agents\?user=/);
+    await expect(page.getByText(/exactly what Test Agent sees, read-only/)).toBeVisible();
+
+    // Her To do: one step per borrower, nothing to mark done
+    const todo = page.getByTestId('open-tasks');
+    await expect(todo).toBeVisible({ timeout: 15_000 });
+    await expect(todo.getByTestId('task')).toHaveCount(2);
+    await expect(page.getByRole('button', { name: 'Mark done' })).toHaveCount(0);
+
+    // Only her borrowers
+    await expect(page.locator('tbody tr').first()).toBeVisible();
+    await expect.poll(() => page.locator('tbody tr').count()).toBeLessThan(everyone);
+
+    // Her steps in the panel, read-only, and no note box
+    await page.locator('tbody').getByText('John Smith').click();
+    const panel = page.getByTestId('contact-panel');
+    await expect(panel.getByTestId('tasks')).toBeVisible({ timeout: 5_000 });
+    await expect(panel.getByTestId('task').first()).toBeVisible();
+    await expect(panel.getByRole('button', { name: 'Mark done' })).toHaveCount(0);
+    await expect(panel.getByLabel('New note')).toHaveCount(0);
+
+    // The link opens the same view again
+    await page.reload();
+    await expect(page.getByTestId('open-tasks')).toBeVisible({ timeout: 15_000 });
+    await expect(page.getByLabel('View as real estate agent')).not.toHaveValue('');
   });
 });

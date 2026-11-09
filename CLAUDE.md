@@ -103,6 +103,8 @@ By Id, never by name - two realtors can share a name. The Id is in the JWT as `s
 
 All routes prefixed with `/api/`. Auth via `Authorization: Bearer <jwt>` header.
 
+The `GET /contacts...` routes take `?asUser=<Lead Lens user id>` from an admin: the response is exactly what that agent or loan officer sees, with every task `canComplete: false` (`services/view-as.ts`). Writes never read it.
+
 | Method | Path | Description |
 |--------|------|-------------|
 | POST | /auth/login | Login (admin: email+password, LO/agent: email+accessCode) |
@@ -111,7 +113,7 @@ All routes prefixed with `/api/`. Auth via `Authorization: Bearer <jwt>` header.
 | GET | /contacts | Paginated borrower rows (SOQL on LeadAccount__c, scoped by Id) |
 | GET | /contacts/:id/notes | Notes on one borrower, newest first (Lead Lens DB only; anyone whose dashboard shows the borrower) |
 | POST | /contacts/:id/notes | Add a note, max 2000 characters (Lead Lens DB only, never Salesforce) |
-| GET | /contacts/tasks/open | The realtor's open realtor tasks on all her in-scope borrowers (agent only) |
+| GET | /contacts/tasks/open | The realtor's next open step on each in-scope borrower (agent, or admin with `asUser`) |
 | GET | /contacts/:id/tasks | Realtor tasks on one borrower: hers for an agent, all realtors' read-only for LO/admin |
 | POST | /contacts/:id/tasks/:taskId/complete | Mark one of her tasks Completed in Salesforce (agent only, no body) - the only Salesforce write |
 | GET | /metadata/dropdowns | Picklist values (cached 30min) |
@@ -168,6 +170,7 @@ FRONTEND_URL            # CORS origin, e.g., http://localhost:5173
 | `client/src/pages/dashboard.tsx` | Main dashboard (role-aware) |
 | `client/src/pages/admin.tsx` | Admin panel page (LO management) |
 | `client/src/pages/agents.tsx` | Admin panel page (Agent management) |
+| `client/src/pages/view-as.tsx` | Officer/Agent View: role columns over everyone, or one person's dashboard read-only (`?user=`) |
 | `client/src/providers/auth-provider.tsx` | Auth context + token management |
 | `client/src/hooks/use-crud.ts` | Generic CRUD hook factory (list, create, update, delete, regenerate) |
 | `client/src/hooks/use-loan-officers.ts` | LO hooks (thin wrappers around use-crud) |
@@ -235,6 +238,7 @@ FRONTEND_URL            # CORS origin, e.g., http://localhost:5173
 - An LO is scoped by `sf_user_id`, an agent by `sf_contact_id`. Without one they get 403 NO_SCOPE.
 - An agent cannot be created or saved without `sf_contact_id`, and the server checks the Contact exists. Admins pick it by name or email in Manage Agents rather than typing an Id: three agents were created unlinked on 2026-10-14 and saw an empty dashboard. A realtor's email in Salesforce often differs from the one they sign in with, so search by name too.
 - `requireAdmin` middleware gates all `/api/loan-officers` and `/api/agents` routes.
+- Admin "view as" is read-only. Only GET routes go through `readScope`; the UI hides Mark done and the note box while `ViewAsContext` is set, and completing a task stays agent-only on the server.
 - Nobody edits Salesforce data from Lead Lens, except the realtor marking her own realtor task done.
 
 ### Frontend
