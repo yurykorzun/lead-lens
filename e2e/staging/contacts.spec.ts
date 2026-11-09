@@ -65,8 +65,8 @@ test.describe('Contacts grid (admin)', () => {
   test('loads borrower rows', async ({ page }) => {
     await loginAsAdmin(page);
     const rows = page.locator('tbody tr');
-    await expect(rows.first()).toBeVisible({ timeout: 15_000 });
-    expect(await rows.count()).toBe(8);
+    // Retries: the loading skeleton draws 10 placeholder rows first
+    await expect(rows).toHaveCount(8, { timeout: 15_000 });
   });
 
   test('search filters by name', async ({ page }) => {
@@ -177,14 +177,19 @@ test.describe('Admin view-as pages', () => {
     await loginAsAdmin(page);
     await page.getByRole('link', { name: 'Agent View' }).click();
     const rows = page.locator('tbody tr');
-    await expect(rows.first()).toBeVisible({ timeout: 15_000 });
-    expect(await rows.count()).toBe(8);
+    await expect(rows).toHaveCount(8, { timeout: 15_000 });
+    await expect(page.getByTestId('open-tasks')).toHaveCount(0);
 
     await page.getByLabel('View as realtor').selectOption({ label: 'Test Agent' });
     await expect(page).toHaveURL(/as=/);
     await expect(page.getByText(/exactly the borrowers this realtor sees/i)).toBeVisible();
     await expect(rows).toHaveCount(6, { timeout: 15_000 });
     await expect(page.getByText('Sam Other')).toHaveCount(0);
+
+    // Her To do: the next step on each borrower, nothing to mark done
+    const todo = page.getByTestId('open-tasks');
+    await expect(todo.getByTestId('task')).toHaveCount(2, { timeout: 15_000 });
+    await expect(page.getByRole('button', { name: /mark done/i })).toHaveCount(0);
 
     await rows.filter({ hasText: 'Jane Doe' }).click();
     const panel = page.getByTestId('contact-panel');

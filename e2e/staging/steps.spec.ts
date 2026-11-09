@@ -23,17 +23,17 @@ test.describe('Realtor steps (mock Salesforce)', () => {
     await expect(steps.getByRole('button', { name: /mark done/i })).toHaveCount(0);
   });
 
-  test('the realtor sees only her open steps in scope, earliest first', async ({ page }) => {
+  test('the realtor sees only the next open step on each borrower in scope, earliest first', async ({ page }) => {
     await loginAsAgent(page);
     const todo = page.getByTestId('open-tasks');
     await expect(todo).toBeVisible({ timeout: 15_000 });
-    await expect(todo.getByRole('heading')).toHaveText('To do (4)');
-    // The first 3, then the rest behind a button
-    await expect(todo.getByTestId('task')).toHaveCount(3);
+    // John Smith has Call 1, Call 2 and Showing 1 open - only Call 1 is listed
+    await expect(todo.getByRole('heading')).toHaveText('To do (2)');
+    await expect(todo.getByTestId('task')).toHaveCount(2);
     await expect(todo.getByTestId('task').first()).toContainText('Realtor: Call 1 · John Smith');
-    await todo.getByRole('button', { name: 'Show all 4' }).click();
-    await expect(todo.getByTestId('task')).toHaveCount(4);
     await expect(todo.getByTestId('task').last()).toContainText('Realtor: Call 1 · Jane Doe');
+    await expect(todo.getByText('Realtor: Call 2')).toHaveCount(0);
+    await expect(todo.getByRole('button', { name: /show all/i })).toHaveCount(0);
     await expect(todo.getByText('Sam Other')).toHaveCount(0);
     await expect(todo.getByText('Realtor: Call 3')).toHaveCount(0);
     await expect(todo.getByText('Follow up on pre-approval')).toHaveCount(0);
@@ -48,21 +48,22 @@ test.describe('Realtor steps (mock Salesforce)', () => {
   test('the realtor marks a step done and it stays done after a reload', async ({ page }) => {
     await loginAsAgent(page);
     const todo = page.getByTestId('open-tasks');
-    await expect(todo.getByRole('heading')).toHaveText('To do (4)', { timeout: 15_000 });
+    await expect(todo.getByRole('heading')).toHaveText('To do (2)', { timeout: 15_000 });
 
     await page.locator('tbody tr', { hasText: 'John Smith' }).click();
     const steps = page.getByTestId('contact-panel').getByTestId('tasks');
-    const call2 = steps.getByTestId('task').filter({ hasText: 'Realtor: Call 2' });
-    await call2.getByRole('button', { name: /mark done/i }).click();
+    const call1 = steps.getByTestId('task').filter({ hasText: 'Realtor: Call 1' });
+    await call1.getByRole('button', { name: /mark done/i }).click();
 
-    await expect(call2).toContainText('Done');
-    await expect(call2.getByRole('button', { name: /mark done/i })).toHaveCount(0);
-    await expect(todo.getByRole('heading')).toHaveText('To do (3)');
-    await expect(todo.getByText('Realtor: Call 2')).toHaveCount(0);
+    await expect(call1).toContainText('Done');
+    await expect(call1.getByRole('button', { name: /mark done/i })).toHaveCount(0);
+    // John Smith's next step takes its place in To do
+    await expect(todo.getByTestId('task').filter({ hasText: 'John Smith' })).toContainText('Realtor: Call 2');
+    await expect(todo.getByRole('heading')).toHaveText('To do (2)');
 
     await page.reload();
-    await expect(todo.getByRole('heading')).toHaveText('To do (3)', { timeout: 15_000 });
+    await expect(todo.getByTestId('task').filter({ hasText: 'John Smith' })).toContainText('Realtor: Call 2', { timeout: 15_000 });
     await page.locator('tbody tr', { hasText: 'John Smith' }).click();
-    await expect(steps.getByTestId('task').filter({ hasText: 'Realtor: Call 2' })).toContainText('Done');
+    await expect(steps.getByTestId('task').filter({ hasText: 'Realtor: Call 1' })).toContainText('Done');
   });
 });
