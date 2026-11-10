@@ -26,23 +26,23 @@ test.describe('Realtor stage and LO card (mock Salesforce)', () => {
     await page.locator('tbody tr', { hasText: 'John Smith' }).click();
     await expect(stage.getByTestId('stage-current')).toHaveText('Not set yet', { timeout: 5_000 });
     await stage.getByRole('button', { name: 'Set the stage' }).click();
-    await stage.getByRole('button', { name: 'Realtor Consultation' }).click();
-    await expect(stage.getByTestId('stage-current')).toHaveText('Realtor Consultation');
+    await stage.getByRole('button', { name: 'Realty Consultation' }).click();
+    await expect(stage.getByTestId('stage-current')).toHaveText('Realty Consultation');
     await expect(stage).toContainText('2 of 6');
     await expect(stage).toContainText('by Test Agent');
     // The change is in the shared notes too, so the LO sees it in Salesforce
-    await expect(panel.getByTestId('notes')).toContainText('Stage: Realtor Consultation');
+    await expect(panel.getByTestId('notes')).toContainText('Stage: Realty Consultation');
 
     await page.reload();
     await page.locator('tbody tr', { hasText: 'John Smith' }).click();
-    await expect(stage.getByTestId('stage-current')).toHaveText('Realtor Consultation', { timeout: 5_000 });
+    await expect(stage.getByTestId('stage-current')).toHaveText('Realty Consultation', { timeout: 5_000 });
   });
 
   test('the LO reads the stage but cannot change it, and gets no card of themselves', async ({ page }) => {
     await loginAsLO(page);
     await page.locator('tbody tr', { hasText: 'John Smith' }).click();
     const panel = page.getByTestId('contact-panel');
-    await expect(panel.getByTestId('stage-current')).toHaveText('Realtor Consultation', { timeout: 5_000 });
+    await expect(panel.getByTestId('stage-current')).toHaveText('Realty Consultation', { timeout: 5_000 });
     await expect(panel.getByTestId('stage').getByRole('button')).toHaveCount(0);
     await expect(panel.getByTestId('loan-officer')).toHaveCount(0);
   });

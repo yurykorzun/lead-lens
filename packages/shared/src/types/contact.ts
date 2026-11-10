@@ -30,7 +30,7 @@ export interface ContactRow {
  */
 export const REALTOR_STAGES = [
   'Attempting Contact',
-  'Realtor Consultation',
+  'Realty Consultation',
   'Touring Homes',
   'Making Offers',
   'Under Contract',
