@@ -82,25 +82,6 @@ export interface ContactNote {
 
 export const NOTE_MAX_LENGTH = 2000;
 
-/**
- * A Salesforce Task from the fixed realtor set (call 1/2/3, showing 1/2/3). Salesforce
- * creates the set; Lead Lens only lists it and lets the realtor mark one done.
- * No description, because Task bodies carry internal notes.
- */
-export interface RealtorTask {
-  id: string;
-  subject: string;
-  /** YYYY-MM-DD */
-  dueDate?: string;
-  status: string;
-  done: boolean;
-  /** The borrower row (Lead or person Contact Id) the task is on */
-  borrowerId: string;
-  borrowerName?: string;
-  /** Only the realtor the task is for can complete it */
-  canComplete: boolean;
-}
-
 export interface ContactFilters {
   search?: string;
   status?: string;

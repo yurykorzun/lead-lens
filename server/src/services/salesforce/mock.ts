@@ -131,69 +131,8 @@ function mockContactQuery(soql: string) {
   return { totalSize: records.length, done: true, records };
 }
 
-// ── Realtor tasks (lendinggroupco-uhnx.11) ─────────────────────────────
-// Lead 1 (John Smith, the test agent's) has her three, an LP task with no realtor stamp,
-// and another realtor's. Task 7 is hers but on lead 6, which the other agent now refers.
-
-interface FakeTask {
-  Id: string; Subject: string; ActivityDate: string | null; Status: string; IsClosed: boolean;
-  WhoId: string; Realtor_Contact__c: string | null; Description: string | null;
-}
-
-function task(n: number, whoN: number, realtor: string | null, subject: string, due: string): FakeTask {
-  return {
-    Id: `00TMOCKTASK0000${n}AA`, Subject: subject, ActivityDate: due, Status: 'Not Started', IsClosed: false,
-    WhoId: `00QMOCKLEAD0000${whoN}AA`, Realtor_Contact__c: realtor,
-    Description: realtor ? null : 'LP internal note - must never reach Lead Lens',
-  };
-}
-
-const INITIAL_TASKS: FakeTask[] = [
-  task(1, 1, MOCK_AGENT_CONTACT_ID, 'Realtor: Call 1', '2026-11-04'),
-  task(2, 1, MOCK_AGENT_CONTACT_ID, 'Realtor: Call 2', '2026-11-05'),
-  task(3, 1, MOCK_AGENT_CONTACT_ID, 'Realtor: Showing 1', '2026-11-10'),
-  task(4, 1, null, 'Follow up on pre-approval', '2026-11-01'),
-  task(5, 1, OTHER_AGENT_ID, 'Realtor: Call 1', '2026-11-03'),
-  task(6, 2, MOCK_AGENT_CONTACT_ID, 'Realtor: Call 1', '2026-11-12'),
-  task(7, 6, MOCK_AGENT_CONTACT_ID, 'Realtor: Call 3', '2026-11-06'),
-];
-
-let fakeTasks: FakeTask[] = INITIAL_TASKS.map(t => ({ ...t }));
-
 /** Every write the mock received, so tests can prove exactly what would reach Salesforce */
 export const mockWrites: { sobject: string; id: string; body: Record<string, unknown> }[] = [];
-
-export function resetMockTasks() {
-  fakeTasks = INITIAL_TASKS.map(t => ({ ...t }));
-  mockWrites.length = 0;
-}
-
-export function mockUpdateRecord(sobject: string, id: string, body: Record<string, unknown>) {
-  mockWrites.push({ sobject, id, body: { ...body } });
-  const t = sobject === 'Task' ? fakeTasks.find(x => x.Id === id) : undefined;
-  if (!t) throw new Error(`Mock update failed: 404 ${sobject} ${id}`);
-  if (body.Status === 'Completed') Object.assign(t, { Status: 'Completed', IsClosed: true });
-}
-
-function mockTaskQuery(soql: string) {
-  let tasks = [...fakeTasks];
-  const id = soql.match(/WHERE Id = '([^']+)'/);
-  if (id) tasks = tasks.filter(t => t.Id === id[1]);
-  const who = soql.match(/WhoId = '([^']+)'/);
-  if (who) tasks = tasks.filter(t => t.WhoId === who[1]);
-  const realtor = soql.match(/Realtor_Contact__c = '([^']+)'/);
-  if (realtor) tasks = tasks.filter(t => t.Realtor_Contact__c === realtor[1]);
-  if (soql.includes('Realtor_Contact__c != null')) tasks = tasks.filter(t => t.Realtor_Contact__c);
-  if (soql.includes('IsClosed = false')) tasks = tasks.filter(t => !t.IsClosed);
-  tasks.sort((a, b) => (a.ActivityDate ?? '9999').localeCompare(b.ActivityDate ?? '9999') || a.Id.localeCompare(b.Id));
-  // Only the selected fields, like the real API - so a leak of Description would show in tests
-  const fields = soql.match(/SELECT (.+?) FROM/)![1].split(',').map(f => f.trim()) as (keyof FakeTask)[];
-  const records = tasks.map(t => ({
-    attributes: { type: 'Task', url: `/services/data/v62.0/sobjects/Task/${t.Id}` },
-    ...Object.fromEntries(fields.map(f => [f, t[f]])),
-  }));
-  return { totalSize: records.length, done: true, records };
-}
 
 // ── Realtor notes (lendinggroupco-uhnx.12) ─────────────────────────────
 // Jane Doe (lead 2) has one note on her Lead and one on her new Contact. Maria Garcia has an
@@ -291,7 +230,6 @@ function mockNoteQuery(soql: string) {
 
 export function mockExecuteSoql<T = Record<string, unknown>>(soql: string): SFQueryResponse<T> {
   if (/FROM Contact\b/.test(soql)) return mockContactQuery(soql) as unknown as SFQueryResponse<T>;
-  if (/FROM Task\b/.test(soql)) return mockTaskQuery(soql) as unknown as SFQueryResponse<T>;
   if (/FROM Realtor_Note__c\b/.test(soql)) return mockNoteQuery(soql) as unknown as SFQueryResponse<T>;
   let rows = [...FAKE_ROWS];
 
@@ -303,13 +241,6 @@ export function mockExecuteSoql<T = Record<string, unknown>>(soql: string): SFQu
   // One borrower row by its Lead or Contact Id (the notes scope check)
   const one = soql.match(/\(Lead__c = '([^']+)' OR Contact__c = '([^']+)'\)/);
   if (one) rows = rows.filter(r => r.Lead__c === one[1] || r.Contact__c === one[1]);
-  // Several borrower rows by Id (the open-tasks scope check)
-  const many = soql.match(/Lead__c IN \(([^)]+)\)/);
-  if (many) {
-    const ids = many[1].split(',').map(s => s.trim().replace(/'/g, ''));
-    rows = rows.filter(r => ids.includes(r.Lead__c ?? '') || ids.includes(r.Contact__c ?? ''));
-  }
-
   if (soql.includes('Lead__c = null')) rows = rows.filter(r => !r.Lead__c);
   const status = soql.match(/Status__c = '([^']+)'/);
   if (status) rows = rows.filter(r => r.Lead__c && r.Status__c === status[1]);
