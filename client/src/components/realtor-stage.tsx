@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Check, ChevronDown, ChevronUp } from 'lucide-react';
+import { Check, ChevronDown, ChevronRight, ChevronUp } from 'lucide-react';
 import { REALTOR_STAGES, REALTOR_STAGE_ON_HOLD, type RealtorStage } from '@lead-lens/shared';
 import { Button } from '@/components/ui/button';
 import { useStage, useSetStage } from '@/hooks/use-stage';
@@ -82,19 +82,27 @@ export function RealtorStageCard({ recordId, role }: { recordId: string; role: '
           </Button>
           {open && (
             <ul id="stage-choices" className="mt-2 divide-y rounded-md border" aria-label="Stages">
-              {CHOICES.map(s => {
+              {CHOICES.map((s, i) => {
                 const isCurrent = s === current;
+                // A checklist, as on AgentDash: every stage up to the current one is ticked
+                const done = isCurrent || (index >= 0 && i <= index);
                 return (
                   <li key={s}>
                     <button
                       type="button"
-                      className="flex min-h-11 w-full items-center justify-between gap-3 px-3 text-left text-sm hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring disabled:opacity-60"
+                      className="flex min-h-11 w-full items-center gap-3 px-3 text-left text-sm hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring disabled:opacity-60"
                       aria-pressed={isCurrent}
                       disabled={set.isPending}
                       onClick={() => void choose(s)}
                     >
-                      <span className={s === REALTOR_STAGE_ON_HOLD ? 'text-muted-foreground' : ''}>{s}</span>
-                      {isCurrent && <Check aria-hidden="true" className="h-4 w-4 text-progress" />}
+                      <span
+                        aria-hidden="true"
+                        className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-full border-2 ${done ? 'border-progress bg-progress text-background' : 'border-progress-track'}`}
+                      >
+                        {done && <Check className="h-3 w-3" strokeWidth={3} />}
+                      </span>
+                      <span className={`flex-1 ${s === REALTOR_STAGE_ON_HOLD ? 'text-muted-foreground' : ''} ${isCurrent ? 'font-medium' : ''}`}>{s}</span>
+                      <ChevronRight aria-hidden="true" className="h-4 w-4 text-muted-foreground" />
                     </button>
                   </li>
                 );

@@ -7,7 +7,6 @@ import { AppLayout } from '@/components/layout/app-layout';
 import { ContactGrid } from '@/components/grid/contact-grid';
 import { FilterBar, SELECT_CLASS } from '@/components/grid/filter-bar';
 import { ContactDetailPanel } from '@/components/contact-detail-panel';
-import { OpenTasks } from '@/components/open-tasks';
 import { adminColumns, loanOfficerColumns, agentColumns } from '@/components/grid/columns';
 import { Button } from '@/components/ui/button';
 import { useMediaQuery } from '@/hooks/use-media-query';
@@ -21,9 +20,7 @@ const COLUMNS_BY_ROLE = {
   agent: agentColumns,
 } as const;
 
-// showOpenTasks: on a realtor's own dashboard, or an admin viewing as one realtor
-// (ViewAsContext) - the list belongs to one person
-export function DashboardContent({ displayRole, showOpenTasks = false }: { displayRole: DisplayRole; showOpenTasks?: boolean }) {
+export function DashboardContent({ displayRole }: { displayRole: DisplayRole }) {
   const [filters, setFilters] = useState<ContactFilters>({ page: 1, pageSize: 50 });
   // What is actually queried. Typing in search waits 300ms and then goes out together
   // with the page reset it caused; every other change, and clearing the search, is
@@ -69,7 +66,6 @@ export function DashboardContent({ displayRole, showOpenTasks = false }: { displ
     <div className="flex h-full gap-4">
       {/* Left: table area */}
       <div className="flex min-w-0 flex-1 flex-col gap-4">
-        {showOpenTasks && <OpenTasks />}
         <h2 className="sr-only">Contacts</h2>
         <FilterBar filters={filters} onChange={updateFilters} dropdowns={dropdowns} />
 
@@ -164,7 +160,7 @@ export default function DashboardPage() {
 
   return (
     <AppLayout>
-      <DashboardContent displayRole={user.role as DisplayRole} showOpenTasks={user.role === 'agent'} />
+      <DashboardContent displayRole={user.role as DisplayRole} />
     </AppLayout>
   );
 }

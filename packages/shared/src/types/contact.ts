@@ -30,12 +30,11 @@ export interface ContactRow {
  */
 export const REALTOR_STAGES = [
   'Attempting Contact',
-  'Initial Contact',
-  'Consultation',
+  'Realtor Consultation',
   'Touring Homes',
   'Making Offers',
   'Under Contract',
-  'Closed',
+  'Funded',
 ] as const;
 export const REALTOR_STAGE_ON_HOLD = 'On Hold';
 export type RealtorStage = (typeof REALTOR_STAGES)[number] | typeof REALTOR_STAGE_ON_HOLD;

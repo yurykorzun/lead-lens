@@ -10,7 +10,6 @@ import { formatPhone, phoneHref } from '@lead-lens/shared';
 import { formatDay } from '@/components/grid/format';
 import { Empty } from '@/components/grid/cells';
 import { ContactNotes } from '@/components/contact-notes';
-import { ContactTasks } from '@/components/contact-tasks';
 
 export interface ContactDetailPanelProps {
   contact: ContactRow;
@@ -178,7 +177,6 @@ export function ContactDetailPanel({ contact, onClose, role, covers = false }: C
 
         <RealtorStageCard key={`stage-${contact.id}`} recordId={contact.id} role={role} />
         <LoanOfficerCard contact={contact} role={role} />
-        <ContactTasks key={`tasks-${contact.id}`} recordId={contact.id} role={role} />
         <ContactNotes key={contact.id} recordId={contact.id} />
 
         <section aria-labelledby="panel-kind" className="mt-6">
