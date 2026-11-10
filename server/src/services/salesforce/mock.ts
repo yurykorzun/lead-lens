@@ -277,6 +277,7 @@ function mockNoteQuery(soql: string) {
   const notes = fakeNotes
     .filter(n => wanted.some(([field, ids]) => n[field] !== null && ids.includes(n[field] as string)) || viaLoan(n))
     .filter(n => !staged || n.Stage__c !== null)
+    .filter(n => !soql.includes("Stage__c != 'On Hold'") || n.Stage__c !== 'On Hold')
     .sort((a, b) => (b.Written_At__c ?? '').localeCompare(a.Written_At__c ?? '') || b.Id.localeCompare(a.Id))
     .slice(0, limit);
   // Only the selected fields, like the real API

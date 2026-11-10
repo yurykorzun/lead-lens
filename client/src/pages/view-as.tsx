@@ -91,7 +91,7 @@ export default function ViewAsPage() {
         <div className="min-h-0 flex-1">
           {/* key: a new person starts from page 1 with no filters and no open borrower */}
           <ViewAsContext.Provider value={viewAs}>
-            <DashboardContent key={viewAs ?? 'all'} displayRole={displayRole} showOpenTasks={Boolean(viewAs) && displayRole === 'agent'} />
+            <DashboardContent key={viewAs ?? 'all'} displayRole={displayRole} />
           </ViewAsContext.Provider>
         </div>
       </div>

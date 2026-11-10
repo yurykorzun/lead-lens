@@ -112,9 +112,9 @@ All routes prefixed with `/api/`. Auth via `Authorization: Bearer <jwt>` header.
 | GET | /contacts | Paginated borrower rows (SOQL on LeadAccount__c, scoped by Id) |
 | GET | /contacts/:id/notes | Realtor notes on one borrower, newest first: `Realtor_Note__c` on the row's Lead/Contact, its person account and loans (anyone whose dashboard shows the borrower; a realtor gets the account and loan notes only for her own referral) |
 | POST | /contacts/:id/notes | Add a note, max 2000 characters - one `Realtor_Note__c` insert, Source = Lead Lens |
-| GET | /contacts/:id/stage | The buyer's realtor stage (the newest `Realtor_Note__c` with `Stage__c`), or `{ enabled: false }` while `REALTOR_STAGE` is off |
+| GET | /contacts/:id/stage | The buyer's realtor stage (the newest `Realtor_Note__c` with `Stage__c`; while On Hold, `pausedAt` is the newest stage before it, a second query), or `{ enabled: false }` while `REALTOR_STAGE` is off |
 | POST | /contacts/:id/stage | The realtor moves the buyer to a stage (agent only, `{ stage }` from `REALTOR_STAGES`) - one note insert with `Stage__c`; the same stage again writes nothing |
-| GET | /contacts/tasks/open | The realtor's next open step on each in-scope borrower (agent, or admin with `viewAs=agent:`, read-only) |
+| GET | /contacts/tasks/open | The realtor's next open step on each in-scope borrower (agent, or admin with `viewAs=agent:`, read-only). No screen calls it since the buying stage replaced the steps (Marat, 2026-11-10) |
 | GET | /contacts/:id/tasks | Realtor tasks on one borrower: hers for an agent, all realtors' read-only for LO/admin |
 | POST | /contacts/:id/tasks/:taskId/complete | Mark one of her tasks Completed in Salesforce (agent only, no body) - the only Salesforce update |
 | GET | /metadata/dropdowns | Picklist values (cached 30min) |
@@ -251,7 +251,7 @@ REALTOR_STAGE           # true once Realtor_Note__c.Stage__c is deployed to the 
 - Tailwind CSS v4 with `@tailwindcss/vite` plugin (CSS-based config, no tailwind.config).
 - `@/` path alias resolves to `client/src/`.
 - shadcn/ui components in `client/src/components/ui/`.
-- Contact detail panel is laid out for a realtor on a phone, top to bottom: name with status and source chips, Call / Text / Email, the buying stage (`realtor-stage.tsx`, realtor sets it, others read), the LO card (`loan-officer-card.tsx`, the owner's name, email and phone - not shown to an LO, whose rows are all their own), the realtor steps (`contact-tasks.tsx`), realtor notes (`contact-notes.tsx`, each showing its author and whether it was written in Lead Lens or Salesforce), then the read-only details list. No tabs. A realtor's own dashboard also shows her open steps above the grid (`open-tasks.tsx`).
+- Contact detail panel is laid out for a realtor on a phone, top to bottom: name with status and source chips, Call / Text / Email, the buying stage (`realtor-stage.tsx`, realtor sets it, others read), the LO card (`loan-officer-card.tsx`, the owner's name, email and phone - not shown to an LO, whose rows are all their own), realtor notes (`contact-notes.tsx`, each showing its author and whether it was written in Lead Lens or Salesforce), then the read-only details list. No tabs. The buying stage is the realtor's task list, as on AgentDash: Marat asked on 2026-11-10 for it to replace the Call 1/2/3, Showing 1/2/3 steps, so the panel and dashboard no longer show those. The task routes and the one task write stay until the Salesforce steps are retired.
 - Vite proxy: `/api` → `http://localhost:3001` (configured in `client/vite.config.ts`). Configurable via `VITE_API_TARGET` env var.
 - Column definitions are split: `adminColumns`, `loanOfficerColumns`, and `agentColumns`.
 - **Light and dark themes.** Colors are role tokens in `client/src/index.css` (`bg-background`, `text-muted-foreground`, `bg-row-selected`, `bg-notice`...), with the dark values under `.dark`. Use a token, not a raw palette class like `text-slate-500`; where a hue is the point (status badges in `columns.tsx`) write the `dark:` pair next to it. `next-themes` sets the class (`providers/theme-provider.tsx`, key `lead-lens-theme`).

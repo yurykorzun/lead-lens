@@ -22,7 +22,6 @@ test.describe('Realtor notes (Realtor_Note__c, mock Salesforce)', () => {
 
     await loginAsAgent(page);
     await expect(page.locator('tbody tr').first()).toBeVisible({ timeout: 15_000 });
-    // The grid row, not her open-steps list above it, which also names the borrower
     await page.locator('tbody tr', { hasText: 'John Smith' }).click();
     let panel = page.getByTestId('contact-panel');
     // Mock notes live in the staging server's memory, so an earlier run may have left some
@@ -108,8 +107,8 @@ test.describe('Contacts grid (loan officer)', () => {
   test('LO sees only their own rows, read-only', async ({ page }) => {
     await loginAsLO(page);
     const rows = page.locator('tbody tr');
-    await expect(rows.first()).toBeVisible({ timeout: 15_000 });
-    expect(await rows.count()).toBe(6);
+    // Retries, because the loading state draws 10 placeholder rows
+    await expect(rows).toHaveCount(6, { timeout: 15_000 });
     await expect(page.getByText('Sam Other')).toHaveCount(0);
 
     await rows.first().click();
@@ -178,18 +177,14 @@ test.describe('Admin view-as pages', () => {
     await page.getByRole('link', { name: 'Agent View' }).click();
     const rows = page.locator('tbody tr');
     await expect(rows).toHaveCount(8, { timeout: 15_000 });
-    await expect(page.getByTestId('open-tasks')).toHaveCount(0);
 
     await page.getByLabel('View as realtor').selectOption({ label: 'Test Agent' });
     await expect(page).toHaveURL(/as=/);
     await expect(page.getByText(/exactly the borrowers this realtor sees/i)).toBeVisible();
     await expect(rows).toHaveCount(6, { timeout: 15_000 });
     await expect(page.getByText('Sam Other')).toHaveCount(0);
-
-    // Her To do: the next step on each borrower, nothing to mark done
-    const todo = page.getByTestId('open-tasks');
-    await expect(todo.getByTestId('task')).toHaveCount(2, { timeout: 15_000 });
-    await expect(page.getByRole('button', { name: /mark done/i })).toHaveCount(0);
+    // The old step list is gone from Agent View
+    await expect(page.getByTestId('open-tasks')).toHaveCount(0);
 
     await rows.filter({ hasText: 'Jane Doe' }).click();
     const panel = page.getByTestId('contact-panel');

@@ -1,4 +1,4 @@
-import { isRealtorStage, type ContactNote, type NoteAuthorRole, type NoteSource, type RealtorStage, type RealtorStageState, type SFQueryResponse } from '@lead-lens/shared';
+import { isRealtorStage, REALTOR_STAGE_ON_HOLD, type ContactNote, type NoteAuthorRole, type NoteSource, type RealtorStage, type RealtorStageState, type SFQueryResponse } from '@lead-lens/shared';
 import { getSalesforceToken } from './auth.js';
 import { executeSoql, quoteId, type RowIds } from './query.js';
 import { mockCreateRecord } from './mock.js';
@@ -58,10 +58,12 @@ export function buildNotesQuery(ids: RowIds): string | null {
 }
 
 /** The newest stage note among the notes this user may read on the borrower */
-export function buildStageQuery(ids: RowIds): string | null {
+// skipOnHold: the newest stage on the path, for a buyer who is paused now
+export function buildStageQuery(ids: RowIds, skipOnHold = false): string | null {
   const where = notesWhere(ids);
   if (!where) return null;
-  return `SELECT Id, Stage__c, Author_Name__c, Written_At__c FROM Realtor_Note__c WHERE Stage__c != null AND ${where}` +
+  const hold = skipOnHold ? ` AND Stage__c != '${REALTOR_STAGE_ON_HOLD}'` : '';
+  return `SELECT Id, Stage__c, Author_Name__c, Written_At__c FROM Realtor_Note__c WHERE Stage__c != null${hold} AND ${where}` +
     ' ORDER BY Written_At__c DESC NULLS LAST, Id DESC LIMIT 1';
 }
 
@@ -158,7 +160,13 @@ export async function currentStage(ids: RowIds): Promise<RealtorStageState> {
   const result = await executeSoql<{ Stage__c: string | null; Author_Name__c: string | null; Written_At__c: string | null }>(soql);
   const r = result.records[0];
   if (!r || !isRealtorStage(r.Stage__c)) return { enabled: true };
-  return { enabled: true, stage: r.Stage__c, setBy: r.Author_Name__c || undefined, setAt: r.Written_At__c || undefined };
+  const state: RealtorStageState = { enabled: true, stage: r.Stage__c, setBy: r.Author_Name__c || undefined, setAt: r.Written_At__c || undefined };
+  if (r.Stage__c === REALTOR_STAGE_ON_HOLD) {
+    // Paused buyers keep the stages they already reached on the checklist
+    const before = (await executeSoql<{ Stage__c: string | null }>(buildStageQuery(ids, true)!)).records[0];
+    if (before && isRealtorStage(before.Stage__c) && before.Stage__c !== REALTOR_STAGE_ON_HOLD) state.pausedAt = before.Stage__c;
+  }
+  return state;
 }
 
 export async function listRealtorNotes(ids: RowIds): Promise<ContactNote[]> {
