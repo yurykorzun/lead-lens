@@ -14,7 +14,7 @@ function when(iso?: string) {
 }
 
 /**
- * Where the realtor is with the buyer, from first call to closing. The realtor moves it
+ * Where the realtor is with the buyer, from Attempting Contact to Funded. The realtor moves it
  * with one tap; the loan officer and admins read it here and in the Salesforce notes, so
  * nobody has to call to ask. Hidden until the org has the field (enabled: false).
  */
@@ -29,6 +29,8 @@ export function RealtorStageCard({ recordId, role }: { recordId: string; role: '
   const current = state.stage;
   const onHold = current === REALTOR_STAGE_ON_HOLD;
   const index = current && !onHold ? PATH.indexOf(current) : -1;
+  // On Hold keeps the stages she already reached ticked, dimmed in the bar
+  const reached = onHold && state.pausedAt ? PATH.indexOf(state.pausedAt) : index;
   const next = index >= 0 && index < PATH.length - 1 ? PATH[index + 1] : undefined;
   const canSet = role === 'agent' && !viewOnly;
 
@@ -54,10 +56,10 @@ export function RealtorStageCard({ recordId, role }: { recordId: string; role: '
       <div
         className={`mt-3 flex gap-1 ${onHold ? 'opacity-50' : ''}`}
         role="img"
-        aria-label={index >= 0 ? `Step ${index + 1} of ${PATH.length}` : 'No step yet'}
+        aria-label={index >= 0 ? `Step ${index + 1} of ${PATH.length}` : reached >= 0 ? `On hold after step ${reached + 1} of ${PATH.length}` : 'No step yet'}
       >
         {PATH.map((s, i) => (
-          <span key={s} className={`h-2 flex-1 rounded-full ${i <= index ? 'bg-progress' : 'bg-progress-track'}`} />
+          <span key={s} className={`h-2 flex-1 rounded-full ${i <= reached ? 'bg-progress' : 'bg-progress-track'}`} />
         ))}
       </div>
 
@@ -85,7 +87,7 @@ export function RealtorStageCard({ recordId, role }: { recordId: string; role: '
               {CHOICES.map((s, i) => {
                 const isCurrent = s === current;
                 // A checklist, as on AgentDash: every stage up to the current one is ticked
-                const done = isCurrent || (index >= 0 && i <= index);
+                const done = isCurrent || (reached >= 0 && i <= reached);
                 return (
                   <li key={s}>
                     <button
@@ -101,7 +103,7 @@ export function RealtorStageCard({ recordId, role }: { recordId: string; role: '
                       >
                         {done && <Check className="h-3 w-3" strokeWidth={3} />}
                       </span>
-                      <span className={`flex-1 ${s === REALTOR_STAGE_ON_HOLD ? 'text-muted-foreground' : ''} ${isCurrent ? 'font-medium' : ''}`}>{s}</span>
+                      <span className={`flex-1 ${s === REALTOR_STAGE_ON_HOLD ? 'text-muted-foreground' : ''} ${isCurrent ? 'font-medium' : ''}`}>{s}{isCurrent ? <span className="sr-only"> (current)</span> : done && <span className="sr-only"> (done)</span>}</span>
                       <ChevronRight aria-hidden="true" className="h-4 w-4 text-muted-foreground" />
                     </button>
                   </li>

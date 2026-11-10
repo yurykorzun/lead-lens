@@ -1,6 +1,6 @@
 import { Router, type Response } from 'express';
 import { requireAuth, type AuthenticatedRequest } from '../middleware/auth.js';
-import { NOTE_MAX_LENGTH, isRealtorStage, type ContactFilters, type ContactNote, type RealtorStageState } from '@lead-lens/shared';
+import { NOTE_MAX_LENGTH, REALTOR_STAGE_ON_HOLD, isRealtorStage, type ContactFilters, type ContactNote, type RealtorStageState } from '@lead-lens/shared';
 import { executeSoql, buildContactQuery, mapRow, isRowInScope, rowIdsInScope, type RowIds, type Scope } from '../services/salesforce/query.js';
 import { listRealtorNotes, createRealtorNote, currentStage, stagesEnabled } from '../services/salesforce/realtor-notes.js';
 import { isIsoDate, isSfId } from '../services/validate.js';
@@ -171,7 +171,7 @@ router.post('/:id/notes', requireAuth, async (req: AuthenticatedRequest, res) =>
 });
 
 // ── Realtor stage ──────────────────────────────────────────────────────
-// Where the realtor is with the buyer (Attempting Contact … Closed, or On Hold). Everyone who
+// Where the realtor is with the buyer (Attempting Contact … Funded, or On Hold). Everyone who
 // sees the borrower reads it; only the realtor sets it. A change is one more Realtor_Note__c
 // insert with Stage__c set - the same allowlisted write as a note, never an update - so the
 // LO sees it on the Salesforce page and the history stays. Off until REALTOR_STAGE=true.
@@ -229,6 +229,11 @@ router.post('/:id/stage', requireAuth, async (req: AuthenticatedRequest, res) =>
     const author = reader(req);
     await createRealtorNote(recordId, `Stage: ${stage}`, author, recordId.startsWith('003') ? ids.personAccountId : undefined, stage);
     const data: RealtorStageState = { enabled: true, stage, setBy: author.name, setAt: new Date().toISOString() };
+    // Same shape as GET: a buyer put on hold keeps the stage she had reached
+    if (stage === REALTOR_STAGE_ON_HOLD) {
+      const reached = now.stage === REALTOR_STAGE_ON_HOLD ? now.pausedAt : now.stage;
+      if (reached) data.pausedAt = reached;
+    }
     res.json({ success: true, data });
   } catch (err) {
     console.error('Stage POST error:', err);

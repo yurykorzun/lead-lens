@@ -36,6 +36,16 @@ test.describe('Realtor stage and LO card (mock Salesforce)', () => {
     await page.reload();
     await page.locator('tbody tr', { hasText: 'John Smith' }).click();
     await expect(stage.getByTestId('stage-current')).toHaveText('Realty Consultation', { timeout: 5_000 });
+
+    // On Hold keeps the stages David Lee already reached ticked
+    await page.locator('tbody tr', { hasText: 'David Lee' }).click();
+    await expect(stage.getByTestId('stage-current')).toHaveText('Touring Homes', { timeout: 5_000 });
+    await stage.getByRole('button', { name: 'Update stage' }).click();
+    await stage.getByRole('button', { name: 'On Hold' }).click();
+    await expect(stage.getByTestId('stage-current')).toHaveText('On Hold');
+    await stage.getByRole('button', { name: 'Update stage' }).click();
+    await expect(stage.getByRole('button', { name: 'Touring Homes (done)' })).toBeVisible({ timeout: 5_000 });
+    await expect(stage.getByRole('button', { name: 'Making Offers (done)' })).toHaveCount(0);
   });
 
   test('the LO reads the stage but cannot change it, and gets no card of themselves', async ({ page }) => {

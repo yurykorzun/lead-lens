@@ -112,7 +112,7 @@ All routes prefixed with `/api/`. Auth via `Authorization: Bearer <jwt>` header.
 | GET | /contacts | Paginated borrower rows (SOQL on LeadAccount__c, scoped by Id) |
 | GET | /contacts/:id/notes | Realtor notes on one borrower, newest first: `Realtor_Note__c` on the row's Lead/Contact, its person account and loans (anyone whose dashboard shows the borrower; a realtor gets the account and loan notes only for her own referral) |
 | POST | /contacts/:id/notes | Add a note, max 2000 characters - one `Realtor_Note__c` insert, Source = Lead Lens |
-| GET | /contacts/:id/stage | The buyer's realtor stage (the newest `Realtor_Note__c` with `Stage__c`), or `{ enabled: false }` while `REALTOR_STAGE` is off |
+| GET | /contacts/:id/stage | The buyer's realtor stage (the newest `Realtor_Note__c` with `Stage__c`; while On Hold, `pausedAt` is the newest stage before it, a second query), or `{ enabled: false }` while `REALTOR_STAGE` is off |
 | POST | /contacts/:id/stage | The realtor moves the buyer to a stage (agent only, `{ stage }` from `REALTOR_STAGES`) - one note insert with `Stage__c`; the same stage again writes nothing |
 | GET | /contacts/tasks/open | The realtor's next open step on each in-scope borrower (agent, or admin with `viewAs=agent:`, read-only). No screen calls it since the buying stage replaced the steps (Marat, 2026-11-10) |
 | GET | /contacts/:id/tasks | Realtor tasks on one borrower: hers for an agent, all realtors' read-only for LO/admin |

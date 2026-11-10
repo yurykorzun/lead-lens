@@ -107,8 +107,8 @@ test.describe('Contacts grid (loan officer)', () => {
   test('LO sees only their own rows, read-only', async ({ page }) => {
     await loginAsLO(page);
     const rows = page.locator('tbody tr');
-    await expect(rows.first()).toBeVisible({ timeout: 15_000 });
-    expect(await rows.count()).toBe(6);
+    // Retries, because the loading state draws 10 placeholder rows
+    await expect(rows).toHaveCount(6, { timeout: 15_000 });
     await expect(page.getByText('Sam Other')).toHaveCount(0);
 
     await rows.first().click();
@@ -183,7 +183,8 @@ test.describe('Admin view-as pages', () => {
     await expect(page.getByText(/exactly the borrowers this realtor sees/i)).toBeVisible();
     await expect(rows).toHaveCount(6, { timeout: 15_000 });
     await expect(page.getByText('Sam Other')).toHaveCount(0);
-
+    // The old step list is gone from Agent View
+    await expect(page.getByTestId('open-tasks')).toHaveCount(0);
 
     await rows.filter({ hasText: 'Jane Doe' }).click();
     const panel = page.getByTestId('contact-panel');

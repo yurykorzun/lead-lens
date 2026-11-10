@@ -23,7 +23,7 @@ export interface ContactRow {
 }
 
 /**
- * Where the realtor is with the buyer, set by the realtor in Lead Lens. The first seven are
+ * Where the realtor is with the buyer, set by the realtor in Lead Lens. The first six are
  * the path, in order; On Hold sits outside it. Saved in Salesforce as Realtor_Note__c.Stage__c
  * (a restricted picklist with exactly these values), so changing a label here needs the
  * picklist changed first.
@@ -50,6 +50,8 @@ export interface RealtorStageState {
   setBy?: string;
   /** ISO date-time */
   setAt?: string;
+  /** While On Hold: the last stage on the path she reached, so the checklist keeps it */
+  pausedAt?: RealtorStage;
 }
 
 export const CLIENT_STATUS = 'Client';

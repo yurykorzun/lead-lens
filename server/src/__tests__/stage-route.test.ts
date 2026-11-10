@@ -88,6 +88,15 @@ describe('realtor stage', () => {
     expect(mockWrites).toHaveLength(0);
   });
 
+  it('On Hold keeps the last stage she reached as pausedAt', async () => {
+    expect((await call('POST', DAVID, agent, { stage: 'Making Offers' })).status).toBe(200);
+    const hold = await call('POST', DAVID, agent, { stage: 'On Hold' });
+    expect((await hold.json() as { data: RealtorStageState }).data).toMatchObject({ stage: 'On Hold', pausedAt: 'Making Offers' });
+    expect(await stageOf(DAVID, agent)).toMatchObject({ stage: 'On Hold', pausedAt: 'Making Offers' });
+    expect((await call('POST', DAVID, agent, { stage: 'Under Contract' })).status).toBe(200);
+    expect((await stageOf(DAVID, agent)).pausedAt).toBeUndefined();
+  });
+
   it('a stage change shows in the notes thread, marked with its stage', async () => {
     const res = await fetch(`${base}/contacts/${DAVID}/notes`, { headers: { Authorization: `Bearer ${lo}` } });
     const notes = (await res.json() as { data: ContactNote[] }).data;
