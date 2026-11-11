@@ -19,14 +19,13 @@ if (!process.env.DATABASE_URL) {
 
 import express from 'express';
 import app from './app.js';
-import { resetMockNotes, resetMockTasks } from './services/salesforce/mock.js';
+import { resetMockNotes } from './services/salesforce/mock.js';
 
-// Mock notes and tasks live in this process, so a step marked done in one e2e run would
-// still be done in the next. global-setup.ts calls this route first. It only exists here,
+// Mock notes live in this process, so a note or stage written in one e2e run would
+// still be there in the next. global-setup.ts calls this route first. It only exists here,
 // never in app.ts, so production has no such route.
 const staging = express();
 staging.post('/api/__staging/reset-mock', (_req, res) => {
-  resetMockTasks();
   resetMockNotes();
   res.json({ ok: true });
 });

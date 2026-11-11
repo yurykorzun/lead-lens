@@ -4,14 +4,11 @@ import { NOTE_MAX_LENGTH, REALTOR_STAGE_ON_HOLD, isRealtorStage, type ContactFil
 import { executeSoql, buildContactQuery, mapRow, isRowInScope, rowIdsInScope, type RowIds, type Scope } from '../services/salesforce/query.js';
 import { listRealtorNotes, createRealtorNote, currentStage, stagesEnabled } from '../services/salesforce/realtor-notes.js';
 import { isIsoDate, isSfId } from '../services/validate.js';
-import { listBorrowerTasks, listOpenTasks, findTaskForRealtor, completeTask, mapTask } from '../services/salesforce/tasks.js';
 
-// Read-only toward Salesforce, with TWO exceptions. On lgc-ci a new Referred By on a lead,
-// or a Task completed with an "update realtor" box ticked, texts the realtor, so Lead Lens
-// changes no existing record except this: the realtor marks one of her own realtor tasks
-// Completed (services/salesforce/tasks.ts - a constant body, Status only). The other write
-// is an insert: a new Realtor_Note__c (services/salesforce/realtor-notes.ts - an allowlisted
-// body built field by field). A realtor stage change is that same insert with Stage__c set.
+// Read-only toward Salesforce, with ONE exception: an insert of a new Realtor_Note__c
+// (services/salesforce/realtor-notes.ts - an allowlisted body built field by field). On
+// lgc-ci a new Referred By on a lead texts the realtor, so Lead Lens changes no existing
+// record. A realtor stage change is that same insert with Stage__c set.
 const router = Router();
 
 // An admin can look at Lead Lens as one loan officer or realtor sees it (Officer View /
@@ -241,11 +238,7 @@ router.post('/:id/stage', requireAuth, async (req: AuthenticatedRequest, res) =>
   }
 });
 
-// ── Realtor tasks (lendinggroupco-uhnx.11) ─────────────────────────────
-// The fixed set Salesforce creates when a borrower is referred to a realtor. The realtor
-// sees and completes her own; the LO and admins see them read-only. Every other Task on
-// the borrower is the LP's and never leaves Salesforce.
-
+// Only the realtor herself, never an admin viewing as her
 function realtorOnly(req: AuthenticatedRequest, res: Response): string | null {
   if (req.userRole !== 'agent' || !isSfId(req.sfId)) {
     res.status(403).json({ success: false, error: { code: 'FORBIDDEN', message: 'Only the realtor can do this' } });
@@ -253,63 +246,5 @@ function realtorOnly(req: AuthenticatedRequest, res: Response): string | null {
   }
   return req.sfId;
 }
-
-router.get('/tasks/open', requireAuth, async (req: AuthenticatedRequest, res) => {
-  try {
-    // An admin viewing as one realtor sees her To do, read-only
-    const viewing = viewAsScope(req);
-    if (viewing?.role === 'agent') {
-      const tasks = await listOpenTasks(viewing.contactId);
-      for (const t of tasks) t.canComplete = false;
-      res.json({ success: true, data: tasks });
-      return;
-    }
-    const contactId = realtorOnly(req, res);
-    if (!contactId) return;
-    res.json({ success: true, data: await listOpenTasks(contactId) });
-  } catch (err) {
-    console.error('Open tasks GET error:', err);
-    res.status(500).json({ success: false, error: { code: 'SERVER_ERROR', message: 'Failed to load tasks' } });
-  }
-});
-
-router.get('/:id/tasks', requireAuth, async (req: AuthenticatedRequest, res) => {
-  try {
-    const recordId = await borrowerScope(req, res);
-    if (!recordId) return;
-    const tasks = await listBorrowerTasks(scopeFor(req)!, recordId);
-    // An admin viewing as a realtor sees her steps but cannot tick them
-    if (viewAsScope(req)) for (const t of tasks) t.canComplete = false;
-    res.json({ success: true, data: tasks });
-  } catch (err) {
-    console.error('Tasks GET error:', err);
-    res.status(500).json({ success: false, error: { code: 'SERVER_ERROR', message: 'Failed to load tasks' } });
-  }
-});
-
-// Takes no body on purpose: whatever the client sends is ignored, never forwarded
-router.post('/:id/tasks/:taskId/complete', requireAuth, async (req: AuthenticatedRequest, res) => {
-  try {
-    const contactId = realtorOnly(req, res);
-    if (!contactId) return;
-    const recordId = await borrowerScope(req, res);
-    if (!recordId) return;
-    const taskId = req.params.taskId as string;
-    const found = isSfId(taskId) ? await findTaskForRealtor(contactId, recordId, taskId) : null;
-    if (!found) {
-      res.status(404).json({ success: false, error: { code: 'NOT_FOUND', message: 'Task not found' } });
-      return;
-    }
-    if (!found.IsClosed) {
-      await completeTask(taskId);
-      found.IsClosed = true;
-      found.Status = 'Completed';
-    }
-    res.json({ success: true, data: mapTask(found, { role: 'agent', contactId }) });
-  } catch (err) {
-    console.error('Task complete error:', err);
-    res.status(500).json({ success: false, error: { code: 'SERVER_ERROR', message: 'Could not mark the task done' } });
-  }
-});
 
 export default router;
